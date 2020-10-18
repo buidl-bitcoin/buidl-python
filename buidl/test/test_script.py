@@ -3,7 +3,7 @@ from unittest import TestCase
 from io import BytesIO
 
 from buidl.helper import decode_base58
-from buidl.script import P2PKHScriptPubKey, P2PKHScriptPubKey, P2SHScriptPubKey, RedeemScript, Script, WitnessScript
+from buidl.script import P2PKHScriptPubKey, P2SHScriptPubKey, RedeemScript, Script, WitnessScript
 
 
 class ScriptTest(TestCase):

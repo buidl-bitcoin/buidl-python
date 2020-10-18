@@ -29,4 +29,3 @@ class OpTest(TestCase):
         stack = [b'', sig1, sig2, b'\x02', sec1, sec2, b'\x02']
         self.assertTrue(op_checkmultisig(stack, z))
         self.assertEqual(decode_num(stack[0]), 1)
-

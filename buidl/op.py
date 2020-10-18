@@ -762,7 +762,6 @@ def op_checksequenceverify(stack, version, sequence):
     return True
 
 
-
 OP_CODE_FUNCTIONS = {
     0: op_0,
     79: op_1negate,

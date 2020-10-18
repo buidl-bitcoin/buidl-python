@@ -1,7 +1,5 @@
 import math
 
-from io import BytesIO
-
 from buidl.block import Block
 
 from buidl.helper import (
@@ -142,7 +140,6 @@ class MerkleTree:
         for flag_bit in flag_bits:
             if flag_bit != 0:
                 raise RuntimeError('flag bits not all consumed')
-
 
 
 class MerkleBlock:

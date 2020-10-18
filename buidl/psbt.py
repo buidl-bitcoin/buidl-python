@@ -1,7 +1,7 @@
 from io import BytesIO
 
-from buidl.ecc import PrivateKey, S256Point, Signature
-from buidl.hd import HDPrivateKey, HDPublicKey
+from buidl.ecc import S256Point, Signature
+from buidl.hd import HDPublicKey
 from buidl.helper import (
     base64_decode,
     base64_encode,
@@ -15,14 +15,13 @@ from buidl.helper import (
     read_varstr,
     serialize_binary_path,
     serialize_key_value,
-    SIGHASH_ALL,
 )
 from buidl.script import (
     RedeemScript,
     Script,
     WitnessScript,
 )
-from buidl.tx import Tx, TxIn, TxOut
+from buidl.tx import Tx, TxOut
 from buidl.witness import Witness
 
 
@@ -774,7 +773,7 @@ class PSBTIn:
                 self.named_pubs[named_pub.sec()] = named_pub.point
         # else we throw a ValueError
         else:
-            raise ValueError('cannot update a transaction because it is not p2pkh, p2sh, p2wpkh or p2wsh'.format(script_pubkey))
+            raise ValueError('cannot update a transaction because it is not p2pkh, p2sh, p2wpkh or p2wsh: {}'.format(script_pubkey))
 
     def combine(self, other):
         '''Combines two PSBTIn objects into self'''
@@ -1102,5 +1101,3 @@ class PSBTOut:
         self.named_pubs = {**other.named_pubs, **self.named_pubs}
         # combine extra_map
         self.extra_map = {**other.extra_map, **self.extra_map}
-
-

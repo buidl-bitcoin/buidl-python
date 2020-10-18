@@ -1,5 +1,4 @@
 from cffi import FFI
-from unittest import TestCase
 
 
 source = open('libsec.h', 'r').read()

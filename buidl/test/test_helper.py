@@ -19,7 +19,8 @@ from buidl.helper import (
     merkle_root,
     read_varstr,
     str_to_bytes,
-    )
+)
+
 
 class HelperTest(TestCase):
 

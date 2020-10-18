@@ -8,7 +8,6 @@ from time import sleep
 from buidl.block import Block
 from buidl.helper import (
     hash256,
-    decode_base58,
     encode_varint,
     int_to_little_endian,
     little_endian_to_int,
@@ -152,7 +151,6 @@ class VersionMessage:
         return result
 
 
-
 class VerAckMessage:
     command = b'verack'
 
@@ -223,7 +221,6 @@ class GetHeadersMessage:
         return result
 
 
-
 class HeadersMessage:
     command = b'headers'
 
@@ -260,7 +257,6 @@ class HeadersMessage:
         return True
 
 
-
 class GetDataMessage:
     command = b'getdata'
 
@@ -279,7 +275,6 @@ class GetDataMessage:
             # identifier needs to be in little endian
             result += identifier[::-1]
         return result
-
 
 
 class GenericMessage:

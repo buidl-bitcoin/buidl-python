@@ -4,6 +4,7 @@ from buidl.hd import HDPublicKey, HDPrivateKey
 from buidl.helper import encode_base58_checksum
 from buidl.mnemonic import WORD_LIST
 
+
 class HDTest(TestCase):
 
     def test_from_seed(self):

@@ -2,7 +2,6 @@ from io import BytesIO
 
 from buidl.helper import (
     byte_to_int,
-    decode_base58,
     encode_base58_checksum,
     encode_bech32_checksum,
     encode_varstr,
@@ -300,7 +299,6 @@ class P2SHScriptPubKey(ScriptPubKey):
             prefix = b'\x05'
         # return the encode_base58_checksum the prefix and h160
         return encode_base58_checksum(prefix + self.hash160())
-
 
 
 class RedeemScript(Script):

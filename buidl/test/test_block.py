@@ -4,7 +4,6 @@ from io import BytesIO
 from buidl.block import Block
 
 
-
 class BlockTest(TestCase):
 
     def test_parse(self):

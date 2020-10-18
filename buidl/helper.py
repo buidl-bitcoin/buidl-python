@@ -1,5 +1,3 @@
-from io import BytesIO
-
 import hashlib
 import hmac
 
@@ -14,7 +12,6 @@ BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 BECH32_ALPHABET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l'
 GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3]
 PBKDF2_ROUNDS = 2048
-
 
 
 def bytes_to_str(b, encoding='ascii'):
