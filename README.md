@@ -20,7 +20,7 @@ You can speed this library up by using C-bindings to [bitcoin core's `libsecp256
 
 On Ubuntu:
 ```bash
-`$ sudo apt install libsecp256k1-dev`
+$ sudo apt install libsecp256k1-dev
 ```
 
 On MacOS (HT [cuber](https://github.com/cuber/homebrew-libsecp256k1)):
