@@ -25,7 +25,7 @@ $ sudo apt install libsecp256k1-dev
 
 On MacOS (HT [cuber](https://github.com/cuber/homebrew-libsecp256k1)):
 ```bash
-$ brew tap cuber/homebrew-libsecp256k1 && brew install libsecp256k1
+$ brew tap cuber/homebrew-libsecp256k1 && brew install pkg-config libffi libsecp256k1
 ```
 
 #### Python Installation
