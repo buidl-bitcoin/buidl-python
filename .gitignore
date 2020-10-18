@@ -13,3 +13,6 @@ share/
 *.patch
 *.coverage
 *.swp
+*\.c
+*\.o
+*\.so
