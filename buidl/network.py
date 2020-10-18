@@ -20,12 +20,11 @@ BLOCK_DATA_TYPE = 2
 FILTERED_BLOCK_DATA_TYPE = 3
 COMPACT_BLOCK_DATA_TYPE = 4
 
-NETWORK_MAGIC = b'\xf9\xbe\xb4\xd9'
-TESTNET_NETWORK_MAGIC = b'\x0b\x11\x09\x07'
+NETWORK_MAGIC = b"\xf9\xbe\xb4\xd9"
+TESTNET_NETWORK_MAGIC = b"\x0b\x11\x09\x07"
 
 
 class NetworkEnvelope:
-
     def __init__(self, command, payload, testnet=False):
         self.command = command
         self.payload = payload
@@ -35,26 +34,28 @@ class NetworkEnvelope:
             self.magic = NETWORK_MAGIC
 
     def __repr__(self):
-        return '{}: {}'.format(
-            self.command.decode('ascii'),
+        return "{}: {}".format(
+            self.command.decode("ascii"),
             self.payload.hex(),
         )
 
     @classmethod
     def parse(cls, s, testnet=False):
-        '''Takes a stream and creates a NetworkEnvelope'''
+        """Takes a stream and creates a NetworkEnvelope"""
         # check the network magic
         magic = s.read(4)
-        if magic == b'':
-            raise RuntimeError('Connection reset!')
+        if magic == b"":
+            raise RuntimeError("Connection reset!")
         if testnet:
             expected_magic = TESTNET_NETWORK_MAGIC
         else:
             expected_magic = NETWORK_MAGIC
         if magic != expected_magic:
-            raise RuntimeError('magic is not right {} vs {}'.format(magic.hex(), expected_magic.hex()))
+            raise RuntimeError(
+                "magic is not right {} vs {}".format(magic.hex(), expected_magic.hex())
+            )
         # command 12 bytes, strip the trailing 0's using .strip(b'\x00')
-        command = s.read(12).strip(b'\x00')
+        command = s.read(12).strip(b"\x00")
         # payload length 4 bytes, little endian
         payload_length = little_endian_to_int(s.read(4))
         # checksum 4 bytes, first four of hash256 of payload
@@ -64,15 +65,15 @@ class NetworkEnvelope:
         # verify checksum
         calculated_checksum = hash256(payload)[:4]
         if calculated_checksum != checksum:
-            raise RuntimeError('checksum does not match')
+            raise RuntimeError("checksum does not match")
         return cls(command, payload, testnet=testnet)
 
     def serialize(self):
-        '''Returns the byte serialization of the entire network message'''
+        """Returns the byte serialization of the entire network message"""
         # add the network magic using self.magic
         result = self.magic
         # command 12 bytes, fill leftover with b'\x00' * (12 - len(self.command))
-        result += self.command + b'\x00' * (12 - len(self.command))
+        result += self.command + b"\x00" * (12 - len(self.command))
         # payload length 4 bytes, little endian
         result += int_to_little_endian(len(self.payload), 4)
         # checksum 4 bytes, first four of hash256 of payload
@@ -82,20 +83,29 @@ class NetworkEnvelope:
         return result
 
     def stream(self):
-        '''Returns a stream for parsing the payload'''
+        """Returns a stream for parsing the payload"""
         return BytesIO(self.payload)
 
 
 class VersionMessage:
-    command = b'version'
+    command = b"version"
 
-    def __init__(self, version=70015, services=0, timestamp=None,
-                 receiver_services=0,
-                 receiver_ip=b'\x00\x00\x00\x00', receiver_port=8333,
-                 sender_services=0,
-                 sender_ip=b'\x00\x00\x00\x00', sender_port=8333,
-                 nonce=None, user_agent=b'/programmingblockchain:0.1/',
-                 latest_block=0, relay=True):
+    def __init__(
+        self,
+        version=70015,
+        services=0,
+        timestamp=None,
+        receiver_services=0,
+        receiver_ip=b"\x00\x00\x00\x00",
+        receiver_port=8333,
+        sender_services=0,
+        sender_ip=b"\x00\x00\x00\x00",
+        sender_port=8333,
+        nonce=None,
+        user_agent=b"/programmingblockchain:0.1/",
+        latest_block=0,
+        relay=True,
+    ):
         self.version = version
         self.services = services
         if timestamp is None:
@@ -109,7 +119,7 @@ class VersionMessage:
         self.sender_ip = sender_ip
         self.sender_port = sender_port
         if nonce is None:
-            self.nonce = int_to_little_endian(randint(0, 2**64), 8)
+            self.nonce = int_to_little_endian(randint(0, 2 ** 64), 8)
         else:
             self.nonce = nonce
         self.user_agent = user_agent
@@ -117,7 +127,7 @@ class VersionMessage:
         self.relay = relay
 
     def serialize(self):
-        '''Serialize this message to send over the network'''
+        """Serialize this message to send over the network"""
         # version is 4 bytes little endian
         result = int_to_little_endian(self.version, 4)
         # services is 8 bytes little endian
@@ -127,13 +137,13 @@ class VersionMessage:
         # receiver services is 8 bytes little endian
         result += int_to_little_endian(self.receiver_services, 8)
         # IPV4 is 10 00 bytes and 2 ff bytes then receiver ip
-        result += b'\x00' * 10 + b'\xff\xff' + self.receiver_ip
+        result += b"\x00" * 10 + b"\xff\xff" + self.receiver_ip
         # receiver port is 2 bytes, little endian
         result += int_to_little_endian(self.receiver_port, 2)
         # sender services is 8 bytes little endian
         result += int_to_little_endian(self.sender_services, 8)
         # IPV4 is 10 00 bytes and 2 ff bytes then sender ip
-        result += b'\x00' * 10 + b'\xff\xff' + self.sender_ip
+        result += b"\x00" * 10 + b"\xff\xff" + self.sender_ip
         # sender port is 2 bytes, little endian
         result += int_to_little_endian(self.sender_port, 2)
         # nonce
@@ -145,14 +155,14 @@ class VersionMessage:
         result += int_to_little_endian(self.latest_block, 4)
         # relay is 00 if false, 01 if true
         if self.relay:
-            result += b'\x01'
+            result += b"\x01"
         else:
-            result += b'\x00'
+            result += b"\x00"
         return result
 
 
 class VerAckMessage:
-    command = b'verack'
+    command = b"verack"
 
     def __init__(self):
         pass
@@ -162,11 +172,11 @@ class VerAckMessage:
         return cls()
 
     def serialize(self):
-        return b''
+        return b""
 
 
 class PingMessage:
-    command = b'ping'
+    command = b"ping"
 
     def __init__(self, nonce):
         self.nonce = nonce
@@ -181,7 +191,7 @@ class PingMessage:
 
 
 class PongMessage:
-    command = b'pong'
+    command = b"pong"
 
     def __init__(self, nonce):
         self.nonce = nonce
@@ -195,21 +205,21 @@ class PongMessage:
 
 
 class GetHeadersMessage:
-    command = b'getheaders'
+    command = b"getheaders"
 
     def __init__(self, version=70015, num_hashes=1, start_block=None, end_block=None):
         self.version = version
         self.num_hashes = num_hashes
         if start_block is None:
-            raise RuntimeError('a start block is required')
+            raise RuntimeError("a start block is required")
         self.start_block = start_block
         if end_block is None:
-            self.end_block = b'\x00' * 32
+            self.end_block = b"\x00" * 32
         else:
             self.end_block = end_block
 
     def serialize(self):
-        '''Serialize this message to send over the network'''
+        """Serialize this message to send over the network"""
         # protocol version is 4 bytes little-endian
         result = int_to_little_endian(self.version, 4)
         # number of hashes is a varint
@@ -222,7 +232,7 @@ class GetHeadersMessage:
 
 
 class HeadersMessage:
-    command = b'headers'
+    command = b"headers"
 
     def __init__(self, headers):
         self.headers = headers
@@ -241,12 +251,12 @@ class HeadersMessage:
             num_txs = read_varint(s)
             # num_txs should be 0 or raise a RuntimeError
             if num_txs != 0:
-                raise RuntimeError('number of txs not 0')
+                raise RuntimeError("number of txs not 0")
         # return a class instance
         return cls(headers)
 
     def is_valid(self):
-        '''Return whether the headers satisfy proof-of-work and are sequential'''
+        """Return whether the headers satisfy proof-of-work and are sequential"""
         last_block = None
         for h in self.headers:
             if not h.check_pow():
@@ -258,7 +268,7 @@ class HeadersMessage:
 
 
 class GetDataMessage:
-    command = b'getdata'
+    command = b"getdata"
 
     def __init__(self):
         self.data = []
@@ -287,7 +297,6 @@ class GenericMessage:
 
 
 class SimpleNode:
-
     def __init__(self, host, port=None, testnet=False, logging=False):
         if port is None:
             if testnet:
@@ -300,10 +309,10 @@ class SimpleNode:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.connect((host, port))
         # create a stream that we can use with the rest of the library
-        self.stream = self.socket.makefile('rb', None)
+        self.stream = self.socket.makefile("rb", None)
 
     def handshake(self):
-        '''Do a handshake with the other node. Handshake is sending a version message and getting a verack back.'''
+        """Do a handshake with the other node. Handshake is sending a version message and getting a verack back."""
         # create a version message
         version = VersionMessage()
         # send the command
@@ -312,24 +321,25 @@ class SimpleNode:
         self.wait_for(VerAckMessage)
 
     def send(self, message):
-        '''Send a message to the connected node'''
+        """Send a message to the connected node"""
         # create a network envelope
         envelope = NetworkEnvelope(
-            message.command, message.serialize(), testnet=self.testnet)
+            message.command, message.serialize(), testnet=self.testnet
+        )
         if self.logging:
-            print('sending: {}'.format(envelope))
+            print("sending: {}".format(envelope))
         # send the serialized envelope over the socket using sendall
         self.socket.sendall(envelope.serialize())
 
     def read(self):
-        '''Read a message from the socket'''
+        """Read a message from the socket"""
         envelope = NetworkEnvelope.parse(self.stream, testnet=self.testnet)
         if self.logging:
-            print('receiving: {}'.format(envelope))
+            print("receiving: {}".format(envelope))
         return envelope
 
     def wait_for(self, *message_classes):
-        '''Wait for one of the messages in the list'''
+        """Wait for one of the messages in the list"""
         # initialize the command we have, which should be None
         command = None
         command_to_class = {m.command: m for m in message_classes}
@@ -350,8 +360,9 @@ class SimpleNode:
         return command_to_class[command].parse(envelope.stream())
 
     def get_filtered_txs(self, block_hashes):
-        '''Returns transactions that match the bloom filter'''
+        """Returns transactions that match the bloom filter"""
         from merkleblock import MerkleBlock
+
         # create a getdata message
         getdata = GetDataMessage()
         # for each block request the filtered block
@@ -368,24 +379,26 @@ class SimpleNode:
             mb = self.wait_for(MerkleBlock)
             # check that the merkle block's hash is the same as the block hash
             if mb.hash() != block_hash:
-                raise RuntimeError('Wrong block sent')
+                raise RuntimeError("Wrong block sent")
             # check that the merkle block is valid
             if not mb.is_valid():
-                raise RuntimeError('Merkle Proof is invalid')
+                raise RuntimeError("Merkle Proof is invalid")
             # loop through the proved transactions from the Merkle block
             for tx_hash in mb.proved_txs():
                 # wait for the tx command
                 tx_obj = self.wait_for(Tx)
                 # check that the hash matches
                 if tx_obj.hash() != tx_hash:
-                    raise RuntimeError('Wrong tx sent {} vs {}'.format(tx_hash.hex(), tx_obj.id()))
+                    raise RuntimeError(
+                        "Wrong tx sent {} vs {}".format(tx_hash.hex(), tx_obj.id())
+                    )
                 # add to the results
                 results.append(tx_obj)
         # return the results
         return results
 
     def is_tx_accepted(self, tx_obj):
-        '''Returns whether a transaction has been accepted on the network'''
+        """Returns whether a transaction has been accepted on the network"""
         # sleep for a second to let everything propagate
         sleep(1)
         # create a GetDataMessage

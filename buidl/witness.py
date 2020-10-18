@@ -7,14 +7,13 @@ from buidl.helper import (
 
 
 class Witness:
-
     def __init__(self, items=None):
         self.items = items or []
 
     def __repr__(self):
-        result = ''
+        result = ""
         for item in self.items:
-            result += '{} '.format(item.hex())
+            result += "{} ".format(item.hex())
         return result
 
     @classmethod

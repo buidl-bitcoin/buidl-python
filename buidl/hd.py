@@ -15,25 +15,30 @@ from buidl.helper import (
 from buidl.mnemonic import secure_mnemonic, WORD_LOOKUP, WORD_LIST
 
 
-MAINNET_XPRV = bytes.fromhex('0488ade4')
-MAINNET_XPUB = bytes.fromhex('0488b21e')
-MAINNET_YPRV = bytes.fromhex('049d7878')
-MAINNET_YPUB = bytes.fromhex('049d7cb2')
-MAINNET_ZPRV = bytes.fromhex('04b2430c')
-MAINNET_ZPUB = bytes.fromhex('04b24746')
-TESTNET_XPRV = bytes.fromhex('04358394')
-TESTNET_XPUB = bytes.fromhex('043587cf')
-TESTNET_YPRV = bytes.fromhex('044a4e28')
-TESTNET_YPUB = bytes.fromhex('044a5262')
-TESTNET_ZPRV = bytes.fromhex('045f18bc')
-TESTNET_ZPUB = bytes.fromhex('045f1cf6')
+MAINNET_XPRV = bytes.fromhex("0488ade4")
+MAINNET_XPUB = bytes.fromhex("0488b21e")
+MAINNET_YPRV = bytes.fromhex("049d7878")
+MAINNET_YPUB = bytes.fromhex("049d7cb2")
+MAINNET_ZPRV = bytes.fromhex("04b2430c")
+MAINNET_ZPUB = bytes.fromhex("04b24746")
+TESTNET_XPRV = bytes.fromhex("04358394")
+TESTNET_XPUB = bytes.fromhex("043587cf")
+TESTNET_YPRV = bytes.fromhex("044a4e28")
+TESTNET_YPUB = bytes.fromhex("044a5262")
+TESTNET_ZPRV = bytes.fromhex("045f18bc")
+TESTNET_ZPUB = bytes.fromhex("045f1cf6")
 
 
 class HDPrivateKey:
-
-    def __init__(self, private_key, chain_code,
-                 depth=0, parent_fingerprint=b'\x00\x00\x00\x00',
-                 child_number=0, testnet=False):
+    def __init__(
+        self,
+        private_key,
+        chain_code,
+        depth=0,
+        parent_fingerprint=b"\x00\x00\x00\x00",
+        child_number=0,
+        testnet=False,
+    ):
         # the main secret, should be a PrivateKey object
         self.private_key = private_key
         self.private_key.testnet = testnet
@@ -89,7 +94,7 @@ class HDPrivateKey:
     @classmethod
     def from_seed(cls, seed, testnet=False):
         # get hmac_sha512 with b'Bitcoin seed' and seed
-        h = hmac_sha512(b'Bitcoin seed', seed)
+        h = hmac_sha512(b"Bitcoin seed", seed)
         # create the private key using the first 32 bytes in big endian
         private_key = PrivateKey(secret=big_endian_to_int(h[:32]))
         # chaincode is the last 32 bytes
@@ -102,14 +107,16 @@ class HDPrivateKey:
         )
 
     def child(self, index):
-        '''Returns the child HDPrivateKey at a particular index.
+        """Returns the child HDPrivateKey at a particular index.
         Hardened children return for indices >= 0x8000000.
-        '''
+        """
         # if index >= 0x80000000
         if index >= 0x80000000:
             # the message data is the private key secret in 33 bytes in
             #  big-endian and the index in 4 bytes big-endian.
-            data = int_to_big_endian(self.private_key.secret, 33) + int_to_big_endian(index, 4)
+            data = int_to_big_endian(self.private_key.secret, 33) + int_to_big_endian(
+                index, 4
+            )
         else:
             # the message data is the public key compressed SEC
             #  and the index in 4 bytes big-endian.
@@ -140,13 +147,13 @@ class HDPrivateKey:
         )
 
     def traverse(self, path):
-        '''Returns the HDPrivateKey at the path indicated.
+        """Returns the HDPrivateKey at the path indicated.
         Path should be in the form of m/x/y/z where x' means
-        hardened'''
+        hardened"""
         # keep track of the current node starting with self
         current = self
         # split up the path by the '/' splitter, ignore the first
-        components = path.split('/')[1:]
+        components = path.split("/")[1:]
         # iterate through the path components
         for child in components:
             # if the child ends with a ', we have a hardened child
@@ -178,8 +185,8 @@ class HDPrivateKey:
         return raw
 
     def _prv(self, version):
-        '''Returns the base58-encoded x/y/z prv.
-        Expects a 4-byte version.'''
+        """Returns the base58-encoded x/y/z prv.
+        Expects a 4-byte version."""
         raw = self.raw_serialize(version)
         # return the whole thing base58-encoded
         return encode_base58_checksum(raw)
@@ -223,12 +230,12 @@ class HDPrivateKey:
 
     @classmethod
     def parse(cls, s):
-        '''Returns a HDPrivateKey from an extended key string'''
+        """Returns a HDPrivateKey from an extended key string"""
         # get the bytes from the base58 using raw_decode_base58
         raw = raw_decode_base58(s)
         # check that the length of the raw is 78 bytes, otherwise raise ValueError
         if len(raw) != 78:
-            raise ValueError('Not a proper extended key')
+            raise ValueError("Not a proper extended key")
         # create a stream
         stream = BytesIO(raw)
         # return the raw parsing of the stream
@@ -236,7 +243,7 @@ class HDPrivateKey:
 
     @classmethod
     def raw_parse(cls, s):
-        '''Returns a HDPrivateKey from a stream'''
+        """Returns a HDPrivateKey from a stream"""
         # first 4 bytes are the version
         version = s.read(4)
         # check that the version is one of the TESTNET or MAINNET
@@ -246,7 +253,7 @@ class HDPrivateKey:
         elif version in (MAINNET_XPRV, MAINNET_YPRV, MAINNET_ZPRV):
             testnet = False
         else:
-            raise ValueError('not an xprv, yprv or zprv: {}'.format(version))
+            raise ValueError("not an xprv, yprv or zprv: {}".format(version))
         # the next byte is depth
         depth = byte_to_int(s.read(1))
         # next 4 bytes are the parent_fingerprint
@@ -257,7 +264,7 @@ class HDPrivateKey:
         chain_code = s.read(32)
         # the next byte should be b'\x00'
         if byte_to_int(s.read(1)) != 0:
-            raise ValueError('private key should be preceded by a zero byte')
+            raise ValueError("private key should be preceded by a zero byte")
         # last 32 bytes should be the private key in big endian
         private_key = PrivateKey(secret=big_endian_to_int(s.read(32)))
         # return an instance of the class
@@ -271,11 +278,13 @@ class HDPrivateKey:
         )
 
     def _get_address(self, purpose, account=0, external=True, address=0):
-        '''Returns the proper address among purposes 44', 49' and 84'.
-        p2pkh for 44', p2sh-p2wpkh for 49' and p2wpkh for 84'.'''
+        """Returns the proper address among purposes 44', 49' and 84'.
+        p2pkh for 44', p2sh-p2wpkh for 49' and p2wpkh for 84'."""
         # if purpose is not one of 44', 49' or 84', raise ValueError
         if purpose not in ("44'", "49'", "84'"):
-            raise ValueError('Cannot create an address without a proper purpose: {}'.format(purpose))
+            raise ValueError(
+                "Cannot create an address without a proper purpose: {}".format(purpose)
+            )
         # if testnet, coin is 1', otherwise 0'
         if self.testnet:
             coin = "1'"
@@ -283,9 +292,9 @@ class HDPrivateKey:
             coin = "0'"
         # if external, chain is 0, otherwise 1
         if external:
-            chain = '0'
+            chain = "0"
         else:
-            chain = '1'
+            chain = "1"
         # create the path m/purpose'/coin'/account'/chain/address
         path = "m/{}/{}/{}'/{}/{}".format(purpose, coin, account, chain, address)
         # get the HDPrivateKey at that location
@@ -319,19 +328,19 @@ class HDPrivateKey:
         return self._get_address("84'", account, False, address)
 
     @classmethod
-    def generate(cls, password=b'', entropy=0, testnet=False):
+    def generate(cls, password=b"", entropy=0, testnet=False):
         mnemonic = secure_mnemonic(entropy=entropy)
         return mnemonic, cls.from_mnemonic(mnemonic, password=password, testnet=testnet)
 
     @classmethod
-    def from_mnemonic(cls, mnemonic, password=b'', path='m', testnet=False):
-        '''Returns a HDPrivateKey object from the mnemonic.'''
+    def from_mnemonic(cls, mnemonic, password=b"", path="m", testnet=False):
+        """Returns a HDPrivateKey object from the mnemonic."""
         # split the mnemonic into words with .split()
         words = mnemonic.split()
         # check that there are 12, 15, 18, 21 or 24 words
         # if not, raise a ValueError
         if len(words) not in (12, 15, 18, 21, 24):
-            raise ValueError('you need 12, 15, 18, 21, or 24 words')
+            raise ValueError("you need 12, 15, 18, 21, or 24 words")
         # calculate the number
         number = 0
         # each word is 11 bits
@@ -353,14 +362,14 @@ class HDPrivateKey:
         computed_checksum = sha256(data)[0] >> (8 - checksum_bits_length)
         # check that the checksum is correct or raise ValueError
         if checksum != computed_checksum:
-            raise ValueError('words fail checksum: {}'.format(words))
+            raise ValueError("words fail checksum: {}".format(words))
         # normalize in case we got a mnemonic that's just the first 4 letters
         normalized_words = []
         for word in words:
             normalized_words.append(WORD_LIST[WORD_LOOKUP[word]])
-        normalized_mnemonic = ' '.join(normalized_words)
+        normalized_mnemonic = " ".join(normalized_words)
         # salt is b'mnemonic' + password
-        salt = b'mnemonic' + password
+        salt = b"mnemonic" + password
         # the seed is the hmac_sha512_kdf with normalized mnemonic and salt
         seed = hmac_sha512_kdf(normalized_mnemonic, salt)
         # return the HDPrivateKey at the path specified
@@ -368,9 +377,9 @@ class HDPrivateKey:
 
 
 class HDPublicKey:
-
-    def __init__(self, point, chain_code, depth, parent_fingerprint,
-                 child_number, testnet=False):
+    def __init__(
+        self, point, chain_code, depth, parent_fingerprint, child_number, testnet=False
+    ):
         self.point = point
         self.chain_code = chain_code
         self.depth = depth
@@ -407,16 +416,16 @@ class HDPublicKey:
         return self.point.p2sh_p2wpkh_address(testnet=self.testnet)
 
     def fingerprint(self):
-        '''Fingerprint is the hash160's first 4 bytes'''
+        """Fingerprint is the hash160's first 4 bytes"""
         return self.hash160()[:4]
 
     def child(self, index):
-        '''Returns the child HDPrivateKey at a particular index.
+        """Returns the child HDPrivateKey at a particular index.
         Raises ValueError for indices >= 0x8000000.
-        '''
+        """
         # if index >= 0x80000000, raise a ValueError
         if index >= 0x80000000:
-            raise ValueError('child number should always be less than 2^31')
+            raise ValueError("child number should always be less than 2^31")
         # data is the SEC compressed and the index in 4 bytes big-endian
         data = self.point.sec() + int_to_big_endian(index, 4)
         # get hmac_sha512 with chain code, data
@@ -443,17 +452,17 @@ class HDPublicKey:
         )
 
     def traverse(self, path):
-        '''Returns the HDPublicKey at the path indicated.
-        Path should be in the form of m/x/y/z.'''
+        """Returns the HDPublicKey at the path indicated.
+        Path should be in the form of m/x/y/z."""
         # start current node at self
         current = self
         # get components of the path split at '/', ignoring the first
-        components = path.split('/')[1:]
+        components = path.split("/")[1:]
         # iterate through the components
         for child in components:
             # raise a ValueError if the path ends with a '
             if child[-1:] == "'":
-                raise ValueError('HDPublicKey cannot get hardened child')
+                raise ValueError("HDPublicKey cannot get hardened child")
             # traverse the next child at the index
             current = current.child(int(child))
         # return the current node
@@ -484,8 +493,8 @@ class HDPublicKey:
         return raw
 
     def _pub(self, version):
-        '''Returns the base58-encoded x/y/z pub.
-        Expects a 4-byte version.'''
+        """Returns the base58-encoded x/y/z pub.
+        Expects a 4-byte version."""
         # get the serialization
         raw = self._serialize(version)
         # base58-encode the whole thing
@@ -514,12 +523,12 @@ class HDPublicKey:
 
     @classmethod
     def parse(cls, s):
-        '''Returns a HDPublicKey from an extended key string'''
+        """Returns a HDPublicKey from an extended key string"""
         # get the bytes from the base58 using raw_decode_base58
         raw = raw_decode_base58(s)
         # check that the length of the raw is 78 bytes, otherwise raise ValueError
         if len(raw) != 78:
-            raise ValueError('Not a proper extended key')
+            raise ValueError("Not a proper extended key")
         # create a stream
         stream = BytesIO(raw)
         # return the raw parsing of the stream
@@ -527,7 +536,7 @@ class HDPublicKey:
 
     @classmethod
     def raw_parse(cls, s):
-        '''Returns a HDPublicKey from a stream'''
+        """Returns a HDPublicKey from a stream"""
         # first 4 bytes are the version
         version = s.read(4)
         # check that the version is one of the TESTNET or MAINNET
@@ -537,7 +546,7 @@ class HDPublicKey:
         elif version in (MAINNET_XPUB, MAINNET_YPUB, MAINNET_ZPUB):
             testnet = False
         else:
-            raise ValueError('not an xpub, ypub or zpub: {} {}'.format(s, version))
+            raise ValueError("not an xpub, ypub or zpub: {} {}".format(s, version))
         # the next byte is depth
         depth = byte_to_int(s.read(1))
         # next 4 bytes are the parent_fingerprint

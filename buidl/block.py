@@ -8,14 +8,20 @@ from buidl.helper import (
 from buidl.tx import Tx
 
 
-GENESIS_BLOCK_HASH = bytes.fromhex('000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f')
-TESTNET_GENESIS_BLOCK_HASH = bytes.fromhex('000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943')
+GENESIS_BLOCK_HASH = bytes.fromhex(
+    "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+)
+TESTNET_GENESIS_BLOCK_HASH = bytes.fromhex(
+    "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"
+)
 
 
 class Block:
-    command = b'block'
+    command = b"block"
 
-    def __init__(self, version, prev_block, merkle_root, timestamp, bits, nonce, tx_hashes=None):
+    def __init__(
+        self, version, prev_block, merkle_root, timestamp, bits, nonce, tx_hashes=None
+    ):
         self.version = version
         self.prev_block = prev_block
         self.merkle_root = merkle_root
@@ -27,7 +33,7 @@ class Block:
 
     @classmethod
     def parse_header(cls, s):
-        '''Takes a byte stream and parses a block. Returns a Block object'''
+        """Takes a byte stream and parses a block. Returns a Block object"""
         # s.read(n) will read n bytes from the stream
         # version - 4 bytes, little endian, interpret as int
         version = little_endian_to_int(s.read(4))
@@ -56,7 +62,7 @@ class Block:
         return b
 
     def serialize(self):
-        '''Returns the 80 byte block header'''
+        """Returns the 80 byte block header"""
         # version - 4 bytes, little endian
         result = int_to_little_endian(self.version, 4)
         # prev_block - 32 bytes, little endian
@@ -72,7 +78,7 @@ class Block:
         return result
 
     def hash(self):
-        '''Returns the hash256 interpreted little endian of the block'''
+        """Returns the hash256 interpreted little endian of the block"""
         # serialize
         s = self.serialize()
         # hash256
@@ -81,47 +87,47 @@ class Block:
         return h256[::-1]
 
     def id(self):
-        '''Human-readable hexadecimal of the block hash'''
+        """Human-readable hexadecimal of the block hash"""
         return self.hash().hex()
 
     def bip9(self):
-        '''Returns whether this block is signaling readiness for BIP9'''
+        """Returns whether this block is signaling readiness for BIP9"""
         # BIP9 is signalled if the top 3 bits are 001
         # remember version is 32 bytes so right shift 29 (>> 29) and see if
         # that is 001
         return self.version >> 29 == 0b001
 
     def bip91(self):
-        '''Returns whether this block is signaling readiness for BIP91'''
+        """Returns whether this block is signaling readiness for BIP91"""
         # BIP91 is signalled if the 5th bit from the right is 1
         # shift 4 bits to the right and see if the last bit is 1
         return self.version >> 4 & 1 == 1
 
     def bip141(self):
-        '''Returns whether this block is signaling readiness for BIP141'''
+        """Returns whether this block is signaling readiness for BIP141"""
         # BIP91 is signalled if the 2nd bit from the right is 1
         # shift 1 bit to the right and see if the last bit is 1
         return self.version >> 1 & 1 == 1
 
     def target(self):
-        '''Returns the proof-of-work target based on the bits'''
+        """Returns the proof-of-work target based on the bits"""
         # last byte is exponent
         exponent = self.bits[-1]
         # the first three bytes are the coefficient in little endian
         coefficient = little_endian_to_int(self.bits[:-1])
         # the formula is:
         # coefficient * 256**(exponent-3)
-        return coefficient * 256**(exponent - 3)
+        return coefficient * 256 ** (exponent - 3)
 
     def difficulty(self):
-        '''Returns the block difficulty based on the bits'''
+        """Returns the block difficulty based on the bits"""
         # note difficulty is (target of lowest difficulty) / (self's target)
         # lowest difficulty has bits that equal 0xffff001d
-        lowest = 0xffff * 256**(0x1d - 3)
+        lowest = 0xFFFF * 256 ** (0x1D - 3)
         return lowest / self.target()
 
     def check_pow(self):
-        '''Returns whether this block satisfies proof of work'''
+        """Returns whether this block satisfies proof of work"""
         # get the hash256 of the serialization of this block
         h256 = hash256(self.serialize())
         # interpret this hash as a little-endian number
@@ -130,9 +136,9 @@ class Block:
         return proof < self.target()
 
     def validate_merkle_root(self):
-        '''Gets the merkle root of the tx_hashes and checks that it's
+        """Gets the merkle root of the tx_hashes and checks that it's
         the same as the merkle root of this block.
-        '''
+        """
         # reverse all the transaction hashes (self.tx_hashes)
         hashes = [h[::-1] for h in self.tx_hashes]
         # get the Merkle Root

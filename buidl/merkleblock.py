@@ -11,7 +11,6 @@ from buidl.helper import (
 
 
 class MerkleTree:
-
     def __init__(self, total):
         self.total = total
         # compute max depth math.ceil(math.log(self.total, 2))
@@ -22,7 +21,7 @@ class MerkleTree:
         for depth in range(self.max_depth + 1):
             # the number of items at this depth is
             # math.ceil(self.total / 2**(self.max_depth - depth))
-            num_items = math.ceil(self.total / 2**(self.max_depth - depth))
+            num_items = math.ceil(self.total / 2 ** (self.max_depth - depth))
             # create this level's hashes list with the right number of items
             level_hashes = [None] * num_items
             # append this level's hashes to the merkle tree
@@ -38,15 +37,15 @@ class MerkleTree:
             items = []
             for index, h in enumerate(level):
                 if h is None:
-                    short = 'None'
+                    short = "None"
                 else:
-                    short = '{}...'.format(h.hex()[:8])
+                    short = "{}...".format(h.hex()[:8])
                 if depth == self.current_depth and index == self.current_index:
-                    items.append('*{}*'.format(short[:-2]))
+                    items.append("*{}*".format(short[:-2]))
                 else:
-                    items.append('{}'.format(short))
-            result.append(', '.join(items))
-        return '\n'.join(result)
+                    items.append("{}".format(short))
+            result.append(", ".join(items))
+        return "\n".join(result)
 
     def up(self):
         # reduce depth by 1 and halve the index
@@ -136,14 +135,14 @@ class MerkleTree:
                     # we've completed this sub-tree, go up
                     self.up()
         if len(hashes) != 0:
-            raise RuntimeError('hashes not all consumed {}'.format(len(hashes)))
+            raise RuntimeError("hashes not all consumed {}".format(len(hashes)))
         for flag_bit in flag_bits:
             if flag_bit != 0:
-                raise RuntimeError('flag bits not all consumed')
+                raise RuntimeError("flag bits not all consumed")
 
 
 class MerkleBlock:
-    command = b'merkleblock'
+    command = b"merkleblock"
 
     def __init__(self, header, total, hashes, flags):
         self.header = header
@@ -153,10 +152,10 @@ class MerkleBlock:
         self.merkle_tree = None
 
     def __repr__(self):
-        result = '{}\n'.format(self.total)
+        result = "{}\n".format(self.total)
         for h in self.hashes:
-            result += '\t{}\n'.format(h.hex())
-        result += '{}'.format(self.flags.hex())
+            result += "\t{}\n".format(h.hex())
+        result += "{}".format(self.flags.hex())
 
     def hash(self):
         return self.header.hash()
@@ -166,7 +165,7 @@ class MerkleBlock:
 
     @classmethod
     def parse(cls, s):
-        '''Takes a byte stream and parses a merkle block. Returns a Merkle Block object'''
+        """Takes a byte stream and parses a merkle block. Returns a Merkle Block object"""
         # s.read(n) will read n bytes from the stream
         # header - use Block.parse_header with the stream
         header = Block.parse_header(s)
@@ -188,7 +187,7 @@ class MerkleBlock:
         return cls(header, total, hashes, flags)
 
     def is_valid(self):
-        '''Verifies whether the merkle tree information validates to the merkle root'''
+        """Verifies whether the merkle tree information validates to the merkle root"""
         # use bytes_to_bit_field on self.flags to get the flag_bits
         flag_bits = bytes_to_bit_field(self.flags)
         # set hashes to be the reversed hashes of everything in self.hashes
@@ -201,7 +200,7 @@ class MerkleBlock:
         return self.merkle_tree.root()[::-1] == self.header.merkle_root
 
     def proved_txs(self):
-        '''Returns the list of proven transactions from the Merkle block'''
+        """Returns the list of proven transactions from the Merkle block"""
         if self.merkle_tree is None:
             return []
         else:

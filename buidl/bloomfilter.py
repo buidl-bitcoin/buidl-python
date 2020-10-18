@@ -8,11 +8,10 @@ from buidl.helper import (
 from buidl.network import GenericMessage
 
 
-BIP37_CONSTANT = 0xfba4c795
+BIP37_CONSTANT = 0xFBA4C795
 
 
 class BloomFilter:
-
     def __init__(self, size, function_count, tweak):
         self.size = size
         self.bit_field = [0] * (size * 8)
@@ -20,7 +19,7 @@ class BloomFilter:
         self.tweak = tweak
 
     def add(self, item):
-        '''Add an item to the filter'''
+        """Add an item to the filter"""
         # iterate self.function_count number of times
         for i in range(self.function_count):
             # BIP0037 spec seed is i*BIP37_CONSTANT + self.tweak
@@ -36,7 +35,7 @@ class BloomFilter:
         return bit_field_to_bytes(self.bit_field)
 
     def filterload(self, flag=1):
-        '''Return a network message whose command is filterload'''
+        """Return a network message whose command is filterload"""
         # encode_varint self.size
         payload = encode_varint(self.size)
         # next is the self.filter_bytes()
@@ -48,4 +47,4 @@ class BloomFilter:
         # flag is 1 byte little endian
         payload += int_to_byte(flag)
         # return a GenericMessage with b'filterload' as the command
-        return GenericMessage(b'filterload', payload)
+        return GenericMessage(b"filterload", payload)
