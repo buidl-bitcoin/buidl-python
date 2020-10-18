@@ -4,8 +4,8 @@ from unittest import TestCase
 import json
 import requests
 
-from ecc import PrivateKey, Signature
-from helper import (
+from buidl.ecc import PrivateKey, Signature
+from buidl.helper import (
     big_endian_to_int,
     decode_base58,
     hash256,
@@ -16,14 +16,14 @@ from helper import (
     read_varint,
     SIGHASH_ALL,
 )
-from script import (
+from buidl.script import (
     P2PKHScriptPubKey,
     RedeemScript,
     Script,
     ScriptPubKey,
     WitnessScript,
 )
-from witness import Witness
+from buidl.witness import Witness
 
 
 class TxFetcher:

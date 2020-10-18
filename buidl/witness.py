@@ -1,4 +1,4 @@
-from helper import (
+from buidl.helper import (
     encode_varint,
     encode_varstr,
     read_varint,

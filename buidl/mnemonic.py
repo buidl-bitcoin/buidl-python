@@ -1,6 +1,6 @@
 from secrets import randbits
 
-from helper import int_to_big_endian, sha256
+from buidl.helper import int_to_big_endian, sha256
 
 
 def secure_mnemonic(entropy=0, num_bits=128):
