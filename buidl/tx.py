@@ -1,8 +1,9 @@
 from io import BytesIO
 from unittest import TestCase
 
+from urllib import request
+
 import json
-import requests
 
 from buidl.ecc import PrivateKey, Signature
 from buidl.helper import (
@@ -40,11 +41,11 @@ class TxFetcher:
     def fetch(cls, tx_id, testnet=False, fresh=False):
         if fresh or (tx_id not in cls.cache):
             url = '{}/tx/{}.hex'.format(cls.get_url(testnet), tx_id)
-            response = requests.get(url)
+            response = request.urlopen(url).read().decode('utf-8').strip()
             try:
-                raw = bytes.fromhex(response.text.strip())
+                raw = bytes.fromhex(response)
             except ValueError:
-                raise ValueError('unexpected response: {}'.format(response.text))
+                raise ValueError('unexpected response: {}'.format(response))
             tx = Tx.parse(BytesIO(raw), testnet=testnet)
             # make sure the tx we got matches to the hash we requested
             if tx.segwit:
