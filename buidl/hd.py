@@ -432,7 +432,7 @@ class HDPublicKey:
         h = hmac_sha512(self.chain_code, data)
         # the new public point is the current point +
         #  the first 32 bytes in big endian * G
-        point = self.point + big_endian_to_int(h[:32]) * G
+        point = self.point + big_endian_to_int(h[:32])
         # chain code is the last 32 bytes
         chain_code = h[32:]
         # depth is current depth + 1

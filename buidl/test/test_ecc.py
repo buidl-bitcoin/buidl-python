@@ -1,217 +1,15 @@
 from unittest import TestCase
 
-from buidl.ecc import FieldElement, Point, G, N, S256Point, PrivateKey, Signature
+from buidl.ecc import G, N, S256Point, PrivateKey, Signature
 from buidl.helper import decode_bech32
 
 from random import randint
 
 
-class FieldElementTest(TestCase):
-    def test_ne(self):
-        a = FieldElement(2, 31)
-        b = FieldElement(2, 31)
-        c = FieldElement(15, 31)
-        self.assertEqual(a, b)
-        self.assertTrue(a != c)
-        self.assertFalse(a != b)
-
-    def test_add(self):
-        a = FieldElement(2, 31)
-        b = FieldElement(15, 31)
-        self.assertEqual(a + b, FieldElement(17, 31))
-        a = FieldElement(17, 31)
-        b = FieldElement(21, 31)
-        self.assertEqual(a + b, FieldElement(7, 31))
-
-    def test_sub(self):
-        a = FieldElement(29, 31)
-        b = FieldElement(4, 31)
-        self.assertEqual(a - b, FieldElement(25, 31))
-        a = FieldElement(15, 31)
-        b = FieldElement(30, 31)
-        self.assertEqual(a - b, FieldElement(16, 31))
-
-    def test_mul(self):
-        a = FieldElement(24, 31)
-        b = FieldElement(19, 31)
-        self.assertEqual(a * b, FieldElement(22, 31))
-
-    def test_pow(self):
-        a = FieldElement(17, 31)
-        self.assertEqual(a ** 3, FieldElement(15, 31))
-        a = FieldElement(5, 31)
-        b = FieldElement(18, 31)
-        self.assertEqual(a ** 5 * b, FieldElement(16, 31))
-
-    def test_div(self):
-        a = FieldElement(3, 31)
-        b = FieldElement(24, 31)
-        self.assertEqual(a / b, FieldElement(4, 31))
-        a = FieldElement(17, 31)
-        self.assertEqual(a ** -3, FieldElement(29, 31))
-        a = FieldElement(4, 31)
-        b = FieldElement(11, 31)
-        self.assertEqual(a ** -4 * b, FieldElement(13, 31))
-
-
-class PointTest(TestCase):
-    def test_ne(self):
-        a = Point(x=3, y=-7, a=5, b=7)
-        b = Point(x=18, y=77, a=5, b=7)
-        self.assertTrue(a != b)
-        self.assertFalse(a != a)
-
-    def test_on_curve(self):
-        with self.assertRaises(ValueError):
-            Point(x=-2, y=4, a=5, b=7)
-        # these should not raise an error
-        Point(x=3, y=-7, a=5, b=7)
-        Point(x=18, y=77, a=5, b=7)
-
-    def test_add0(self):
-        a = Point(x=None, y=None, a=5, b=7)
-        b = Point(x=2, y=5, a=5, b=7)
-        c = Point(x=2, y=-5, a=5, b=7)
-        self.assertEqual(a + b, b)
-        self.assertEqual(b + a, b)
-        self.assertEqual(b + c, a)
-
-    def test_add1(self):
-        a = Point(x=3, y=7, a=5, b=7)
-        b = Point(x=-1, y=-1, a=5, b=7)
-        self.assertEqual(a + b, Point(x=2, y=-5, a=5, b=7))
-
-    def test_add2(self):
-        a = Point(x=-1, y=1, a=5, b=7)
-        self.assertEqual(a + a, Point(x=18, y=-77, a=5, b=7))
-
-
-class ECCTest(TestCase):
-    def test_on_curve(self):
-        # tests the following points whether they are on the curve or not
-        # on curve y^2=x^3-7 over F_223:
-        # (192,105) (17,56) (200,119) (1,193) (42,99)
-        # the ones that aren't should raise a ValueError
-        prime = 223
-        a = FieldElement(0, prime)
-        b = FieldElement(7, prime)
-
-        valid_points = ((192, 105), (17, 56), (1, 193))
-        invalid_points = ((200, 119), (42, 99))
-
-        # iterate over valid points
-        for x_raw, y_raw in valid_points:
-            # Initialize points this way:
-            # x = FieldElement(x_raw, prime)
-            # y = FieldElement(y_raw, prime)
-            # Point(x, y, a, b)
-            x = FieldElement(x_raw, prime)
-            y = FieldElement(y_raw, prime)
-            # Creating the point should not result in an error
-            Point(x, y, a, b)
-
-        # iterate over invalid points
-        for x_raw, y_raw in invalid_points:
-            # Initialize points this way:
-            # x = FieldElement(x_raw, prime)
-            # y = FieldElement(y_raw, prime)
-            # Point(x, y, a, b)
-            x = FieldElement(x_raw, prime)
-            y = FieldElement(y_raw, prime)
-            # check that creating the point results in a ValueError
-            # with self.assertRaises(ValueError):
-            #     Point(x, y, a, b)
-            with self.assertRaises(ValueError):
-                Point(x, y, a, b)
-
-    def test_add(self):
-        # tests the following additions on curve y^2=x^3-7 over F_223:
-        # (192,105) + (17,56)
-        # (47,71) + (117,141)
-        # (143,98) + (76,66)
-        prime = 223
-        a = FieldElement(0, prime)
-        b = FieldElement(7, prime)
-
-        additions = (
-            # (x1, y1, x2, y2, x3, y3)
-            (192, 105, 17, 56, 170, 142),
-            (47, 71, 117, 141, 60, 139),
-            (143, 98, 76, 66, 47, 71),
-        )
-        # iterate over the additions
-        for x1_raw, y1_raw, x2_raw, y2_raw, x3_raw, y3_raw in additions:
-            # Initialize points this way:
-            # x1 = FieldElement(x1_raw, prime)
-            # y1 = FieldElement(y1_raw, prime)
-            # p1 = Point(x1, y1, a, b)
-            # x2 = FieldElement(x2_raw, prime)
-            # y2 = FieldElement(y2_raw, prime)
-            # p2 = Point(x2, y2, a, b)
-            # x3 = FieldElement(x3_raw, prime)
-            # y3 = FieldElement(y3_raw, prime)
-            # p3 = Point(x3, y3, a, b)
-            x1 = FieldElement(x1_raw, prime)
-            y1 = FieldElement(y1_raw, prime)
-            p1 = Point(x1, y1, a, b)
-            x2 = FieldElement(x2_raw, prime)
-            y2 = FieldElement(y2_raw, prime)
-            p2 = Point(x2, y2, a, b)
-            x3 = FieldElement(x3_raw, prime)
-            y3 = FieldElement(y3_raw, prime)
-            p3 = Point(x3, y3, a, b)
-            # check that p1 + p2 == p3
-            self.assertEqual(p1 + p2, p3)
-
-    def test_rmul(self):
-        # tests the following scalar multiplications
-        # 2*(192,105)
-        # 2*(143,98)
-        # 2*(47,71)
-        # 4*(47,71)
-        # 8*(47,71)
-        # 21*(47,71)
-        prime = 223
-        a = FieldElement(0, prime)
-        b = FieldElement(7, prime)
-
-        multiplications = (
-            # (coefficient, x1, y1, x2, y2)
-            (2, 192, 105, 49, 71),
-            (2, 143, 98, 64, 168),
-            (2, 47, 71, 36, 111),
-            (4, 47, 71, 194, 51),
-            (8, 47, 71, 116, 55),
-            (21, 47, 71, None, None),
-        )
-
-        # iterate over the multiplications
-        for s, x1_raw, y1_raw, x2_raw, y2_raw in multiplications:
-            # Initialize points this way:
-            # x1 = FieldElement(x1_raw, prime)
-            # y1 = FieldElement(y1_raw, prime)
-            # p1 = Point(x1, y1, a, b)
-            x1 = FieldElement(x1_raw, prime)
-            y1 = FieldElement(y1_raw, prime)
-            p1 = Point(x1, y1, a, b)
-            # initialize the second point based on whether it's the point at infinity
-            # x2 = FieldElement(x2_raw, prime)
-            # y2 = FieldElement(y2_raw, prime)
-            # p2 = Point(x2, y2, a, b)
-            if x2_raw is None:
-                p2 = Point(None, None, a, b)
-            else:
-                x2 = FieldElement(x2_raw, prime)
-                y2 = FieldElement(y2_raw, prime)
-                p2 = Point(x2, y2, a, b)
-            # check that the product is equal to the expected point
-            self.assertEqual(s * p1, p2)
-
-
 class S256Test(TestCase):
-    def test_order(self):
-        point = N * G
-        self.assertIsNone(point.x)
+    #    def test_order(self):
+    #        point = N * G
+    #        self.assertIsNone(point.x)
 
     def test_pubpoint(self):
         # write a test that tests the public point for the following
@@ -219,30 +17,26 @@ class S256Test(TestCase):
             # secret, x, y
             (
                 7,
-                0x5CBDF0646E5DB4EAA398F365F2EA7A0E3D419B7E0330E39CE92BDDEDCAC4F9BC,
-                0x6AEBCA40BA255960A3178D6D861A54DBA813D0B813FDE7B5A5082628087264DA,
+                "045CBDF0646E5DB4EAA398F365F2EA7A0E3D419B7E0330E39CE92BDDEDCAC4F9BC6AEBCA40BA255960A3178D6D861A54DBA813D0B813FDE7B5A5082628087264DA",
             ),
             (
                 1485,
-                0xC982196A7466FBBBB0E27A940B6AF926C1A74D5AD07128C82824A11B5398AFDA,
-                0x7A91F9EAE64438AFB9CE6448A1C133DB2D8FB9254E4546B6F001637D50901F55,
+                "04C982196A7466FBBBB0E27A940B6AF926C1A74D5AD07128C82824A11B5398AFDA7A91F9EAE64438AFB9CE6448A1C133DB2D8FB9254E4546B6F001637D50901F55",
             ),
             (
                 2 ** 128,
-                0x8F68B9D2F63B5F339239C1AD981F162EE88C5678723EA3351B7B444C9EC4C0DA,
-                0x662A9F2DBA063986DE1D90C2B6BE215DBBEA2CFE95510BFDF23CBF79501FFF82,
+                "048F68B9D2F63B5F339239C1AD981F162EE88C5678723EA3351B7B444C9EC4C0DA662A9F2DBA063986DE1D90C2B6BE215DBBEA2CFE95510BFDF23CBF79501FFF82",
             ),
             (
                 2 ** 240 + 2 ** 31,
-                0x9577FF57C8234558F293DF502CA4F09CBC65A6572C842B39B366F21717945116,
-                0x10B49C67FA9365AD7B90DAB070BE339A1DAF9052373EC30FFAE4F72D5E66D053,
+                "049577FF57C8234558F293DF502CA4F09CBC65A6572C842B39B366F2171794511610B49C67FA9365AD7B90DAB070BE339A1DAF9052373EC30FFAE4F72D5E66D053",
             ),
         )
 
         # iterate over points
-        for secret, x, y in points:
+        for secret, sec in points:
             # initialize the secp256k1 point (S256Point)
-            point = S256Point(x, y)
+            point = S256Point.parse(bytes.fromhex(sec))
             # check that the secret*G is the same as the point
             self.assertEqual(secret * G, point)
 
@@ -345,41 +139,50 @@ class S256Test(TestCase):
             self.assertEqual(point.p2sh_p2wpkh_address(testnet=True), testnet_p2sh)
 
     def test_verify(self):
-        point = S256Point(
-            0x887387E452B8EACC4ACFDE10D9AAF7F6D9A0F975AABB10D006E4DA568744D06C,
-            0x61DE6D95231CD89026E286DF3B6AE4A894A3378E393E93A0F45B666329A0AE34,
+        tests = (
+            (
+                0xEC208BAA0FC1C19F708A9CA96FDEFF3AC3F230BB4A7BA4AEDE4942AD003C0F60,
+                "3045022100ac8d1c87e51d0d441be8b3dd5b05c8795b48875dffe00b7ffcfac23010d3a3950220068342ceff8935ededd102dd876ffd6ba72d6a427a3edb13d26eb0781cb423c4",
+                "04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34",
+            ),
+            (
+                0x7C076FF316692A3D7EB3C3BB0F8B1488CF72E1AFCD929E29307032997A838A3D,
+                "3044022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022038df8011e682d839e75159debf909408cb3f12ae472b1d88cf6280cf01c6568b",
+                "04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34",
+            ),
+            (
+                0x2270CB0316E68389A3A23DE16023A03B8FC271A21B467B1DC97E0FC0E2CE97F7,
+                "3045022100ea6d640d5275d091607e1f4ad5cdb214e45f8d17cca1095074894dde347605ba022029062e1ff0d9eee52da1f3621caf92436877d7076720e2b3d9f226bf853e2b75",
+                "04f47dc2ac0ecaadda5ee2b3ab9bc4e02c3eafb2abcc426643686ad95f6d4e8c44e33fa47d96fc2dace0ef2f583965cf6a0f8faa7a070c0f8ee986d192e2d21835",
+            ),
         )
-        z = 0xEC208BAA0FC1C19F708A9CA96FDEFF3AC3F230BB4A7BA4AEDE4942AD003C0F60
-        r = 0xAC8D1C87E51D0D441BE8B3DD5B05C8795B48875DFFE00B7FFCFAC23010D3A395
-        s = 0x68342CEFF8935EDEDD102DD876FFD6BA72D6A427A3EDB13D26EB0781CB423C4
-        self.assertTrue(point.verify(z, Signature(r, s)))
-        z = 0x7C076FF316692A3D7EB3C3BB0F8B1488CF72E1AFCD929E29307032997A838A3D
-        r = 0xEFF69EF2B1BD93A66ED5219ADD4FB51E11A840F404876325A1E8FFE0529A2C
-        s = 0xC7207FEE197D27C618AEA621406F6BF5EF6FCA38681D82B2F06FDDBDCE6FEAB6
-        self.assertTrue(point.verify(z, Signature(r, s)))
+        for z, der_hex, sec in tests:
+            point = S256Point.parse(bytes.fromhex(sec))
+            der = bytes.fromhex(der_hex)
+            self.assertTrue(point.verify(z, Signature.parse(der)))
 
     def test_parse(self):
-        sec = bytes.fromhex(
+        csec = bytes.fromhex(
             "0349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278a"
         )
-        point = S256Point.parse(sec)
-        want = 0xA56C896489C71DFC65701CE25050F542F336893FB8CD15F4E8E5C124DBF58E47
-        self.assertEqual(point.y.num, want)
+        point = S256Point.parse(csec)
+        usec = bytes.fromhex(
+            "0449fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278aa56c896489c71dfc65701ce25050f542f336893fb8cd15f4e8e5c124dbf58e47"
+        )
+        self.assertEqual(point.sec(False), usec)
 
 
 class SignatureTest(TestCase):
     def test_der(self):
-        testcases = (
-            (1, 2),
-            (randint(0, 2 ** 256), randint(0, 2 ** 255)),
-            (randint(0, 2 ** 256), randint(0, 2 ** 255)),
+        tests = (
+            "3045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed",
         )
-        for r, s in testcases:
-            sig = Signature(r, s)
-            der = sig.der()
-            sig2 = Signature.parse(der)
-            self.assertEqual(sig2.r, r)
-            self.assertEqual(sig2.s, s)
+        for der_hex in tests:
+            der = bytes.fromhex(der_hex)
+            sig = Signature.parse(der)
+            self.assertTrue("Signature" in sig.__repr__())
+            computed = sig.der()
+            self.assertEqual(der, computed)
 
 
 class PrivateKeyTest(TestCase):

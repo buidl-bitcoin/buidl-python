@@ -1,1 +1,4 @@
 pytest
+nose
+coverage
+black
