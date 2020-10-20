@@ -31,7 +31,7 @@ $ brew tap cuber/homebrew-libsecp256k1 && brew install pkg-config libffi libsecp
 #### Python Installation
 
 ```bash
-$ pip3 install cffi && python libsec_build.py
+$ pip3 install cffi && cd buidl && python libsec_build.py
 ```
 
 # TODO:

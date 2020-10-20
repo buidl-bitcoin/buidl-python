@@ -1,4 +1,4 @@
 try:
     from buidl.cecc import *
-except:
+except ModuleNotFoundError:
     from buidl.pecc import *
