@@ -219,8 +219,8 @@ class HDPrivateKey:
     def fingerprint(self):
         return self.pub.fingerprint()
 
-    def xpub(self):
-        return self.pub.xpub()
+    def xpub(self, version=None):
+        return self.pub.xpub(version=version)
 
     def ypub(self):
         return self.pub.ypub()
@@ -500,7 +500,12 @@ class HDPublicKey:
         # base58-encode the whole thing
         return encode_base58_checksum(raw)
 
-    def xpub(self):
+    def xpub(self, version=None):
+
+        # Allow for SLIP132 encoding (or other version bytes)
+        if version is not None:
+            return self._pub(version=version)
+
         if self.testnet:
             version = TESTNET_XPUB
         else:
