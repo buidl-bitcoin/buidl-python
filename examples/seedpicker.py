@@ -57,8 +57,6 @@ if __name__ == "__main__":
         print("No valid checksum word found")
         sys.exit(1)
 
-    print("Network:", "Testnet" if args.testnet else "Mainnet")
-
     if args.verbose:
         print(
             "{} valid_checksum_words".format(len(valid_checksum_words)),
@@ -68,20 +66,26 @@ if __name__ == "__main__":
     result = HDPrivateKey.from_mnemonic(FIRST_WORDS + " " + valid_checksum_words[0])
 
     xfp = result.fingerprint().hex()
-    print("xfp", xfp)
 
-    print("path", PATH)
+    print("SECRET INFO")
+    print("Full mnemonic (with checksum word):", FIRST_WORDS + " " + valid_checksum_words[0])
+    print("Full mnemonic length (# words):", len(FIRST_WORDS.split()) + 1)
+
+    print("")
+    print("PUBLIC INFO")
+    print("Network:", "Testnet" if args.testnet else "Mainnet")
 
     child_slip132_pubkey = result.traverse(PATH).xpub(
         version=bytes.fromhex(SLIP132_VERSION_BYTES)
     )
-    print("child_slip132_pubkey", child_slip132_pubkey)
+    if args.verbose:
+        print("xfp:", xfp)
+        print("path:", PATH)
+        print("child_slip132_pubkey:", child_slip132_pubkey)
 
-    print("")
     print("Specter-Desktop Input Format:")
     print(
-        "",
-        "[{}{}]{}".format(
+        "  [{}{}]{}".format(
             xfp, PATH.replace("m", "").replace("'", "h"), child_slip132_pubkey
         ),
     )
