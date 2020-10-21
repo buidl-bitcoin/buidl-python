@@ -10,13 +10,13 @@ def get_all_valid_checksum_words(first_words):
         try:
             HDPrivateKey.from_mnemonic(first_words + " " + word)
             to_return.append(word)
-        # except KeyError:
-        # We have words in first_words that are not in WORD_LIST
-        # return []
+        except KeyError as e:
+            # We have a word in first_words that is not in WORD_LIST
+            return [], "Invalid BIP39 Word: {}".format(e.args[0])
         except ValueError:
             pass
 
-    return to_return
+    return to_return, ""
 
 
 if __name__ == "__main__":
@@ -51,7 +51,11 @@ if __name__ == "__main__":
         PATH = "m/48'/1'/0'/2'"
         SLIP132_VERSION_BYTES = "02aa7ed3"
 
-    valid_checksum_words = get_all_valid_checksum_words(FIRST_WORDS)
+    valid_checksum_words, err_str = get_all_valid_checksum_words(FIRST_WORDS)
+    if err_str:
+        print("Error calculating checksum:")
+        print("  ", err_str)
+        sys.exit(1)
 
     if not valid_checksum_words:
         print("No valid checksum word found")
