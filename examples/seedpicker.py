@@ -68,7 +68,10 @@ if __name__ == "__main__":
     xfp = result.fingerprint().hex()
 
     print("SECRET INFO")
-    print("Full mnemonic (with checksum word):", FIRST_WORDS + " " + valid_checksum_words[0])
+    print(
+        "Full mnemonic (with checksum word):",
+        FIRST_WORDS + " " + valid_checksum_words[0],
+    )
     print("Full mnemonic length (# words):", len(FIRST_WORDS.split()) + 1)
 
     print("")
