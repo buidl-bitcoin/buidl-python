@@ -1,10 +1,8 @@
+import argparse, sys
+
 from buidl.hd import HDPrivateKey
 from buidl.mnemonic import WORD_LIST
 
-
-FIRST_WORDS = "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo"
-PATH = "m/48'/0'/0'/2'"
-VERSION_BYTES = "02aa7ed3"
 
 
 def get_all_valid_checksum_words(first_words):
@@ -13,24 +11,59 @@ def get_all_valid_checksum_words(first_words):
         try:
             HDPrivateKey.from_mnemonic(first_words + " " + word)
             to_return.append(word)
-        except KeyError:
+        # except KeyError:
             # We have words in first_words that are not in WORD_LIST
-            return []
+            # return []
         except ValueError:
-            pass
+           pass
 
     return to_return
 
-valid_checksum_words = get_all_valid_checksum_words(FIRST_WORDS)
 
-print("valid_checksum_words", valid_checksum_words)
+if __name__ == "__main__":
 
-result = HDPrivateKey.from_mnemonic(FIRST_WORDS + " " + valid_checksum_words[0])
+    parser = argparse.ArgumentParser(description='Calculate your checksum word and display your multisig extended pubkey information')
+    parser.add_argument('--firstWords', help='first words of your seed phrase that we want to find the appropriate final (checksum) word to append', required=True)
+    parser.add_argument('--testnet', action='store_true')
+    parser.add_argument('--verbose', action='store_true')
 
-xfp = result.fingerprint().hex()
-print("xfp", xfp)
+    args = parser.parse_args()
 
-print("path", PATH)
+    FIRST_WORDS = args.firstWords.strip()
 
-child_slip132_pubkey = result.traverse(PATH).xpub(version=bytes.fromhex(VERSION_BYTES))
-print("child_slip132_pubkey", child_slip132_pubkey)
+    if len(FIRST_WORDS.split()) not in (11, 14, 17, 20, 23):
+        print("Invalid firstWords length of {} words, must be 11, 14, 17, 20, or 23 words before appending a checksum.".format(len(FIRST_WORDS.split())))
+        sys.exit(1)
+
+    if args.testnet:
+        PATH = "m/48'/0'/0'/2'"
+        SLIP132_VERSION_BYTES = "02575483"
+    else:
+        PATH = "m/48'/1'/0'/2'"
+        SLIP132_VERSION_BYTES = "02aa7ed3"
+
+    valid_checksum_words = get_all_valid_checksum_words(FIRST_WORDS)
+
+    if not valid_checksum_words:
+        print("No valid checksum word found")
+        sys.exit(1)
+
+
+    print("Network:", "Testnet" if args.testnet else "Mainnet")
+
+    if args.verbose:
+        print("{} valid_checksum_words".format(len(valid_checksum_words)), valid_checksum_words)
+
+    result = HDPrivateKey.from_mnemonic(FIRST_WORDS + " " + valid_checksum_words[0])
+
+    xfp = result.fingerprint().hex()
+    print("xfp", xfp)
+
+    print("path", PATH)
+
+    child_slip132_pubkey = result.traverse(PATH).xpub(version=bytes.fromhex(SLIP132_VERSION_BYTES))
+    print("child_slip132_pubkey", child_slip132_pubkey)
+
+    print("")
+    print("Specter-Desktop Input Format:")
+    print("", "[{}{}]{}".format(xfp, PATH.replace("m","").replace("'","h"), child_slip132_pubkey))
