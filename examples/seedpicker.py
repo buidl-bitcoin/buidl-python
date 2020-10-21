@@ -45,10 +45,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if args.testnet:
-        PATH = "m/48'/0'/0'/2'"
+        PATH = "m/48'/1'/0'/2'"
         SLIP132_VERSION_BYTES = "02575483"
     else:
-        PATH = "m/48'/1'/0'/2'"
+        PATH = "m/48'/0'/0'/2'"
         SLIP132_VERSION_BYTES = "02aa7ed3"
 
     valid_checksum_words, err_str = get_all_valid_checksum_words(FIRST_WORDS)
