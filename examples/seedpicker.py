@@ -75,7 +75,7 @@ if __name__ == "__main__":
     print("Full mnemonic length (# words):", len(FIRST_WORDS.split()) + 1)
 
     print("")
-    print("PUBLIC INFO")
+    print("PUBLIC KEY INFO")
     print("Network:", "Testnet" if args.testnet else "Mainnet")
 
     child_slip132_pubkey = result.traverse(PATH).xpub(
