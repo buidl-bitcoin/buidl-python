@@ -941,3 +941,10 @@ OP_CODE_NAMES = {
     184: "OP_NOP9",
     185: "OP_NOP10",
 }
+
+OP_CODE_NAMES_LOOKUP = {}
+for k in OP_CODE_NAMES:
+    OP_CODE_NAMES_LOOKUP[OP_CODE_NAMES[k]] = k
+
+# Sanity check:
+assert len(OP_CODE_NAMES) == len(OP_CODE_NAMES_LOOKUP)
