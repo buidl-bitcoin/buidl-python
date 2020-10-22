@@ -3,6 +3,10 @@
 `buidl` is a `python3` bitcoin library with no dependencies, designed to make it easy to BUIDL.
 `buidl` has extensive test coverage, which you can use as documentation.
 
+## Installation
+```bash
+$ pip3 install buidl
+```
 
 ## Tests
 
@@ -31,9 +35,10 @@ $ brew tap cuber/homebrew-libsecp256k1 && brew install pkg-config libffi libsecp
 #### Python Installation
 
 ```bash
-$ pip3 install cffi && cd buidl && python libsec_build.py
+$ git clone git@github.com:buidl-bitcoin/buidl-python.git && cd buidl-python && pip3 install --editable . && pip3 install cffi && cd buidl && python libsec_build.py
 ```
 
 # TODO:
 * Add back in `wallet.py` (see [here](https://github.com/jimmysong/pw-exercises/blob/master/session6/wallet.py)) without `PyCryptodome` dependency
 * `FIXME` in `test_network.py`
+* Add libsec support/instructions to pypi version
