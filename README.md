@@ -8,7 +8,7 @@
 
 Run tests with `pytest`:
 ```bash
-$ git clone git@github.com:mflaxman/buidl.git && cd buidl
+$ git clone git@github.com:buidl-bitcoin/buidl-python.git && cd buidl-python
 $ pytest -v
 ```
 
