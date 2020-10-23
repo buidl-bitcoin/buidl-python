@@ -7,11 +7,20 @@ from time import sleep
 
 from buidl.block import Block
 from buidl.helper import (
-    hash256,
+    GOLOMB_M,
+    GOLOMB_P,
+    calculate_new_bits,
+    decode_base58,
+    decode_golomb,
     encode_varint,
+    encode_varstr,
+    hash256,
+    hash_to_range,
     int_to_little_endian,
     little_endian_to_int,
     read_varint,
+    read_varstr,
+    unpack_bits,
 )
 from buidl.tx import Tx
 
@@ -19,9 +28,13 @@ TX_DATA_TYPE = 1
 BLOCK_DATA_TYPE = 2
 FILTERED_BLOCK_DATA_TYPE = 3
 COMPACT_BLOCK_DATA_TYPE = 4
+WITNESS_TX_DATA_TYPE = (1 << 30) + TX_DATA_TYPE
+WITNESS_BLOCK_DATA_TYPE = (1 << 30) + BLOCK_DATA_TYPE
 
 NETWORK_MAGIC = b"\xf9\xbe\xb4\xd9"
 TESTNET_NETWORK_MAGIC = b"\x0b\x11\x09\x07"
+
+BASIC_FILTER_TYPE = 0
 
 
 class NetworkEnvelope:
@@ -285,6 +298,136 @@ class GetDataMessage:
             # identifier needs to be in little endian
             result += identifier[::-1]
         return result
+
+class GetCFiltersMessage:
+    command = b'getcfilters'
+
+    def __init__(self, filter_type=BASIC_FILTER_TYPE, start_height=1, stop_hash=None):
+        self.filter_type = filter_type
+        self.start_height = start_height
+        if stop_hash is None:
+            raise RuntimeError
+        self.stop_hash = stop_hash
+
+    def serialize(self):
+        result = self.filter_type.to_bytes(1, 'big')
+        result += int_to_little_endian(self.start_height, 4)
+        result += self.stop_hash[::-1]
+        return result
+
+
+class CFilterMessage:
+    command = b'cfilter'
+
+    def __init__(self, filter_type, block_hash, filter_bytes, hashes):
+        self.filter_type = filter_type
+        self.block_hash = block_hash
+        self.filter_bytes = filter_bytes
+        self.hashes = hashes
+        self.f = len(self.hashes) * GOLOMB_M
+        self.key = self.block_hash[::-1][:16]
+
+    @classmethod
+    def parse(cls, s):
+        filter_type = s.read(1)[0]
+        block_hash = s.read(32)[::-1]
+        num_bytes = read_varint(s)
+        filter_bytes = s.read(num_bytes)
+        substream = BytesIO(filter_bytes)
+        n = read_varint(substream)
+        bits = unpack_bits(substream.read())
+        hashes = set()
+        current = 0
+        for _ in range(n):
+            delta = decode_golomb(bits, GOLOMB_P)
+            current += delta
+            hashes.add(current)
+        return cls(filter_type, block_hash, filter_bytes, hashes)
+
+    def hash(self, raw_script_pubkey):
+        return hash_to_range(self.key, raw_script_pubkey, self.f)
+
+    def __contains__(self, raw_script_pubkey):
+        if type(raw_script_pubkey) == bytes:
+            return self.hash(raw_script_pubkey) in self.hashes
+        else:
+            for r in raw_script_pubkey:
+                if self.hash(r) in self.hashes:
+                    return True
+            return False
+
+
+
+class GetCFHeadersMessage:
+    command = b'getcfheaders'
+
+    def __init__(self, filter_type=BASIC_FILTER_TYPE, start_height=0, stop_hash=None):
+        self.filter_type = filter_type
+        self.start_height = start_height
+        if stop_hash is None:
+            raise RuntimeError
+        self.stop_hash = stop_hash
+
+    def serialize(self):
+        result = self.filter_type.to_bytes(1, 'big')
+        result += int_to_little_endian(self.start_height, 4)
+        result += self.stop_hash[::-1]
+        return result
+
+
+class CFHeadersMessage:
+    command = b'cfheaders'
+
+    def __init__(self, filter_type, stop_hash, previous_filter_header, filter_hashes):
+        self.filter_type = filter_type
+        self.stop_hash = stop_hash
+        self.previous_filter_header = previous_filter_header
+        self.filter_hashes = filter_hashes
+
+    @classmethod
+    def parse(cls, s):
+        filter_type = s.read(1)[0]
+        stop_hash = s.read(32)[::-1]
+        previous_filter_header = s.read(32)[::-1]
+        filter_hashes_length = read_varint(s)
+        filter_hashes = []
+        for _ in range(filter_hashes_length):
+            filter_hashes.append(s.read(32)[::-1])
+        return cls(filter_type, stop_hash, previous_filter_header, filter_hashes)
+
+
+class GetCFCheckPointMessage:
+    command = b'getcfcheckpt'
+
+    def __init__(self, filter_type=BASIC_FILTER_TYPE, stop_hash=None):
+        self.filter_type = filter_type
+        if stop_hash is None:
+            raise RuntimeError('Need a stop hash')
+        self.stop_hash = stop_hash
+
+    def serialize(self):
+        result = self.filter_type.to_bytes(1, 'big')
+        result += self.stop_hash[::-1]
+        return result
+
+
+class CFCheckPointMessage:
+    command = b'cfcheckpt'
+
+    def __init__(self, filter_type, stop_hash, filter_headers):
+        self.filter_type = filter_type
+        self.stop_hash = stop_hash
+        self.filter_headers = filter_headers
+
+    @classmethod
+    def parse(cls, s):
+        filter_type = s.read(1)[0]
+        stop_hash = s.read(32)[::-1]
+        filter_headers_length = read_varint(s)
+        filter_headers = []
+        for _ in range(filter_headers_length):
+            filter_headers.append(s.read(32)[::-1])
+        return cls(filter_type, stop_hash, filter_headers)
 
 
 class GenericMessage:

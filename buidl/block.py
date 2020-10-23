@@ -19,15 +19,15 @@ TESTNET_GENESIS_BLOCK_HASH = bytes.fromhex(
 class Block:
     command = b"block"
 
-    def __init__(
-        self, version, prev_block, merkle_root, timestamp, bits, nonce, tx_hashes=None
-    ):
+    def __init__(self, version, prev_block, merkle_root,
+                 timestamp, bits, nonce, txs=None, tx_hashes=None):
         self.version = version
         self.prev_block = prev_block
         self.merkle_root = merkle_root
         self.timestamp = timestamp
         self.bits = bits
         self.nonce = nonce
+        self.txs = txs
         self.tx_hashes = tx_hashes
         self.merkle_tree = None
 
@@ -54,11 +54,12 @@ class Block:
     def parse(cls, s):
         b = cls.parse_header(s)
         num_txs = read_varint(s)
-        tx_hashes = []
+        b.tx_hashes = []
+        b.txs = []
         for _ in range(num_txs):
             t = Tx.parse(s)
-            tx_hashes.append(t.hash())
-        b.tx_hashes = tx_hashes
+            b.txs.append(t)
+            b.tx_hashes.append(t.hash())
         return b
 
     def serialize(self):
@@ -147,3 +148,11 @@ class Block:
         # return whether self.merkle root is the same as
         # the reverse of the calculated merkle root
         return root[::-1] == self.merkle_root
+
+    def get_outpoints(self):
+        if not self.txs:
+            return []
+        for t in self.txs:
+            for tx_out in t.tx_outs:
+                if not tx_out.script_pubkey.has_op_return():
+                    yield (tx_out.script_pubkey.raw_serialize())
