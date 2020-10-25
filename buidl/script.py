@@ -21,11 +21,12 @@ from buidl.op import (
 
 
 class Script:
-    def __init__(self, commands=None):
+    def __init__(self, commands=None, coinbase=None):
         if commands is None:
             self.commands = []
         else:
             self.commands = commands
+        self.coinbase = coinbase
 
     def __repr__(self):
         result = ""
@@ -47,9 +48,11 @@ class Script:
         return Script(self.commands + other.commands)
 
     @classmethod
-    def parse(cls, s):
+    def parse(cls, s, coinbase_mode=False):
         # get the length of the entire field
         length = read_varint(s)
+        if coinbase_mode:
+            return cls([], coinbase=s.read(length))
         # initialize the commands array
         commands = []
         # initialize the number of bytes we've read to 0
@@ -64,32 +67,39 @@ class Script:
             current_byte = current[0]
             # if the current byte is between 1 and 75 inclusive
             if current_byte >= 1 and current_byte <= 75:
-                # we have a command set n to be the current byte
+                # we have an command set n to be the current byte
                 n = current_byte
-                # add the next n bytes as a command
+                # add the next n bytes as an command
                 commands.append(s.read(n))
                 # increase the count by n
                 count += n
             elif current_byte == 76:
                 # op_pushdata1
-                data_length = byte_to_int(s.read(1))
+                data_length = little_endian_to_int(s.read(1))
                 commands.append(s.read(data_length))
                 count += data_length + 1
             elif current_byte == 77:
                 # op_pushdata2
-                data_length = byte_to_int(s.read(2))
+                data_length = little_endian_to_int(s.read(2))
                 commands.append(s.read(data_length))
                 count += data_length + 2
+            elif current_byte == 78:
+                # op_pushdata4
+                data_length = little_endian_to_int(s.read(4))
+                commands.append(s.read(data_length))
+                count += data_length + 4
             else:
                 # we have an op code. set the current byte to op_code
                 op_code = current_byte
                 # add the op_code to the list of commands
                 commands.append(op_code)
         if count != length:
-            raise SyntaxError("parsing script failed")
+            raise RuntimeError("parsing script failed")
         return cls(commands)
 
     def raw_serialize(self):
+        if self.coinbase:
+            return self.coinbase
         # initialize what we'll send back
         result = b""
         # go through each command
@@ -266,6 +276,9 @@ class Script:
             and len(self.commands[1]) == 32
         )
 
+    def has_op_return(self):
+        return 106 in self.commands
+
 
 class ScriptPubKey(Script):
     """Represents a ScriptPubKey in a transaction"""
@@ -289,6 +302,7 @@ class ScriptPubKey(Script):
 
 class P2PKHScriptPubKey(ScriptPubKey):
     def __init__(self, h160):
+        super().__init__()
         if type(h160) != bytes:
             raise TypeError("To initialize P2PKHScriptPubKey, a hash160 is needed")
         self.commands = [0x76, 0xA9, h160, 0x88, 0xAC]
@@ -307,6 +321,7 @@ class P2PKHScriptPubKey(ScriptPubKey):
 
 class P2SHScriptPubKey(ScriptPubKey):
     def __init__(self, h160):
+        super().__init__()
         if type(h160) != bytes:
             raise TypeError("To initialize P2SHScriptPubKey, a hash160 is needed")
         self.commands = [0xA9, h160, 0x87]
@@ -359,6 +374,7 @@ class SegwitPubKey(ScriptPubKey):
 
 class P2WPKHScriptPubKey(SegwitPubKey):
     def __init__(self, h160):
+        super().__init__()
         if type(h160) != bytes:
             raise TypeError("To initialize P2WPKHScriptPubKey, a hash160 is needed")
         self.commands = [0x00, h160]
@@ -366,6 +382,7 @@ class P2WPKHScriptPubKey(SegwitPubKey):
 
 class P2WSHScriptPubKey(SegwitPubKey):
     def __init__(self, s256):
+        super().__init__()
         if type(s256) != bytes:
             raise TypeError("To initialize P2WSHScriptPubKey, a sha256 is needed")
         self.commands = [0x00, s256]

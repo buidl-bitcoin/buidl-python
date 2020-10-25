@@ -11,7 +11,7 @@ class BlockTest(TestCase):
         )
         stream = BytesIO(block_raw)
         block = Block.parse(stream)
-        self.assertEqual(block.merkle_root, block.tx_hashes[0])
+        self.assertEqual(block.merkle_root.hex(), block.tx_hashes[0].hex())
 
     def test_parse_header(self):
         block_raw = bytes.fromhex(
