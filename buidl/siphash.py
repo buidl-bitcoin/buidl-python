@@ -1,4 +1,4 @@
-r'''
+r"""
 <MIT License>
 Copyright (c) 2013  Marek Majkowski <marek@popcount.org>
 
@@ -40,12 +40,13 @@ b'\x86L3\x9c\xb0\xdc\x0f\xac'
 >>> SipHash_2_4(key, b'').hexdigest()
 b'310e0edd47db6f72'
 
-'''
+"""
 import struct
 import binascii
 
+
 def _doublesipround(v, m):
-    '''
+    """
     Internal helper. Xors 'm' to 'v3', runs two rounds of siphash on
     vector 'v' and xors 'm' to 'v0'.
 
@@ -57,40 +58,42 @@ def _doublesipround(v, m):
     (0, 0, 0, 0)
     >>> _doublesipround((0,0,0,0),0xff)
     (2368684213854535680, 36416423977725, 2305811110491594975, 15626573430810475768)
-    '''
+    """
     a, b, c, d = v
     d ^= m
 
-    e = (a + b) & 0xffffffffffffffff
-    i = (((b & 0x7ffffffffffff) << 13) | (b >> 51)) ^ e
+    e = (a + b) & 0xFFFFFFFFFFFFFFFF
+    i = (((b & 0x7FFFFFFFFFFFF) << 13) | (b >> 51)) ^ e
     f = c + d
-    j = ((((d) << 16) | (d >> 48)) ^ f ) & 0xffffffffffffffff
-    h = (f + i) & 0xffffffffffffffff
+    j = ((((d) << 16) | (d >> 48)) ^ f) & 0xFFFFFFFFFFFFFFFF
+    h = (f + i) & 0xFFFFFFFFFFFFFFFF
 
     k = ((e << 32) | (e >> 32)) + j
-    l = (((i & 0x7fffffffffff) << 17) | (i >> 47)) ^ h
-    o = (((j << 21) | (j >> 43)) ^ k) & 0xffffffffffffffff
+    l = (((i & 0x7FFFFFFFFFFF) << 17) | (i >> 47)) ^ h
+    o = (((j << 21) | (j >> 43)) ^ k) & 0xFFFFFFFFFFFFFFFF
 
-    p = (k + l) & 0xffffffffffffffff
-    q = (((l & 0x7ffffffffffff) << 13) | (l >> 51)) ^ p
+    p = (k + l) & 0xFFFFFFFFFFFFFFFF
+    q = (((l & 0x7FFFFFFFFFFFF) << 13) | (l >> 51)) ^ p
     r = ((h << 32) | (h >> 32)) + o
-    s = (((o << 16) | (o >> 48)) ^ r) & 0xffffffffffffffff
-    t = (r + q) & 0xffffffffffffffff
-    u = (((p << 32) | (p >> 32)) + s) & 0xffffffffffffffff
+    s = (((o << 16) | (o >> 48)) ^ r) & 0xFFFFFFFFFFFFFFFF
+    t = (r + q) & 0xFFFFFFFFFFFFFFFF
+    u = (((p << 32) | (p >> 32)) + s) & 0xFFFFFFFFFFFFFFFF
 
-    return (u ^ m,
-            (((q & 0x7fffffffffff) << 17) | (q >> 47)) ^ t,
-            ((t & 0xffffffff) << 32) | (t >> 32),
-            (((s & 0x7ffffffffff) << 21) | (s >> 43)) ^ u)
+    return (
+        u ^ m,
+        (((q & 0x7FFFFFFFFFFF) << 17) | (q >> 47)) ^ t,
+        ((t & 0xFFFFFFFF) << 32) | (t >> 32),
+        (((s & 0x7FFFFFFFFFF) << 21) | (s >> 43)) ^ u,
+    )
 
 
-_zeroes = b'\x00\x00\x00\x00\x00\x00\x00\x00'
-_oneQ = struct.Struct('<Q')
-_twoQ = struct.Struct('<QQ')
+_zeroes = b"\x00\x00\x00\x00\x00\x00\x00\x00"
+_oneQ = struct.Struct("<Q")
+_twoQ = struct.Struct("<QQ")
 
 
 class SipHash_2_4(object):
-    r'''
+    r"""
     >>> SipHash_2_4(b'0123456789ABCDEF', b'a').hash()
     12398370950267227270
     >>> SipHash_2_4(b'0123456789ABCDEF', b'').hash()
@@ -117,30 +120,32 @@ class SipHash_2_4(object):
     >>> a.update(b'a') and None
     >>> a.hash(), b.hash()
     (3258273892680892829, 6581475155582014123)
-    '''
+    """
     digest_size = 16
     block_size = 64
 
-    s = b''
+    s = b""
     b = 0
 
-    def __init__(self, secret, s=b''):
+    def __init__(self, secret, s=b""):
         # key's encoded as little endian
         k0, k1 = _twoQ.unpack(secret)
-        self.v = (0x736f6d6570736575 ^ k0,
-                  0x646f72616e646f6d ^ k1,
-                  0x6c7967656e657261 ^ k0,
-                  0x7465646279746573 ^ k1)
+        self.v = (
+            0x736F6D6570736575 ^ k0,
+            0x646F72616E646F6D ^ k1,
+            0x6C7967656E657261 ^ k0,
+            0x7465646279746573 ^ k1,
+        )
         self.update(s)
 
     def update(self, s):
         s = self.s + s
-        lim = (len(s)//8)*8
+        lim = (len(s) // 8) * 8
         v = self.v
         off = 0
 
         for off in range(0, lim, 8):
-            m, = _oneQ.unpack_from(s, off)
+            (m,) = _oneQ.unpack_from(s, off)
 
             # print 'v0 %016x' % v[0]
             # print 'v1 %016x' % v[1]
@@ -158,8 +163,8 @@ class SipHash_2_4(object):
         l = len(self.s)
         assert l < 8
 
-        b = (((self.b + l) & 0xff) << 56)
-        b |= _oneQ.unpack_from(self.s+_zeroes)[0]
+        b = ((self.b + l) & 0xFF) << 56
+        b |= _oneQ.unpack_from(self.s + _zeroes)[0]
         v = self.v
 
         # print 'v0 %016x' % v[0]
@@ -176,7 +181,7 @@ class SipHash_2_4(object):
         # print 'v3 %016x' % v3
 
         v = list(v)
-        v[2] ^= 0xff
+        v[2] ^= 0xFF
         v = _doublesipround(_doublesipround(v, 0), 0)
         return v[0] ^ v[1] ^ v[2] ^ v[3]
 
@@ -198,30 +203,82 @@ SipHash24 = SipHash_2_4
 
 if __name__ == "__main__":
     # Test vectors as per spec
-    vectors = [c.encode('utf-8') for c in [
-        "310e0edd47db6f72", "fd67dc93c539f874", "5a4fa9d909806c0d", "2d7efbd796666785",
-        "b7877127e09427cf", "8da699cd64557618", "cee3fe586e46c9cb", "37d1018bf50002ab",
-        "6224939a79f5f593", "b0e4a90bdf82009e", "f3b9dd94c5bb5d7a", "a7ad6b22462fb3f4",
-        "fbe50e86bc8f1e75", "903d84c02756ea14", "eef27a8e90ca23f7", "e545be4961ca29a1",
-        "db9bc2577fcc2a3f", "9447be2cf5e99a69", "9cd38d96f0b3c14b", "bd6179a71dc96dbb",
-        "98eea21af25cd6be", "c7673b2eb0cbf2d0", "883ea3e395675393", "c8ce5ccd8c030ca8",
-        "94af49f6c650adb8", "eab8858ade92e1bc", "f315bb5bb835d817", "adcf6b0763612e2f",
-        "a5c91da7acaa4dde", "716595876650a2a6", "28ef495c53a387ad", "42c341d8fa92d832",
-        "ce7cf2722f512771", "e37859f94623f3a7", "381205bb1ab0e012", "ae97a10fd434e015",
-        "b4a31508beff4d31", "81396229f0907902", "4d0cf49ee5d4dcca", "5c73336a76d8bf9a",
-        "d0a704536ba93e0e", "925958fcd6420cad", "a915c29bc8067318", "952b79f3bc0aa6d4",
-        "f21df2e41d4535f9", "87577519048f53a9", "10a56cf5dfcd9adb", "eb75095ccd986cd0",
-        "51a9cb9ecba312e6", "96afadfc2ce666c7", "72fe52975a4364ee", "5a1645b276d592a1",
-        "b274cb8ebf87870a", "6f9bb4203de7b381", "eaecb2a30b22a87f", "9924a43cc1315724",
-        "bd838d3aafbf8db7", "0b1a2a3265d51aea", "135079a3231ce660", "932b2846e4d70666",
-        "e1915f5cb1eca46c", "f325965ca16d629f", "575ff28e60381be5", "724506eb4c328a95",
-        ]]
+    vectors = [
+        c.encode("utf-8")
+        for c in [
+            "310e0edd47db6f72",
+            "fd67dc93c539f874",
+            "5a4fa9d909806c0d",
+            "2d7efbd796666785",
+            "b7877127e09427cf",
+            "8da699cd64557618",
+            "cee3fe586e46c9cb",
+            "37d1018bf50002ab",
+            "6224939a79f5f593",
+            "b0e4a90bdf82009e",
+            "f3b9dd94c5bb5d7a",
+            "a7ad6b22462fb3f4",
+            "fbe50e86bc8f1e75",
+            "903d84c02756ea14",
+            "eef27a8e90ca23f7",
+            "e545be4961ca29a1",
+            "db9bc2577fcc2a3f",
+            "9447be2cf5e99a69",
+            "9cd38d96f0b3c14b",
+            "bd6179a71dc96dbb",
+            "98eea21af25cd6be",
+            "c7673b2eb0cbf2d0",
+            "883ea3e395675393",
+            "c8ce5ccd8c030ca8",
+            "94af49f6c650adb8",
+            "eab8858ade92e1bc",
+            "f315bb5bb835d817",
+            "adcf6b0763612e2f",
+            "a5c91da7acaa4dde",
+            "716595876650a2a6",
+            "28ef495c53a387ad",
+            "42c341d8fa92d832",
+            "ce7cf2722f512771",
+            "e37859f94623f3a7",
+            "381205bb1ab0e012",
+            "ae97a10fd434e015",
+            "b4a31508beff4d31",
+            "81396229f0907902",
+            "4d0cf49ee5d4dcca",
+            "5c73336a76d8bf9a",
+            "d0a704536ba93e0e",
+            "925958fcd6420cad",
+            "a915c29bc8067318",
+            "952b79f3bc0aa6d4",
+            "f21df2e41d4535f9",
+            "87577519048f53a9",
+            "10a56cf5dfcd9adb",
+            "eb75095ccd986cd0",
+            "51a9cb9ecba312e6",
+            "96afadfc2ce666c7",
+            "72fe52975a4364ee",
+            "5a1645b276d592a1",
+            "b274cb8ebf87870a",
+            "6f9bb4203de7b381",
+            "eaecb2a30b22a87f",
+            "9924a43cc1315724",
+            "bd838d3aafbf8db7",
+            "0b1a2a3265d51aea",
+            "135079a3231ce660",
+            "932b2846e4d70666",
+            "e1915f5cb1eca46c",
+            "f325965ca16d629f",
+            "575ff28e60381be5",
+            "724506eb4c328a95",
+        ]
+    ]
 
-    key = ''.join(chr(i) for i in range(16)).encode('utf-8')
-    plaintext = ''.join(chr(i) for i in range(64)).encode('utf-8')
+    key = "".join(chr(i) for i in range(16)).encode("utf-8")
+    plaintext = "".join(chr(i) for i in range(64)).encode("utf-8")
     for i in range(64):
-        assert SipHash_2_4(key, plaintext[:i]).hexdigest() == vectors[i], \
-            'failed on test no %i' % i
+        assert SipHash_2_4(key, plaintext[:i]).hexdigest() == vectors[i], (
+            "failed on test no %i" % i
+        )
 
     # Internal doctests
     #
@@ -232,6 +289,7 @@ if __name__ == "__main__":
     # doctest output through an `eval` function before comparison. To
     # do it we need to monkeypatch the OutputChecker:
     import doctest
+
     EVAL_FLAG = doctest.register_optionflag("EVAL")
     OrigOutputChecker = doctest.OutputChecker
 
@@ -257,4 +315,5 @@ if __name__ == "__main__":
     doctest.OutputChecker = MyOutputChecker
     # Monkey patching done. Go for doctests:
 
-    if doctest.testmod(optionflags=EVAL_FLAG)[0] == 0: print("all tests ok")
+    if doctest.testmod(optionflags=EVAL_FLAG)[0] == 0:
+        print("all tests ok")
