@@ -21,7 +21,6 @@ from buidl.op import (
 
 
 class Script:
-
     def __init__(self, commands=None, coinbase=None):
         if commands is None:
             self.commands = []
@@ -95,10 +94,12 @@ class Script:
                 # add the op_code to the list of commands
                 commands.append(op_code)
         if count != length:
-            raise RuntimeError('parsing script failed')
+            raise RuntimeError("parsing script failed")
         return cls(commands)
 
     def raw_serialize(self):
+        if self.coinbase:
+            return self.coinbase
         # initialize what we'll send back
         result = b""
         # go through each command
@@ -301,6 +302,7 @@ class ScriptPubKey(Script):
 
 class P2PKHScriptPubKey(ScriptPubKey):
     def __init__(self, h160):
+        super().__init__()
         if type(h160) != bytes:
             raise TypeError("To initialize P2PKHScriptPubKey, a hash160 is needed")
         self.commands = [0x76, 0xA9, h160, 0x88, 0xAC]
@@ -319,6 +321,7 @@ class P2PKHScriptPubKey(ScriptPubKey):
 
 class P2SHScriptPubKey(ScriptPubKey):
     def __init__(self, h160):
+        super().__init__()
         if type(h160) != bytes:
             raise TypeError("To initialize P2SHScriptPubKey, a hash160 is needed")
         self.commands = [0xA9, h160, 0x87]
@@ -371,6 +374,7 @@ class SegwitPubKey(ScriptPubKey):
 
 class P2WPKHScriptPubKey(SegwitPubKey):
     def __init__(self, h160):
+        super().__init__()
         if type(h160) != bytes:
             raise TypeError("To initialize P2WPKHScriptPubKey, a hash160 is needed")
         self.commands = [0x00, h160]
@@ -378,6 +382,7 @@ class P2WPKHScriptPubKey(SegwitPubKey):
 
 class P2WSHScriptPubKey(SegwitPubKey):
     def __init__(self, s256):
+        super().__init__()
         if type(s256) != bytes:
             raise TypeError("To initialize P2WSHScriptPubKey, a sha256 is needed")
         self.commands = [0x00, s256]

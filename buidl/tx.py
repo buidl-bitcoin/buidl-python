@@ -582,7 +582,7 @@ class TxIn:
         prev_index = little_endian_to_int(s.read(4))
         # script_sig is a variable field (length followed by the data)
         # you can use Script.parse to get the actual script
-        coinbase_mode = prev_tx == b'\x00' * 32 and prev_index == 0xffffffff
+        coinbase_mode = prev_tx == b"\x00" * 32 and prev_index == 0xFFFFFFFF
         script_sig = Script.parse(s, coinbase_mode)
         # sequence is 4 bytes, little-endian, interpret as int
         sequence = little_endian_to_int(s.read(4))

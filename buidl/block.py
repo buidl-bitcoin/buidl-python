@@ -19,8 +19,17 @@ TESTNET_GENESIS_BLOCK_HASH = bytes.fromhex(
 class Block:
     command = b"block"
 
-    def __init__(self, version, prev_block, merkle_root,
-                 timestamp, bits, nonce, txs=None, tx_hashes=None):
+    def __init__(
+        self,
+        version,
+        prev_block,
+        merkle_root,
+        timestamp,
+        bits,
+        nonce,
+        txs=None,
+        tx_hashes=None,
+    ):
         self.version = version
         self.prev_block = prev_block
         self.merkle_root = merkle_root
@@ -54,8 +63,8 @@ class Block:
     def parse(cls, s):
         b = cls.parse_header(s)
         num_txs = read_varint(s)
-        b.tx_hashes = []
         b.txs = []
+        b.tx_hashes = []
         for _ in range(num_txs):
             t = Tx.parse(s)
             b.txs.append(t)

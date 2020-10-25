@@ -299,8 +299,9 @@ class GetDataMessage:
             result += identifier[::-1]
         return result
 
+
 class GetCFiltersMessage:
-    command = b'getcfilters'
+    command = b"getcfilters"
 
     def __init__(self, filter_type=BASIC_FILTER_TYPE, start_height=1, stop_hash=None):
         self.filter_type = filter_type
@@ -310,14 +311,14 @@ class GetCFiltersMessage:
         self.stop_hash = stop_hash
 
     def serialize(self):
-        result = self.filter_type.to_bytes(1, 'big')
+        result = self.filter_type.to_bytes(1, "big")
         result += int_to_little_endian(self.start_height, 4)
         result += self.stop_hash[::-1]
         return result
 
 
 class CFilterMessage:
-    command = b'cfilter'
+    command = b"cfilter"
 
     def __init__(self, filter_type, block_hash, filter_bytes, hashes):
         self.filter_type = filter_type
@@ -357,9 +358,8 @@ class CFilterMessage:
             return False
 
 
-
 class GetCFHeadersMessage:
-    command = b'getcfheaders'
+    command = b"getcfheaders"
 
     def __init__(self, filter_type=BASIC_FILTER_TYPE, start_height=0, stop_hash=None):
         self.filter_type = filter_type
@@ -369,14 +369,14 @@ class GetCFHeadersMessage:
         self.stop_hash = stop_hash
 
     def serialize(self):
-        result = self.filter_type.to_bytes(1, 'big')
+        result = self.filter_type.to_bytes(1, "big")
         result += int_to_little_endian(self.start_height, 4)
         result += self.stop_hash[::-1]
         return result
 
 
 class CFHeadersMessage:
-    command = b'cfheaders'
+    command = b"cfheaders"
 
     def __init__(self, filter_type, stop_hash, previous_filter_header, filter_hashes):
         self.filter_type = filter_type
@@ -397,22 +397,22 @@ class CFHeadersMessage:
 
 
 class GetCFCheckPointMessage:
-    command = b'getcfcheckpt'
+    command = b"getcfcheckpt"
 
     def __init__(self, filter_type=BASIC_FILTER_TYPE, stop_hash=None):
         self.filter_type = filter_type
         if stop_hash is None:
-            raise RuntimeError('Need a stop hash')
+            raise RuntimeError("Need a stop hash")
         self.stop_hash = stop_hash
 
     def serialize(self):
-        result = self.filter_type.to_bytes(1, 'big')
+        result = self.filter_type.to_bytes(1, "big")
         result += self.stop_hash[::-1]
         return result
 
 
 class CFCheckPointMessage:
-    command = b'cfcheckpt'
+    command = b"cfcheckpt"
 
     def __init__(self, filter_type, stop_hash, filter_headers):
         self.filter_type = filter_type

@@ -3,8 +3,26 @@ import hmac
 
 from base64 import b64decode, b64encode
 from buidl.pbkdf2 import PBKDF2
-from csiphash import siphash24
 from io import BytesIO
+
+try:
+    from csiphash import siphash24
+
+    def _siphash(key, value):
+        if len(key) != 16:
+            raise ValueError("Key should be 16 bytes")
+        return little_endian_to_int(siphash24(key, value))
+
+
+except:
+    from siphash import SipHash_2_4
+
+    def _siphash(key, value):
+        if len(key) != 16:
+            raise ValueError("Key should be 16 bytes")
+        sip = SipHash_2_4(key)
+        sip.update(value)
+        return sip.hash()
 
 
 SIGHASH_ALL = 1
@@ -15,7 +33,7 @@ BECH32_ALPHABET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 GEN = [0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3]
 PBKDF2_ROUNDS = 2048
 GOLOMB_P = 19
-GOLOMB_M = int(round(1.497137 * 2**GOLOMB_P))
+GOLOMB_M = int(round(1.497137 * 2 ** GOLOMB_P))
 
 
 def bytes_to_str(b, encoding="ascii"):
@@ -498,8 +516,8 @@ def serialize_binary_path(path):
 
 
 def calculate_new_bits(previous_bits, time_differential):
-    '''Calculates the new bits given
-    a 2016-block time differential and the previous bits'''
+    """Calculates the new bits given
+    a 2016-block time differential and the previous bits"""
     # if the time differential is greater than 8 weeks, set to 8 weeks
     if time_differential > TWO_WEEKS * 4:
         time_differential = TWO_WEEKS * 4
@@ -516,7 +534,7 @@ def calculate_new_bits(previous_bits, time_differential):
 
 
 def pack_bits(bits):
-    '''converts bits to a byte-string'''
+    """converts bits to a byte-string"""
     num_bytes = len(bits)
     bits += [0] * (-num_bytes % 8)
     result = 0
@@ -524,7 +542,7 @@ def pack_bits(bits):
         result <<= 1
         if bit:
             result |= 1
-    return result.to_bytes(len(bits) // 8, 'big')
+    return result.to_bytes(len(bits) // 8, "big")
 
 
 def unpack_bits(byte_string):
@@ -547,18 +565,10 @@ def filter_null(items):
     return non_null_items
 
 
-def siphash(key, value):
-    '''A really fast hash function which outputs 64 bits. This is returned as
-       an integer'''
-    if len(key) != 16:
-        raise ValueError('Key should be 16 bytes, not {}'.format(len(key)))
-    return little_endian_to_int(siphash24(key, value))
-
-
 def hash_to_range(key, value, f):
-    '''Returns a number between 0 and f-1, uniformly distributed.
-       Uses siphash-2-4.'''
-    return siphash(key, value) * f >> 64
+    """Returns a number between 0 and f-1, uniformly distributed.
+    Uses siphash-2-4."""
+    return _siphash(key, value) * f >> 64
 
 
 def hashed_items(key, items):
@@ -571,18 +581,18 @@ def hashed_items(key, items):
 
 
 def encode_golomb(x, p):
-    '''converts a number x to a golomb-encoded array of 0's and 1's'''
+    """converts a number x to a golomb-encoded array of 0's and 1's"""
     # quotient when dividing x by 2^p
     q = x >> p
     # q 1's and a 0 at the end
     result = [1] * q + [0]
     # the last p bits of x
-    result += [x & (1 << (p-i-1)) > 0 for i in range(p)]
+    result += [x & (1 << (p - i - 1)) > 0 for i in range(p)]
     return result
 
 
 def decode_golomb(bits, p):
-    '''converts a golomb-encoded array of 0's and 1's to a number'''
+    """converts a golomb-encoded array of 0's and 1's to a number"""
     q = 0
     while bits[0] != 0:
         q += 1
@@ -597,7 +607,7 @@ def decode_golomb(bits, p):
 
 
 def pack_bits(bits):
-    '''converts bits to a byte-string'''
+    """converts bits to a byte-string"""
     num_bytes = len(bits)
     bits += [0] * (-num_bytes % 8)
     result = 0
@@ -605,7 +615,7 @@ def pack_bits(bits):
         result <<= 1
         if bit:
             result |= 1
-    return result.to_bytes(len(bits) // 8, 'big')
+    return result.to_bytes(len(bits) // 8, "big")
 
 
 def unpack_bits(byte_string):
@@ -629,8 +639,8 @@ def filter_null(items):
 
 
 def encode_gcs(key, items):
-    '''Returns the golomb-coded-set byte-string which is the sorted
-       hashes of the items'''
+    """Returns the golomb-coded-set byte-string which is the sorted
+    hashes of the items"""
     sorted_items = hashed_items(key, items)
     last_value = 0
     result = []
@@ -642,7 +652,7 @@ def encode_gcs(key, items):
 
 
 def decode_gcs(key, gcs):
-    '''Returns the sorted hashes of the items from the golomb-coded-set'''
+    """Returns the sorted hashes of the items from the golomb-coded-set"""
     s = BytesIO(gcs)
     num_items = read_varint(s)
     bits = unpack_bits(s.read())
