@@ -5,9 +5,15 @@ from io import BytesIO
 from buidl.block import Block
 from buidl.helper import decode_base58
 from buidl.network import (
+    CFCheckPointMessage,
+    CFHeadersMessage,
+    CFilterMessage,
     FILTERED_BLOCK_DATA_TYPE,
     GetDataMessage,
     GetHeadersMessage,
+    GetCFCheckPointMessage,
+    GetCFHeadersMessage,
+    GetCFiltersMessage,
     HeadersMessage,
     NetworkEnvelope,
     SimpleNode,
@@ -121,3 +127,73 @@ if False:
                 txs[2].id(),
                 "23d4effc88b80fb7dbcc2e6a0b0af9821c6fe3bb4c8dc3b61bcab7c45f0f6888",
             )
+
+
+class CFilterTest(TestCase):
+    def test_cfilter(self):
+        stop_hash = bytes.fromhex(
+            "000000006f27ddfe1dd680044a34548f41bed47eba9e6f0b310da21423bc5f33"
+        )
+        getcfilters = GetCFiltersMessage(stop_hash=stop_hash)
+        expected = b"\x00\x01\x00\x00\x00" + stop_hash[::-1]
+        self.assertEqual(getcfilters.serialize(), expected)
+        expected = (
+            b"\x00" + stop_hash[::-1] + b"\x09" + bytes.fromhex("0385acb4f0fe889ef0")
+        )
+        cfilter = CFilterMessage.parse(BytesIO(expected))
+        self.assertEqual(cfilter.filter_type, 0)
+        self.assertEqual(cfilter.block_hash, stop_hash)
+        self.assertEqual(cfilter.hashes, {1341840, 1483084, 570774})
+        self.assertEqual(cfilter.hash(b"\x00"), 1322199)
+        included = bytes.fromhex(
+            "002027a5000c7917f785d8fc6e5a55adfca8717ecb973ebb7743849ff956d896a7ed"
+        )
+        self.assertTrue([included] in cfilter)
+        self.assertFalse([b"\x00"] in cfilter)
+        with self.assertRaises(RuntimeError):
+            GetCFiltersMessage()
+
+
+class CFHeaderTest(TestCase):
+    def test_cfheader(self):
+        stop_hash = bytes.fromhex(
+            "000000006f27ddfe1dd680044a34548f41bed47eba9e6f0b310da21423bc5f33"
+        )
+        getcfheaders = GetCFHeadersMessage(stop_hash=stop_hash)
+        self.assertEqual(
+            getcfheaders.serialize(), b"\x00\x00\x00\x00\x00" + stop_hash[::-1]
+        )
+        hash2 = b"\x00" * 32
+        stream = BytesIO(
+            bytes.fromhex(
+                "00335fbc2314a20d310b6f9eba7ed4be418f54344a0480d61dfedd276f000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000"
+            )
+        )
+        cfheaders = CFHeadersMessage.parse(stream)
+        self.assertEqual(cfheaders.filter_type, 0)
+        self.assertEqual(cfheaders.stop_hash, stop_hash)
+        self.assertEqual(cfheaders.previous_filter_header, hash2)
+        self.assertEqual(cfheaders.filter_hashes, [hash2])
+        with self.assertRaises(RuntimeError):
+            GetCFHeadersMessage()
+
+
+class CFCheckPointTest(TestCase):
+    def test_cfcheckpoint(self):
+        stop_hash = bytes.fromhex(
+            "000000006f27ddfe1dd680044a34548f41bed47eba9e6f0b310da21423bc5f33"
+        )
+        getcfcheckpoints = GetCFCheckPointMessage(stop_hash=stop_hash)
+        self.assertEqual(getcfcheckpoints.serialize(), b"\x00" + stop_hash[::-1])
+        hash2 = b"\x00" * 32
+        stream = BytesIO(
+            bytes.fromhex(
+                "00335fbc2314a20d310b6f9eba7ed4be418f54344a0480d61dfedd276f00000000010000000000000000000000000000000000000000000000000000000000000000000000"
+            )
+        )
+        cfcheckpoints = CFCheckPointMessage.parse(stream)
+        self.assertEqual(cfcheckpoints.filter_type, 0)
+        self.assertEqual(cfcheckpoints.stop_hash, stop_hash)
+        self.assertEqual(cfcheckpoints.filter_headers, [hash2])
+        with self.assertRaises(RuntimeError):
+            GetCFCheckPointMessage()
