@@ -14,8 +14,8 @@ try:
         return little_endian_to_int(siphash24(key, value))
 
 
-except:
-    from siphash import SipHash_2_4
+except ModuleNotFoundError:
+    from buidl.siphash import SipHash_2_4
 
     def _siphash(key, value):
         if len(key) != 16:
