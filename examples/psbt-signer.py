@@ -31,9 +31,9 @@ def _abort(msg):
 
 def _format_satoshis(sats, in_btc=False):
     if in_btc:
-        btc = sats / 10**8
-        return f'{btc:,.8f} BTC'
-    return f'{sats:,} sats'
+        btc = sats / 10 ** 8
+        return f"{btc:,.8f} BTC"
+    return f"{sats:,} sats"
 
 
 if __name__ == "__main__":
@@ -53,7 +53,9 @@ if __name__ == "__main__":
     )
     # parser.add_argument("--testnet", action="store_true")
     parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--display-btc", action="store_true", help="Display BTCs instead of satoshis")
+    parser.add_argument(
+        "--display-btc", action="store_true", help="Display BTCs instead of satoshis"
+    )
 
     args = parser.parse_args()
 
@@ -201,7 +203,7 @@ if __name__ == "__main__":
                 f"Cannot have both outputs be change or spend, must be 1-and-1. {outputs_desc}"
             )
 
-    total_input_sats = sum([x['sats'] for x in inputs_desc])
+    total_input_sats = sum([x["sats"] for x in inputs_desc])
     print()
     print(
         "PSBT sends",
@@ -210,7 +212,7 @@ if __name__ == "__main__":
         spend_addr,
         "with a fee of",
         _format_satoshis(TX_FEE_SATS, in_btc=args.display_btc),
-        f"({round(TX_FEE_SATS / total_input_sats * 100, 2)}% of spend)"
+        f"({round(TX_FEE_SATS / total_input_sats * 100, 2)}% of spend)",
     )
     print()
 
@@ -221,12 +223,18 @@ if __name__ == "__main__":
         print(len(inputs_desc), "input(s):")
         for cnt, input_desc in enumerate(inputs_desc):
             print(f"  Input #{cnt}")
-            for k, v, in input_desc.items():
+            for (
+                k,
+                v,
+            ) in input_desc.items():
                 print(f"    {k}: {v}")
         print(len(outputs_desc), "output(s):")
         for cnt, output_desc in enumerate(outputs_desc):
             print(f"  Output #{cnt}")
-            for k, v, in output_desc.items():
+            for (
+                k,
+                v,
+            ) in output_desc.items():
                 print(f"    {k}: {v}")
         print("-" * 80)
 
