@@ -13,8 +13,6 @@ from buidl.script import WitnessScript, OP_CODE_NAMES
 
 
 # FIXME:
-# Add TX fee to confirmation
-# Add summary view (x BTC to Y address)
 # Add flag/method for saving to file
 
 
@@ -22,13 +20,20 @@ from buidl.script import WitnessScript, OP_CODE_NAMES
 # Inspired by https://github.com/trezor/trezor-firmware/blob/e23bb10ec49710cc2b2b993db9c907d3c7becf2c/core/src/apps/wallet/sign_tx/multisig.py#L37
 def calculate_msig_digest(quorum_m, root_xfp_hexes):
     fingerprints_to_hash = "-".join(sorted(root_xfp_hexes))
-    return hash256(f"{quorum_m}:{fingerprints_to_hash}".encode())
+    return hash256(f"{quorum_m}:{fingerprints_to_hash}".encode()).hex()
 
 
 def _abort(msg):
     print("ABORTING WITHOUT SIGNING:")
     print(msg)
     sys.exit(1)
+
+
+def _format_satoshis(sats, in_btc=False):
+    if in_btc:
+        btc = sats / 10**8
+        return f'{btc:,.8f} BTC'
+    return f'{sats:,} sats'
 
 
 if __name__ == "__main__":
@@ -47,7 +52,8 @@ if __name__ == "__main__":
         required=True,
     )
     # parser.add_argument("--testnet", action="store_true")
-    parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--display-btc", action="store_true", help="Display BTCs instead of satoshis")
 
     args = parser.parse_args()
 
@@ -56,6 +62,7 @@ if __name__ == "__main__":
     psbt_obj = PSBT.parse_base64(psbt_b64)
     psbt_obj.validate()  # redundant but explicit
     IS_TESTNET = not psbt_obj.tx_obj.testnet  # FIXME, yikes!
+    TX_FEE_SATS = psbt_obj.tx_obj.fee()
 
     hd_priv = HDPrivateKey.from_mnemonic(
         mnemonic=args.mnemonic.strip(), testnet=psbt_obj.tx_obj.testnet
@@ -97,8 +104,7 @@ if __name__ == "__main__":
 
         inputs_desc.append(
             {
-                "quorum_m": quorum_m,
-                "quroum_n": len(root_xfp_hexes),
+                "quorum": f"{quorum_m}-of-{len(root_xfp_hexes)}",
                 "root_xfp_hexes": root_xfp_hexes,
                 "root_path_used": root_path_used,
                 "prev_txhash": psbt_in.tx_in.prev_tx.hex(),
@@ -182,27 +188,46 @@ if __name__ == "__main__":
 
         outputs_desc.append(output_desc)
 
-    # Confirm we only have 1 change and 1 spend (can't be 2 changes or 2 spends)
+    # Sanity check
     if len(outputs_desc) != len(psbt_obj.psbt_outs):
         _abort(
             f"{len(outputs_desc)} outputs in summary doesn't match {len(psbt_obj.psbt_outs)} outputs in PSBT"
         )
 
+    # Confirm if 2 outputs we only have 1 change and 1 spend (can't be 2 changes or 2 spends)
     if len(outputs_desc) == 2:
         if all(x["is_change"] == outputs_desc[0]["is_change"] for x in outputs_desc):
             _abort(
                 f"Cannot have both outputs be change or spend, must be 1-and-1. {outputs_desc}"
             )
 
-    if not args.quiet:
+    total_input_sats = sum([x['sats'] for x in inputs_desc])
+    print()
+    print(
+        "PSBT sends",
+        _format_satoshis(output_spend_sats, in_btc=args.display_btc),
+        "to",
+        spend_addr,
+        "with a fee of",
+        _format_satoshis(TX_FEE_SATS, in_btc=args.display_btc),
+        f"({round(TX_FEE_SATS / total_input_sats * 100, 2)}% of spend)"
+    )
+    print()
+
+    if args.verbose:
         print("-" * 80)
         print("DETAILED VIEW")
+        print("TXID:", psbt_obj.tx_obj.id())
         print(len(inputs_desc), "input(s):")
-        for input_desc in inputs_desc:
-            print("", input_desc)
+        for cnt, input_desc in enumerate(inputs_desc):
+            print(f"  Input #{cnt}")
+            for k, v, in input_desc.items():
+                print(f"    {k}: {v}")
         print(len(outputs_desc), "output(s):")
-        for output_desc in outputs_desc:
-            print("", output_desc)
+        for cnt, output_desc in enumerate(outputs_desc):
+            print(f"  Output #{cnt}")
+            for k, v, in output_desc.items():
+                print(f"    {k}: {v}")
         print("-" * 80)
 
     # Derive list of child private keys we'll use to sign the TX
