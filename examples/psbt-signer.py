@@ -45,13 +45,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--verbose",
-        help="Print out more info",
+        help="Print out extra debugging info (experts only).",
         action="store_true",
     )
     parser.add_argument(
         "--display-btc",
         action="store_true",
-        help="Display BTC as unit instead of satoshis",
+        help="Display BTC as units instead of satoshis",
     )
     # TODO: add flag for saving output to file
 

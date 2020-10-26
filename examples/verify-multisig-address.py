@@ -59,8 +59,8 @@ if __name__ == "__main__":
         help="Bitcoin core script descriptor /path/to/file.json",
         required=True,
     )
-    parser.add_argument("--limit", type=int, default=20)
-    parser.add_argument("--offset", type=int, default=0)
+    parser.add_argument("--limit", type=int, default=20, help="The number of addresses you want to display (default is 20).")
+    parser.add_argument("--offset", type=int, default=0, help="Start displaying addresses at this index number (default is 0).")
 
     args = parser.parse_args()
 

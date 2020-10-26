@@ -29,8 +29,8 @@ if __name__ == "__main__":
         help="First words of your seed phrase that you want to find the appropriate final (checksum) word to append",
         required=True,
     )
-    parser.add_argument("--testnet", action="store_true")
-    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--testnet", action="store_true", help="Generate extended pubkey info and BIP32 paths for testnet.")
+    parser.add_argument("--verbose", action="store_true", help="Print out extra debugging info (experts only).")
 
     args = parser.parse_args()
 
