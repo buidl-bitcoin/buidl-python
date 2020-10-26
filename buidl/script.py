@@ -6,6 +6,7 @@ from buidl.helper import (
     encode_bech32_checksum,
     encode_varstr,
     hash160,
+    little_endian_to_int,
     int_to_byte,
     int_to_little_endian,
     read_varint,
