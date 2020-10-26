@@ -7,6 +7,7 @@ from buidl.helper import decode_base58, little_endian_to_int
 from buidl.script import P2PKHScriptPubKey, RedeemScript, WitnessScript
 from buidl.tx import Tx, TxIn, TxOut, TxFetcher
 
+
 class TxTest(TestCase):
     cache_file = "tx.cache"
 
