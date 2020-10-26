@@ -213,15 +213,17 @@ if __name__ == "__main__":
 
     was_signed = psbt_obj.sign_with_private_keys(private_keys)
 
-    TO_DISPLAY = " ".join([
-        "Send",
-        _format_satoshis(output_spend_sats, in_btc=args.display_btc),
-        "to",
-        spend_addr,
-        "with a fee of",
-        _format_satoshis(TX_FEE_SATS, in_btc=args.display_btc),
-        f"({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)",
-    ])
+    TO_DISPLAY = " ".join(
+        [
+            "Send",
+            _format_satoshis(output_spend_sats, in_btc=args.display_btc),
+            "to",
+            spend_addr,
+            "with a fee of",
+            _format_satoshis(TX_FEE_SATS, in_btc=args.display_btc),
+            f"({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)",
+        ]
+    )
 
     if args.verbose:
         print("-" * 80)
