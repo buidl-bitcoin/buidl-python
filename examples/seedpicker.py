@@ -22,11 +22,11 @@ def get_all_valid_checksum_words(first_words):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-        description="Calculate your checksum word and display your multisig extended pubkey information"
+        description="Calculate checksum word and display multisig extended pubkey information for your seed phrase"
     )
     parser.add_argument(
         "--firstWords",
-        help="first words of your seed phrase that we want to find the appropriate final (checksum) word to append",
+        help="First words of your seed phrase that you want to find the appropriate final (checksum) word to append",
         required=True,
     )
     parser.add_argument("--testnet", action="store_true")

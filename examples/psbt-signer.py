@@ -7,14 +7,6 @@ from buidl.hd import HDPrivateKey
 from buidl.helper import hash256
 from buidl.script import WitnessScript, OP_CODE_NAMES
 
-# MNEMONIC = "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo abstract"
-
-# PSBT_B64 = """cHNidP8BAFICAAAAATmuiNDMoIDFGkbzmjO4o5XFcIa/suq0dPzwSXYEX7OTAQAAAAD/////AYcmAAAAAAAAFgAUIt/omUxFi3UfZe3udmqf+kfJo3oAAAAAAAEBKxAnAAAAAAAAIgAgV8V9KO3ZPhSVAz6L9BAFTjBTA6v3Jh5ue9zpMN9Vr7EBBYtRIQKsgw1c0nvywMceF18zkBpGWthmBrhvdtTaKOLekS85WCEDMubsh2ALyRkMDvmQ0/G3P7/BMztnPFpI2WR1hEj2y74hA2Odq3jSQaa+iGPkhTaIH1z7T9X4BBngghbQTdquJpDCIQOds1UQ8tnzBZxIT2itonCSaoro4gSIm+TU0VUGONpgIlSuIgYCrIMNXNJ78sDHHhdfM5AaRlrYZga4b3bU2iji3pEvOVgcOlK1zTAAAIABAACAAAAAgAIAAIAAAAAAAgAAACIGAzLm7IdgC8kZDA75kNPxtz+/wTM7ZzxaSNlkdYRI9su+HMfQZIowAACAAQAAgAAAAIACAACAAAAAAAIAAAAiBgNjnat40kGmvohj5IU2iB9c+0/V+AQZ4IIW0E3ariaQwhwSmA7tMAAAgAEAAIAAAACAAgAAgAAAAAACAAAAIgYDnbNVEPLZ8wWcSE9oraJwkmqK6OIEiJvk1NFVBjjaYCIc99BAkDAAAIABAACAAAAAgAIAAIAAAAAAAgAAAAAA"""
-
-
-# FIXME:
-# Add flag/method for saving to file
-
 
 # TODO: is there a standard to use here?
 # Inspired by https://github.com/trezor/trezor-firmware/blob/e23bb10ec49710cc2b2b993db9c907d3c7becf2c/core/src/apps/wallet/sign_tx/multisig.py#L37
@@ -24,7 +16,7 @@ def calculate_msig_digest(quorum_m, root_xfp_hexes):
 
 
 def _abort(msg):
-    print("ABORTING WITHOUT SIGNING:")
+    print("ABORTING WITHOUT SIGNING:\n")
     print(msg)
     sys.exit(1)
 
@@ -43,7 +35,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--psbt-file",
-        help="PSBT (Partially Signed Bitcoin Transaction) file to sign. /path/to/file.psbt",
+        help="Partially Signed Bitcoin Transaction (PSBT) file to sign. /path/to/file.psbt",
         required=True,
     )
     parser.add_argument(
@@ -51,11 +43,17 @@ if __name__ == "__main__":
         help="Full BIP39 mnemonic",
         required=True,
     )
-    # parser.add_argument("--testnet", action="store_true")
-    parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
-        "--display-btc", action="store_true", help="Display BTCs instead of satoshis"
+        "--verbose",
+        help="Print out more info",
+        action="store_true",
     )
+    parser.add_argument(
+        "--display-btc",
+        action="store_true",
+        help="Display BTC as unit instead of satoshis",
+    )
+    # TODO: add flag for saving output to file
 
     args = parser.parse_args()
 
@@ -63,8 +61,8 @@ if __name__ == "__main__":
 
     psbt_obj = PSBT.parse_base64(psbt_b64)
     psbt_obj.validate()  # redundant but explicit
-    IS_TESTNET = not psbt_obj.tx_obj.testnet  # FIXME, yikes!
     TX_FEE_SATS = psbt_obj.tx_obj.fee()
+    IS_TESTNET = True  # TODO
 
     hd_priv = HDPrivateKey.from_mnemonic(
         mnemonic=args.mnemonic.strip(), testnet=psbt_obj.tx_obj.testnet
@@ -75,8 +73,9 @@ if __name__ == "__main__":
     # Below is confusing because we perform both validation and coordinate signing.
 
     # This tool only supports a TX with the following constraints:
-    # 1. We sign ALL inputs with the same multisig wallet (quorum/pubkeys)
-    # 2. There can only be 1 output (sweep transaction) or 2 outputs (spend + change). If there is change, we validate that it matches the inputs.
+    #   We sign ALL inputs and they have the same multisig wallet (quorum + pubkeys)
+    #   There can only be 1 output (sweep transaction) or 2 outputs (spend + change).
+    #   If there is change, we validate it has the same multiisg wallet as the inputs we sign.
 
     # Gather TX info and validate
     inputs_desc = []
@@ -128,6 +127,8 @@ if __name__ == "__main__":
             "Multiple different multisig quorums in inputs. Construct a transaction with one input to continue."
         )
 
+    TOTAL_INPUT_SATS = sum([x["sats"] for x in inputs_desc])
+
     # Currently only supporting TXs with 1-2 outputs (sweep TX OR spend+change TX):
     if len(psbt_obj.psbt_outs) > 2:
         _abort(
@@ -146,7 +147,6 @@ if __name__ == "__main__":
                 "ScriptPubKey"
             ),
             "is_change": False,
-            # TODO: add nsequence!
         }
 
         if psbt_out.witness_script:
@@ -203,18 +203,25 @@ if __name__ == "__main__":
                 f"Cannot have both outputs be change or spend, must be 1-and-1. {outputs_desc}"
             )
 
-    total_input_sats = sum([x["sats"] for x in inputs_desc])
-    print()
-    print(
-        "PSBT sends",
+    # Derive list of child private keys we'll use to sign the TX
+    private_keys = []
+    for root_path in set([x["root_path_used"] for x in inputs_desc]):
+        private_keys.append(hd_priv.traverse(root_path).private_key)
+
+    if args.verbose:
+        print("Signing...")
+
+    was_signed = psbt_obj.sign_with_private_keys(private_keys)
+
+    TO_DISPLAY = " ".join([
+        "Send",
         _format_satoshis(output_spend_sats, in_btc=args.display_btc),
         "to",
         spend_addr,
         "with a fee of",
         _format_satoshis(TX_FEE_SATS, in_btc=args.display_btc),
-        f"({round(TX_FEE_SATS / total_input_sats * 100, 2)}% of spend)",
-    )
-    print()
+        f"({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)",
+    ])
 
     if args.verbose:
         print("-" * 80)
@@ -238,15 +245,9 @@ if __name__ == "__main__":
                 print(f"    {k}: {v}")
         print("-" * 80)
 
-    # Derive list of child private keys we'll use to sign the TX
-    private_keys = []
-    for root_path in set([x["root_path_used"] for x in inputs_desc]):
-        private_keys.append(hd_priv.traverse(root_path).private_key)
-
-    print("Signing...")
-    was_signed = psbt_obj.sign_with_private_keys(private_keys)
     if was_signed is True:
-        print("Signed Transaction to Broadcast:\n")
+        print()
+        print(TO_DISPLAY, "by using this SIGNED PSBT:\n")
         print(psbt_obj.serialize_base64())
     else:
-        _abort("TRANSACTION WASN'T SIGNED!")
+        _abort("PSBT wasn't signed: \n\n{TO_DISPLAY}")

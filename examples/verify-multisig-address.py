@@ -52,7 +52,7 @@ def get_pubkeys_info_from_descriptor(descriptor):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-        description="Calculate your checksum word and display your multisig extended pubkey information"
+        description="Derive bitcoin addresses from your multisig wallet public key information."
     )
     parser.add_argument(
         "--descriptor",
@@ -67,8 +67,6 @@ if __name__ == "__main__":
     contents = Path(args.descriptor).read_text()
     pubkeys_info = get_pubkeys_info_from_descriptor(contents)
 
-    sec_hex_lists = []
-
     for cnt in range(args.limit):
         sec_hexes_to_use = []
         for pubkey_info in pubkeys_info["pubkey_dicts"]:
@@ -82,4 +80,4 @@ if __name__ == "__main__":
         commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
         witness_script = WitnessScript(commands)
         redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
-        print(cnt + args.offset, redeem_script.address(testnet=True))
+        print(f"Address #{cnt + args.offset}: {redeem_script.address(testnet=True)}")
