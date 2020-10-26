@@ -56,13 +56,13 @@ Deposit funds to these addresses once you feel comfortable that you control the 
 It will have a name like `base64_[txid].psbt`
 
 ```bash
-$ python examples/psbt-signer.py --psbt-file=/Users/mflaxman/Downloads/base64_9054a37e11bdccafd8a2a92649ea3ebadffd8b1c36546c203673b98454eb5eae.psbt --mnemonic="zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo abstract"
+$ python examples/psbt-signer.py --psbt-file=/path/to/base64_txid.psbt --mnemonic="zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo abstract"
 
 Send 2,000 sats to tb1q3ymmeq9x4r5fa05j8fnzl6lmjgnvsfrcz6p956 with a fee of 181 sats (6.03% of spend) by using this SIGNED PSBT:
 
 cHNidP8BAH0CAAAAARVgWQtftdJCzn1Y5lmUcrYswnXIoNNl0kFrflKrSiEhAAAAAAD...
 ```
 
-Copy the `SIGNED PSBT` and past it to `Specter-Desktop` by clicking on the `Paste signed transaction`.
+Copy the `SIGNED PSBT` and paste it to `Specter-Desktop` by clicking on the `Paste signed transaction`.
 
 Once your transaction has collected `m` signatures, you can click `Send Transaction`.
