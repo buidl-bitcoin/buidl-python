@@ -150,7 +150,7 @@ def _get_network():
     return _get_network()
 
 
-def _get_int(prompt, default=20, minimum=0):
+def _get_int(prompt, default=20, minimum=0, maximum=2 ** 32):
     res = input(blue_fg(f"{prompt} [{default}]: ")).strip()
     if not res:
         res = str(default)
@@ -158,10 +158,14 @@ def _get_int(prompt, default=20, minimum=0):
         res_int = int(res)
     except ValueError:
         print(red_fg(f"{res} is not an integer"))
-        return _get_int(prompt=prompt, default=default, minimum=minimum)
-    if minimum > res_int:
-        print(red_fg(f"{res_int} must be < {minimum}"))
-        return _get_int(prompt=prompt, default=default, minimum=minimum)
+        return _get_int(
+            prompt=prompt, default=default, minimum=minimum, maximum=maximum
+        )
+    if not minimum <= res_int <= maximum:
+        print(red_fg(f"{res_int} must be between {minimum} and {maximum}"))
+        return _get_int(
+            prompt=prompt, default=default, minimum=minimum, maximum=maximum
+        )
     return res_int
 
 
@@ -285,20 +289,27 @@ class MyPrompt(Cmd):
         """Calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
         network = _get_network()
         first_words, valid_checksum_words = _get_bip39_seed_from_firstwords()
-        line = ""
-        for i, word in enumerate(valid_checksum_words):
-            current = f"{i}. {word}"
-            if len(current) < 8:
-                current += "\t"
-            line += f"{current}\t"
-            if i % 4 == 3:
-                print(line)
-                line = ""
-        index = int(
-            input(blue_fg("Please choose one of the possible last words from above: "))
-        )
+
+        if _get_bool("Use default checksum index for BIP39 seed phrase?", default=True):
+            index = 0
+        else:
+            line = ""
+            for i, word in enumerate(valid_checksum_words):
+                current = f"{i}. {word}"
+                if len(current) < 8:
+                    current += "\t"
+                line += f"{current}\t"
+                if i % 4 == 3:
+                    print(line)
+                    line = ""
+            index = _get_int(
+                prompt="Choose one of the possible last words from above",
+                default=0,
+                minimum=0,
+                maximum=len(valid_checksum_words) - 1,
+            )
+
         last_word = valid_checksum_words[index]
-        print(green_fg(f"Last word: {last_word}"))
         if network == "Mainnet":
             PATH = "m/48'/0'/0'/2'"
             SLIP132_VERSION_BYTES = "02aa7ed3"
@@ -306,7 +317,8 @@ class MyPrompt(Cmd):
             PATH = "m/48'/1'/0'/2'"
             SLIP132_VERSION_BYTES = "02575483"
         hd_priv = HDPrivateKey.from_mnemonic(first_words + " " + last_word)
-        print(green_fg("SECRET INFO") + yellow_fg("( guard this VERY carefully)"))
+        print(green_fg("SECRET INFO") + yellow_fg(" (guard this VERY carefully)"))
+        print(green_fg(f"Last word: {last_word}"))
         print(
             green_fg(
                 f"Full ({len(first_words.split()) + 1} word) mnemonic with last word: {first_words + ' ' + last_word}"
