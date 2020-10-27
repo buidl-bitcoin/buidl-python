@@ -9,17 +9,13 @@ from buidl.block import Block
 from buidl.helper import (
     GOLOMB_M,
     GOLOMB_P,
-    calculate_new_bits,
-    decode_base58,
     decode_golomb,
     encode_varint,
-    encode_varstr,
     hash256,
     hash_to_range,
     int_to_little_endian,
     little_endian_to_int,
     read_varint,
-    read_varstr,
     unpack_bits,
 )
 from buidl.tx import Tx

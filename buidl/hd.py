@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from buidl.ecc import G, N, PrivateKey, S256Point
+from buidl.ecc import N, PrivateKey, S256Point
 from buidl.helper import (
     big_endian_to_int,
     byte_to_int,

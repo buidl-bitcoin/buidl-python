@@ -4,7 +4,6 @@ from urllib import request
 
 import json
 
-from buidl.ecc import PrivateKey, Signature
 from buidl.helper import (
     big_endian_to_int,
     decode_base58,
