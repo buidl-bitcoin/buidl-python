@@ -524,11 +524,13 @@ class Tx:
         if not self.is_coinbase():
             return None
         # grab the first input
-        first_input = self.tx_ins[0]
-        # grab the first command of the script_sig (.script_sig.commands[0])
-        first_command = first_input.script_sig.commands[0]
-        # convert the first command from little endian to int
-        return little_endian_to_int(first_command)
+        script_sig = self.tx_ins[0].script_sig
+        # get the first byte of the scriptsig, which is the length
+        length = script_sig.coinbase[0]
+        # get the next length bytes
+        command = script_sig.coinbase[1 : 1 + length]
+        # convert the command from little endian to int
+        return little_endian_to_int(command)
 
     def find_utxos(self, address):
         """Returns transaction outputs that matches the address"""
