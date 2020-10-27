@@ -1,4 +1,5 @@
 from buidl.helper import (
+    bits_to_target,
     hash256,
     int_to_little_endian,
     little_endian_to_int,
@@ -121,13 +122,7 @@ class Block:
 
     def target(self):
         """Returns the proof-of-work target based on the bits"""
-        # last byte is exponent
-        exponent = self.bits[-1]
-        # the first three bytes are the coefficient in little endian
-        coefficient = little_endian_to_int(self.bits[:-1])
-        # the formula is:
-        # coefficient * 256**(exponent-3)
-        return coefficient * 256 ** (exponent - 3)
+        return bits_to_target(self.bits)
 
     def difficulty(self):
         """Returns the block difficulty based on the bits"""
