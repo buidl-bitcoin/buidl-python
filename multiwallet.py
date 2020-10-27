@@ -159,17 +159,21 @@ def _get_int(prompt, default=20, minimum=0, maximum=None):
     except ValueError:
         print(red_fg(f"{res} is not an integer"))
         return _get_int(
-            prompt=prompt, default=default, minimum=minimum, maximum=maximum
+            prompt=prompt,
+            default=default,
+            minimum=minimum,
+            maximum=maximum,
         )
-    if maximum is None:
-        if res_int > maximum:
-            print(red_fg(f"{res_int} must be less <= {maximum}"))
 
-    elif not minimum <= res_int <= maximum:
-        print(red_fg(f"{res_int} must be between {minimum} and {maximum}"))
-        return _get_int(
-            prompt=prompt, default=default, minimum=minimum, maximum=maximum
-        )
+    if maximum is not None:
+        if not minimum <= res_int <= maximum:
+            print(red_fg(f"{res_int} must be between {minimum} and {maximum}"))
+            return _get_int(
+                prompt=prompt, default=default, minimum=minimum, maximum=maximum
+            )
+    elif res_int < minimum:
+        print(red_fg(f"{res_int} must be less >= {minimum}"))
+
     return res_int
 
 
