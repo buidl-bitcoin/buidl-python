@@ -1,5 +1,6 @@
 import re
 import readline
+import sys
 
 from cmd import Cmd
 
@@ -14,67 +15,27 @@ readline.parse_and_bind("tab: complete")
 
 
 # https://stackoverflow.com/questions/287871/how-to-print-colored-text-in-python
-class colors:
-    """Colors class:
-    reset all colors with colors.reset
-    two subclasses fg for foreground and bg for background.
-    use as colors.subclass.colorname.
-    i.e. colors.fg.red or colors.bg.green
-    also, the generic bold, disable, underline, reverse, strikethrough,
-    and invisible work with the main class
-    i.e. colors.bold
-    """
-
-    reset = "\033[0m"
-    bold = "\033[01m"
-    disable = "\033[02m"
-    underline = "\033[04m"
-    reverse = "\033[07m"
-    strikethrough = "\033[09m"
-    invisible = "\033[08m"
-
-    class fg:
-        black = "\033[30m"
-        red = "\033[31m"
-        green = "\033[32m"
-        orange = "\033[33m"
-        blue = "\033[34m"
-        purple = "\033[35m"
-        cyan = "\033[36m"
-        lightgrey = "\033[37m"
-        darkgrey = "\033[90m"
-        lightred = "\033[91m"
-        lightgreen = "\033[92m"
-        yellow = "\033[93m"
-        lightblue = "\033[94m"
-        pink = "\033[95m"
-        lightcyan = "\033[96m"
-
-    class bg:
-        black = "\033[40m"
-        red = "\033[41m"
-        green = "\033[42m"
-        orange = "\033[43m"
-        blue = "\033[44m"
-        purple = "\033[45m"
-        cyan = "\033[46m"
-        lightgrey = "\033[47m"
+RESET_TERMINAL_COLOR = "\033[0m"
+BLUE_FOREGOUND_COLOR = "\033[34m"
+YELLOW_FOREGOUND_COLOR = "\033[93m"
+GREEN_FOREGOUND_COLOR = "\033[32m"
+RED_FOREGOUND_COLOR = "\033[31m"
 
 
 def blue_fg(string):
-    return f"{colors.fg.blue}{string}{colors.reset}"
+    return f"{BLUE_FOREGOUND_COLOR}{string}{RESET_TERMINAL_COLOR}"
 
 
 def yellow_fg(string):
-    return f"{colors.fg.yellow}{string}{colors.reset}"
+    return f"{YELLOW_FOREGOUND_COLOR}{string}{RESET_TERMINAL_COLOR}"
 
 
 def green_fg(string):
-    return f"{colors.fg.green}{string}{colors.reset}"
+    return f"{GREEN_FOREGOUND_COLOR}{string}{RESET_TERMINAL_COLOR}"
 
 
 def red_fg(string):
-    return f"{colors.fg.red}{string}{colors.reset}"
+    return f"{RED_FOREGOUND_COLOR}{string}{RESET_TERMINAL_COLOR}"
 
 
 def get_all_valid_checksum_words(first_words):
@@ -207,7 +168,9 @@ def _get_output_descriptor():
 
 
 def _get_psbt_obj():
-    psbt_b64 = input(blue_fg(f"Paste partially signed bitcoin transaction (PSBT) in base64 form: ")).strip()
+    psbt_b64 = input(
+        blue_fg(f"Paste partially signed bitcoin transaction (PSBT) in base64 form: ")
+    ).strip()
     try:
         psbt_obj = PSBT.parse_base64(psbt_b64)
         # redundant but explicit
@@ -251,6 +214,7 @@ def _get_detailed_summary():
     print(red_fg("Please choose either y or n"))
     return _get_detailed_summary()
 
+
 def _get_hd_priv_from_bip39_seed(is_testnet):
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=WORD_LIST)
@@ -259,7 +223,9 @@ def _get_hd_priv_from_bip39_seed(is_testnet):
     seed_phrase = input(blue_fg("Enter your 24 word BIP39 seed phrase: ")).strip()
     seed_phrase_num = len(seed_phrase.split())
     if seed_phrase_num not in (12, 15, 18, 21, 24):
-        print(red_fg(f"Enter 24 word seed-phrase (you entered {seed_phrase_num} words)"))
+        print(
+            red_fg(f"Enter 24 word seed-phrase (you entered {seed_phrase_num} words)")
+        )
         # Other length seed phrases also work but this is not documented as it's for advanced users
         return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
     for cnt, word in enumerate(seed_phrase.split()):
@@ -279,7 +245,7 @@ def _get_hd_priv_from_bip39_seed(is_testnet):
 def _get_units():
     units = input(blue_fg(f"Units to diplay [BTC/sats]: ")).strip().lower()
     if units in ("", "btc", "btcs", "bitcoin", "bitcoins"):
-        return 'btc'
+        return "btc"
     if units in ("sat", "satoshis", "sats"):
         return "sats"
     print(red_fg("Please choose either BTC or sats"))
@@ -301,6 +267,9 @@ def calculate_msig_digest(quorum_m, root_xfp_hexes):
 
 
 class MyPrompt(Cmd):
+    intro = "Welcome to multiwallet, a stateless multisig ONLY wallet. Type help or ? to list commands.\n"
+    prompt = "(₿) "  # the bitcoin symbol :)
+
     def __init__(self):
         super().__init__()
 
@@ -413,9 +382,13 @@ class MyPrompt(Cmd):
 
             # Determine quroum_m (and that it hasn't changed between inputs)
             try:
-                quorum_m = OP_CODE_NAMES[psbt_in.witness_script.commands[0]].split("OP_")[1]
+                quorum_m = OP_CODE_NAMES[psbt_in.witness_script.commands[0]].split(
+                    "OP_"
+                )[1]
             except Exception:
-                return _abort(f"Witness script for input #{cnt} is not p2wsh:\n{psbt_in})")
+                return _abort(
+                    f"Witness script for input #{cnt} is not p2wsh:\n{psbt_in})"
+                )
 
             root_path_used = None
             root_xfp_hexes = []  # for calculating msig fingerprint
@@ -441,11 +414,15 @@ class MyPrompt(Cmd):
                 ),
             }
             if not root_path_used:
-                return _abort(f"This key is not a participant in input #{cnt}:\n{input_desc}")
+                return _abort(
+                    f"This key is not a participant in input #{cnt}:\n{input_desc}"
+                )
 
             inputs_desc.append(input_desc)
 
-        if not all(x["msig_digest"] == inputs_desc[0]["msig_digest"] for x in inputs_desc):
+        if not all(
+            x["msig_digest"] == inputs_desc[0]["msig_digest"] for x in inputs_desc
+        ):
             return _abort(
                 "Multiple different multisig quorums in inputs. Construct a transaction with one input to continue."
             )
@@ -473,9 +450,13 @@ class MyPrompt(Cmd):
             }
 
             if psbt_out.witness_script:
-                output_desc["addr"] = psbt_out.witness_script.address(testnet=IS_TESTNET)
+                output_desc["addr"] = psbt_out.witness_script.address(
+                    testnet=IS_TESTNET
+                )
             else:
-                output_desc["addr"] = psbt_out.tx_out.script_pubkey.address(testnet=IS_TESTNET)
+                output_desc["addr"] = psbt_out.tx_out.script_pubkey.address(
+                    testnet=IS_TESTNET
+                )
 
             if psbt_out.named_pubs:
                 # Validate below that this is correct and abort otherwise
@@ -493,7 +474,9 @@ class MyPrompt(Cmd):
                         "OP_"
                     )[1]
                 except Exception:
-                    return _abort(f"Witness script for input #{cnt} is not p2wsh:\n{psbt_in})")
+                    return _abort(
+                        f"Witness script for input #{cnt} is not p2wsh:\n{psbt_in})"
+                    )
 
                 output_msig_digest = calculate_msig_digest(
                     quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
@@ -519,7 +502,9 @@ class MyPrompt(Cmd):
 
         # Confirm if 2 outputs we only have 1 change and 1 spend (can't be 2 changes or 2 spends)
         if len(outputs_desc) == 2:
-            if all(x["is_change"] == outputs_desc[0]["is_change"] for x in outputs_desc):
+            if all(
+                x["is_change"] == outputs_desc[0]["is_change"] for x in outputs_desc
+            ):
                 return _abort(
                     f"Cannot have both outputs be change or spend, must be 1-and-1. {outputs_desc}"
                 )
@@ -529,16 +514,15 @@ class MyPrompt(Cmd):
         for root_path in set([x["root_path_used"] for x in inputs_desc]):
             private_keys.append(hd_priv.traverse(root_path).private_key)
 
-
         UNITS = _get_units()
         TX_SUMMARY = " ".join(
             [
                 "send",
-                _format_satoshis(output_spend_sats, in_btc=UNITS=='btc'),
+                _format_satoshis(output_spend_sats, in_btc=UNITS == "btc"),
                 "to",
                 spend_addr,
                 "with a fee of",
-                _format_satoshis(TX_FEE_SATS, in_btc=UNITS=='btc'),
+                _format_satoshis(TX_FEE_SATS, in_btc=UNITS == "btc"),
                 f"({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)",
             ]
         )
@@ -576,12 +560,15 @@ class MyPrompt(Cmd):
         else:
             return _abort("PSBT wasn't signed")
 
-
     def do_exit(self, arg):
         """Exit Program"""
-        print("Quitting multiwallet, no data saved")
+        print(yellow_fg("Quitting multiwallet, "))
         return True
 
 
 if __name__ == "__main__":
-    MyPrompt().cmdloop()
+    try:
+        MyPrompt().cmdloop()
+    except KeyboardInterrupt:
+        print(yellow_fg("\nNo data saved\n"))
+        sys.exit(0)
