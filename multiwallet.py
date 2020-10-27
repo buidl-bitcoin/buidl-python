@@ -178,7 +178,7 @@ def _get_output_descriptor():
 
 def _get_psbt_obj():
     psbt_b64 = input(
-        blue_fg(f"Paste partially signed bitcoin transaction (PSBT) in base64 form: ")
+        blue_fg("Paste partially signed bitcoin transaction (PSBT) in base64 form: ")
     ).strip()
     try:
         psbt_obj = PSBT.parse_base64(psbt_b64)
@@ -214,16 +214,6 @@ def _get_bool(prompt, default=True):
     return _get_bool(prompt=prompt, default=default)
 
 
-def _get_detailed_summary():
-    detailed_str = input(blue_fg(f"In Depth Transaction View? [y/N]: ")).strip().lower()
-    if detailed_str in ("", "n", "no"):
-        return False
-    if detailed_str in ("y", "yes"):
-        return True
-    print(red_fg("Please choose either y or n"))
-    return _get_detailed_summary()
-
-
 def _get_hd_priv_from_bip39_seed(is_testnet):
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=WORD_LIST)
@@ -252,7 +242,7 @@ def _get_hd_priv_from_bip39_seed(is_testnet):
 
 
 def _get_units():
-    units = input(blue_fg(f"Units to diplay [BTC/sats]: ")).strip().lower()
+    units = input(blue_fg("Units to diplay [BTC/sats]: ")).strip().lower()
     if units in ("", "btc", "btcs", "bitcoin", "bitcoins"):
         return "btc"
     if units in ("sat", "satoshis", "sats"):
@@ -277,7 +267,7 @@ def calculate_msig_digest(quorum_m, root_xfp_hexes):
 
 def _is_libsec_enabled():
     try:
-        from buidl import cecc
+        from buidl import cecc  # noqa: F401
 
         return True
     except ModuleNotFoundError:
@@ -456,8 +446,7 @@ class MyPrompt(Cmd):
                 f"This tool does not support batching, your transaction has {len(psbt_obj.psbt_outs)} outputs. Please construct a transaction with <= 2 outputs."
             )
 
-        spend_addr, change_addr = "", ""
-        output_spend_sats, output_change_sats = 0, 0
+        spend_addr, output_spend_sats = "", 0
         outputs_desc = []
         for cnt, psbt_out in enumerate(psbt_obj.psbt_outs):
             psbt_out.validate()  # redundant but explicit
@@ -482,8 +471,6 @@ class MyPrompt(Cmd):
             if psbt_out.named_pubs:
                 # Validate below that this is correct and abort otherwise
                 output_desc["is_change"] = True
-                change_addr = output_desc["addr"]
-                output_change_sats = output_desc["sats"]
 
                 root_xfp_hexes = []  # for calculating msig fingerprint
                 for _, details in psbt_out.named_pubs.items():
@@ -576,7 +563,7 @@ class MyPrompt(Cmd):
 
         if psbt_obj.sign_with_private_keys(private_keys) is True:
             print()
-            print(green_fg(f"Signed PSBT to broadcast:\n"))
+            print(green_fg("Signed PSBT to broadcast:\n"))
             print(green_fg(psbt_obj.serialize_base64()))
         else:
             return _abort("PSBT wasn't signed")
