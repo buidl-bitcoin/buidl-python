@@ -1,5 +1,6 @@
-import argparse, sys
-from io import BytesIO
+import argparse
+import sys
+
 from pathlib import Path
 
 from buidl.psbt import PSBT
