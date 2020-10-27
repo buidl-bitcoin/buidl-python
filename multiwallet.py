@@ -172,7 +172,7 @@ def _get_int(prompt, default=20, minimum=0, maximum=None):
                 prompt=prompt, default=default, minimum=minimum, maximum=maximum
             )
     elif res_int < minimum:
-        print(red_fg(f"{res_int} must be less >= {minimum}"))
+        print(red_fg(f"{res_int} must be >={minimum}"))
 
     return res_int
 
