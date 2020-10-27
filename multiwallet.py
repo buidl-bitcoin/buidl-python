@@ -98,7 +98,16 @@ def _get_pubkeys_info_from_descriptor(descriptor):
         len(set([x[:4] for x in all_pubkeys])) == 1
     ), "ERROR: multiple conflicting networks in pubkeys: {}".format(all_pubkeys)
 
+    xpub_prefix = all_pubkeys[0][:4]
+    if xpub_prefix == 'tpub':
+        is_testnet = True
+    elif xpub_prefix == 'xpub':
+        is_testnet = False
+    else:
+        raise Exception(f"Invalid xpub prefix: {xpub_prefix}")
+
     return {
+        "is_testnet": is_testnet,
         "quorum_m": quorum_m,
         "quorum_n": quorum_n,
         "pubkey_dicts": pubkey_dicts,
@@ -298,7 +307,7 @@ class MyPrompt(Cmd):
             first_words + " " + valid_checksum_words[0]
         )
 
-        print(green_fg("SECRET INFO") + yellow_fg(" guard this very carefully"))
+        print(green_fg("SECRET INFO") + yellow_fg("( guard this VERY carefully)"))
         print(green_fg(f"Calculated last word: {valid_checksum_words[0]}"))
         print(
             green_fg(
@@ -324,12 +333,8 @@ class MyPrompt(Cmd):
         )
 
     def do_verify_receive_address(self, arg):
-        """
-        Verify receive addresses for a multisig wallet (using output descriptors from Specter-Desktop).
-        No private key information needed.
-        """
+        """Verify receive addresses for a multisig wallet (using output descriptors from Specter-Desktop)"""
         pubkeys_info = _get_output_descriptor()
-        network = _get_network()
         limit = _get_int(
             prompt="Limit of addresses to display",
             default=20,  # This is slow without libsecp256k1 :(
@@ -365,7 +370,7 @@ class MyPrompt(Cmd):
             redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
             print(
                 green_fg(
-                    f"#{cnt + offset}: {redeem_script.address(testnet=network.lower()=='testnet')}"
+                    f"#{cnt + offset}: {redeem_script.address(testnet=pubkeys_info['is_testnet'])}"
                 )
             )
 
