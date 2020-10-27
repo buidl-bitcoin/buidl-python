@@ -179,7 +179,7 @@ def _get_network():
     return _get_network()
 
 
-def _get_int(prompt, default=20, minimum=0, maximum=20):
+def _get_int(prompt, default=20, minimum=0):
     res = input(blue_fg(f"{prompt} [{default}]: ")).strip()
     if not res:
         res = str(default)
@@ -190,12 +190,23 @@ def _get_int(prompt, default=20, minimum=0, maximum=20):
         return _get_int(
             prompt=prompt, default=default, minimum=minimum, maximum=maximum
         )
-    if not minimum <= res_int <= maximum:
-        print(red_fg(f"{res_int} must be between {minimum} and {maximum}"))
+    if minimum > res_int:
+        print(red_fg(f"{res_int} must be < {minimum}"))
         return _get_int(
             prompt=prompt, default=default, minimum=minimum, maximum=maximum
         )
     return res_int
+
+
+def _get_output_descriptor():
+    output_descriptor = input(
+        blue_fg("Paste in your output descriptor from Specter-Desktop: ")
+    ).strip()
+    try:
+        return _get_pubkeys_info_from_descriptor(descriptor=output_descriptor)
+    except Exception as e:
+        print(red_fg(f"Could not parse output descriptor: {e}"))
+        return _get_output_descriptor()
 
 
 class MyPrompt(Cmd):
@@ -245,23 +256,20 @@ class MyPrompt(Cmd):
 
     def do_verify_receive_address(self, arg):
         """Verify receive addresses for a multisig wallet (using output descriptors from Specter-Desktop)"""
-        output_descriptor = input(
-            blue_fg("Paste in your output descriptor from Specter-Desktop: ")
-        ).strip()
-        pubkeys_info = _get_pubkeys_info_from_descriptor(descriptor=output_descriptor)
+        pubkeys_info = _get_output_descriptor()
+        network = _get_network()
         limit = _get_int(
-            prompt="Limit of addresses to generate",
-            default=20,
+            prompt="Limit of addresses to display",
+            default=50,
             minimum=1,
-            maximum=10 ** 10,
         )
         offset = _get_int(
-            prompt="Offset of addresses to generate - EXPERTS ONLY",
+            prompt="Offset of addresses to display",
             default=0,
             minimum=0,
-            maximum=10 ** 10,
         )
 
+        print(green_fg(f"Multisig Addresses:"))
         for cnt in range(limit):
             sec_hexes_to_use = []
             for pubkey_info in pubkeys_info["pubkey_dicts"]:
@@ -271,15 +279,19 @@ class MyPrompt(Cmd):
 
             commands = [OP_CODE_NAMES_LOOKUP["OP_{}".format(pubkeys_info["quorum_m"])]]
             commands.extend(
-                [bytes.fromhex(x) for x in sorted(sec_hexes_to_use)]
-            )  # BIP67
+                [bytes.fromhex(x) for x in sorted(sec_hexes_to_use)]  # BIP67
+            )
             commands.append(
                 OP_CODE_NAMES_LOOKUP["OP_{}".format(pubkeys_info["quorum_n"])]
             )
             commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
             witness_script = WitnessScript(commands)
             redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
-            print(f"Address #{cnt + offset}: {redeem_script.address(testnet=True)}")
+            print(
+                green_fg(
+                    f"Address #{cnt + offset}: {redeem_script.address(testnet=network.lower()=='testnet')}"
+                )
+            )
 
     def do_sign_psbt(self, arg):
         """Sign a PSBT from Specter-Desktop using one of your mnemonics"""
