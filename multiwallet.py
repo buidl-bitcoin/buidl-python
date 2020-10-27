@@ -4,10 +4,11 @@ import readline
 from cmd import Cmd
 
 from buidl.hd import HDPrivateKey, HDPublicKey
-from buidl.helper import sha256
+from buidl.helper import sha256, hash256
 from buidl.mnemonic import WORD_LIST, WORD_LOOKUP
+from buidl.psbt import PSBT
 from buidl.script import P2WSHScriptPubKey, WitnessScript
-from buidl.op import OP_CODE_NAMES_LOOKUP
+from buidl.op import OP_CODE_NAMES, OP_CODE_NAMES_LOOKUP
 
 readline.parse_and_bind("tab: complete")
 
@@ -143,7 +144,7 @@ def _get_pubkeys_info_from_descriptor(descriptor):
     }
 
 
-def _get_bip39_checksumwords():
+def _get_bip39_seed_from_firstwords():
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=WORD_LIST)
 
@@ -153,15 +154,15 @@ def _get_bip39_checksumwords():
     if fw_num not in (11, 14, 17, 20, 23):
         # TODO: 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for advanced users
         print(red_fg(f"Enter 23 word seed-phrase (you entered {fw_num} words)"))
-        return _get_bip39_checksumwords()
+        return _get_bip39_seed_from_firstwords()
     for cnt, word in enumerate(fw.split()):
         if word not in WORD_LOOKUP:
             print(red_fg(f"Word #{cnt+1} ({word} is not a valid BIP39 word"))
-            return _get_bip39_checksumwords()
+            return _get_bip39_seed_from_firstwords()
     valid_checksum_words, err_str = get_all_valid_checksum_words(fw)
     if err_str:
         print(red_fg(f"Error calculating checksum word: {err_str}"))
-        return _get_bip39_checksumwords()
+        return _get_bip39_seed_from_firstwords()
 
     readline.set_completer(old_completer)
     return fw, valid_checksum_words
@@ -187,14 +188,10 @@ def _get_int(prompt, default=20, minimum=0):
         res_int = int(res)
     except ValueError:
         print(red_fg(f"{res} is not an integer"))
-        return _get_int(
-            prompt=prompt, default=default, minimum=minimum, maximum=maximum
-        )
+        return _get_int(prompt=prompt, default=default, minimum=minimum)
     if minimum > res_int:
         print(red_fg(f"{res_int} must be < {minimum}"))
-        return _get_int(
-            prompt=prompt, default=default, minimum=minimum, maximum=maximum
-        )
+        return _get_int(prompt=prompt, default=default, minimum=minimum)
     return res_int
 
 
@@ -209,6 +206,100 @@ def _get_output_descriptor():
         return _get_output_descriptor()
 
 
+def _get_psbt_obj():
+    psbt_b64 = input(blue_fg(f"Paste partially signed bitcoin transaction (PSBT) in base64 form: ")).strip()
+    try:
+        psbt_obj = PSBT.parse_base64(psbt_b64)
+        # redundant but explicit
+        if psbt_obj.validate() is not True:
+            raise Exception("PSBT does not validate")
+    except Exception as e:
+        print(red_fg(f"Could not parse PSBT: {e}"))
+        return _get_psbt_obj()
+    return psbt_obj
+
+
+def _abort(msg):
+    " Used because TX signing is complicated and we might bail after intial pasting of PSBT "
+    print(red_fg("ABORTING WITHOUT SIGNING:\n"))
+    print(red_fg(msg))
+    return True
+
+
+def _get_bool(prompt, default=True):
+    if default is True:
+        yn = "[Y/n]"
+    else:
+        yn = "[y/N]"
+    response_str = input(blue_fg(f"{prompt} {yn}: ")).strip().lower()
+    if response_str == "":
+        return default
+    if response_str in ("n", "no"):
+        return False
+    if response_str in ("y", "yes"):
+        return True
+    print(red_fg("Please choose either y or n"))
+    return _get_bool(prompt=prompt, default=default)
+
+
+def _get_detailed_summary():
+    detailed_str = input(blue_fg(f"In Depth Transaction View? [y/N]: ")).strip().lower()
+    if detailed_str in ("", "n", "no"):
+        return False
+    if detailed_str in ("y", "yes"):
+        return True
+    print(red_fg("Please choose either y or n"))
+    return _get_detailed_summary()
+
+def _get_hd_priv_from_bip39_seed(is_testnet):
+    old_completer = readline.get_completer()
+    completer = WordCompleter(wordlist=WORD_LIST)
+
+    readline.set_completer(completer.complete)
+    seed_phrase = input(blue_fg("Enter your 24 word BIP39 seed phrase: ")).strip()
+    seed_phrase_num = len(seed_phrase.split())
+    if seed_phrase_num not in (12, 15, 18, 21, 24):
+        print(red_fg(f"Enter 24 word seed-phrase (you entered {seed_phrase_num} words)"))
+        # Other length seed phrases also work but this is not documented as it's for advanced users
+        return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
+    for cnt, word in enumerate(seed_phrase.split()):
+        if word not in WORD_LOOKUP:
+            print(red_fg(f"Word #{cnt+1} ({word}) is not a valid BIP39 word"))
+            return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
+    try:
+        hd_priv = HDPrivateKey.from_mnemonic(seed_phrase, testnet=is_testnet)
+    except Exception as e:
+        print(red_fg(f"Invalid mnemonic: {e}"))
+        return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
+
+    readline.set_completer(old_completer)
+    return hd_priv
+
+
+def _get_units():
+    units = input(blue_fg(f"Units to diplay [BTC/sats]: ")).strip().lower()
+    if units in ("", "btc", "btcs", "bitcoin", "bitcoins"):
+        return 'btc'
+    if units in ("sat", "satoshis", "sats"):
+        return "sats"
+    print(red_fg("Please choose either BTC or sats"))
+    return units
+
+
+def _format_satoshis(sats, in_btc=False):
+    if in_btc:
+        btc = sats / 10 ** 8
+        return f"{btc:,.8f} BTC"
+    return f"{sats:,} sats"
+
+
+# TODO: is there a standard to use here?
+# Inspired by https://github.com/trezor/trezor-firmware/blob/e23bb10ec49710cc2b2b993db9c907d3c7becf2c/core/src/apps/wallet/sign_tx/multisig.py#L37
+def calculate_msig_digest(quorum_m, root_xfp_hexes):
+    fingerprints_to_hash = "-".join(sorted(root_xfp_hexes))
+    return hash256(f"{quorum_m}:{fingerprints_to_hash}".encode()).hex()
+
+
 class MyPrompt(Cmd):
     def __init__(self):
         super().__init__()
@@ -216,7 +307,7 @@ class MyPrompt(Cmd):
     def do_seedpicker(self, arg):
         """Calculate bitcoin public and private key information from BIP39 words drawn out of a hat"""
         network = _get_network()
-        first_words, valid_checksum_words = _get_bip39_checksumwords()
+        first_words, valid_checksum_words = _get_bip39_seed_from_firstwords()
 
         if network == "Mainnet":
             PATH = "m/48'/0'/0'/2'"
@@ -293,9 +384,198 @@ class MyPrompt(Cmd):
                 )
             )
 
-    def do_sign_psbt(self, arg):
+    def do_psbt_signer(self, arg):
         """Sign a PSBT from Specter-Desktop using one of your mnemonics"""
-        pass
+        psbt_obj = _get_psbt_obj()
+        TX_FEE_SATS = psbt_obj.tx_obj.fee()
+        IS_TESTNET = psbt_obj.tx_obj.testnet
+
+        hd_priv = _get_hd_priv_from_bip39_seed(is_testnet=IS_TESTNET)
+
+        # Validate multisig transaction
+        # TODO: abstract some of this into buidl library?
+        # Below is confusing because we perform both validation and coordinate signing.
+
+        # This tool only supports a TX with the following constraints:
+        #   We sign ALL inputs and they have the same multisig wallet (quorum + pubkeys)
+        #   There can only be 1 output (sweep transaction) or 2 outputs (spend + change).
+        #   If there is change, we validate it has the same multisig wallet as the inputs we sign.
+
+        # Gather TX info and validate
+        inputs_desc = []
+        for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
+            psbt_in.validate()  # redundant but explicit
+
+            if type(psbt_in.witness_script) != WitnessScript:
+                return _abort(
+                    f"Input #{cnt} does not contain a witness script, this tool can only sign p2wsh transactions."
+                )
+
+            # Determine quroum_m (and that it hasn't changed between inputs)
+            try:
+                quorum_m = OP_CODE_NAMES[psbt_in.witness_script.commands[0]].split("OP_")[1]
+            except Exception:
+                return _abort(f"Witness script for input #{cnt} is not p2wsh:\n{psbt_in})")
+
+            root_path_used = None
+            root_xfp_hexes = []  # for calculating msig fingerprint
+            for _, details in psbt_in.named_pubs.items():
+                root_xfp_hexes.append(details.root_fingerprint.hex())
+                if details.root_fingerprint.hex() == hd_priv.fingerprint().hex():
+                    root_path_used = details.root_path
+
+            input_desc = {
+                "quorum": f"{quorum_m}-of-{len(root_xfp_hexes)}",
+                "root_xfp_hexes": root_xfp_hexes,
+                "root_path_used": root_path_used,
+                "prev_txhash": psbt_in.tx_in.prev_tx.hex(),
+                "prev_idx": psbt_in.tx_in.prev_index,
+                "n_sequence": psbt_in.tx_in.sequence,
+                "sats": psbt_in.tx_in.value(),
+                # TODO: would be possible for transaction to be p2sh-wrapped p2wsh (can we tell?)
+                "addr": psbt_in.witness_script.address(testnet=IS_TESTNET),
+                # "p2sh_addr": psbt_in.witness_script.p2sh_address(testnet=IS_TESTNET),
+                "witness_script": str(psbt_in.witness_script),
+                "msig_digest": calculate_msig_digest(
+                    quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
+                ),
+            }
+            if not root_path_used:
+                return _abort(f"This key is not a participant in input #{cnt}:\n{input_desc}")
+
+            inputs_desc.append(input_desc)
+
+        if not all(x["msig_digest"] == inputs_desc[0]["msig_digest"] for x in inputs_desc):
+            return _abort(
+                "Multiple different multisig quorums in inputs. Construct a transaction with one input to continue."
+            )
+
+        TOTAL_INPUT_SATS = sum([x["sats"] for x in inputs_desc])
+
+        # This too only supports TXs with 1-2 outputs (sweep TX OR spend+change TX):
+        if len(psbt_obj.psbt_outs) > 2:
+            return _abort(
+                f"This tool does not support batching, your transaction has {len(psbt_obj.psbt_outs)} outputs. Please construct a transaction with <= 2 outputs."
+            )
+
+        spend_addr, change_addr = "", ""
+        output_spend_sats, output_change_sats = 0, 0
+        outputs_desc = []
+        for cnt, psbt_out in enumerate(psbt_obj.psbt_outs):
+            psbt_out.validate()  # redundant but explicit
+
+            output_desc = {
+                "sats": psbt_out.tx_out.amount,
+                "addr_type": psbt_out.tx_out.script_pubkey.__class__.__name__.rstrip(
+                    "ScriptPubKey"
+                ),
+                "is_change": False,
+            }
+
+            if psbt_out.witness_script:
+                output_desc["addr"] = psbt_out.witness_script.address(testnet=IS_TESTNET)
+            else:
+                output_desc["addr"] = psbt_out.tx_out.script_pubkey.address(testnet=IS_TESTNET)
+
+            if psbt_out.named_pubs:
+                # Validate below that this is correct and abort otherwise
+                output_desc["is_change"] = True
+                change_addr = output_desc["addr"]
+                output_change_sats = output_desc["sats"]
+
+                root_xfp_hexes = []  # for calculating msig fingerprint
+                for _, details in psbt_out.named_pubs.items():
+                    root_xfp_hexes.append(details.root_fingerprint.hex())
+
+                # Determine quroum_m (and that it hasn't changed between inputs)
+                try:
+                    quorum_m = OP_CODE_NAMES[psbt_out.witness_script.commands[0]].split(
+                        "OP_"
+                    )[1]
+                except Exception:
+                    return _abort(f"Witness script for input #{cnt} is not p2wsh:\n{psbt_in})")
+
+                output_msig_digest = calculate_msig_digest(
+                    quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
+                )
+                if (
+                    output_msig_digest != inputs_desc[0]["msig_digest"]
+                ):  # ALL inputs have the same msig_digest
+                    return _abort(
+                        f"Output #{cnt} is claiming to be change but has different multisig wallet(s)! Do a sweep transaction (1-output) if you want this wallet to cosign."
+                    )
+            else:
+                output_desc["is_change"] = False
+                spend_addr = output_desc["addr"]
+                output_spend_sats = output_desc["sats"]
+
+            outputs_desc.append(output_desc)
+
+        # Sanity check
+        if len(outputs_desc) != len(psbt_obj.psbt_outs):
+            return _abort(
+                f"{len(outputs_desc)} outputs in summary doesn't match {len(psbt_obj.psbt_outs)} outputs in PSBT"
+            )
+
+        # Confirm if 2 outputs we only have 1 change and 1 spend (can't be 2 changes or 2 spends)
+        if len(outputs_desc) == 2:
+            if all(x["is_change"] == outputs_desc[0]["is_change"] for x in outputs_desc):
+                return _abort(
+                    f"Cannot have both outputs be change or spend, must be 1-and-1. {outputs_desc}"
+                )
+
+        # Derive list of child private keys we'll use to sign the TX
+        private_keys = []
+        for root_path in set([x["root_path_used"] for x in inputs_desc]):
+            private_keys.append(hd_priv.traverse(root_path).private_key)
+
+
+        UNITS = _get_units()
+        TX_SUMMARY = " ".join(
+            [
+                "send",
+                _format_satoshis(output_spend_sats, in_btc=UNITS=='btc'),
+                "to",
+                spend_addr,
+                "with a fee of",
+                _format_satoshis(TX_FEE_SATS, in_btc=UNITS=='btc'),
+                f"({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)",
+            ]
+        )
+        print(green_fg(f"Transaction Summary: {TX_SUMMARY}"))
+
+        if _get_bool("In Depth Transaction View?", default=False):
+            print(green_fg("-" * 80))
+            print(green_fg("DETAILED VIEW"))
+            print(green_fg(f"TXID: {psbt_obj.tx_obj.id()}"))
+            print(green_fg(f"{len(inputs_desc)} input(s):"))
+            for cnt, input_desc in enumerate(inputs_desc):
+                print(green_fg(f"  Input #{cnt}"))
+                for (
+                    k,
+                    v,
+                ) in input_desc.items():
+                    print(green_fg(f"    {k}: {v}"))
+            print(green_fg(f"{len(outputs_desc)} output(s):"))
+            for cnt, output_desc in enumerate(outputs_desc):
+                print(green_fg(f"  Output #{cnt}"))
+                for (
+                    k,
+                    v,
+                ) in output_desc.items():
+                    print(green_fg(f"    {k}: {v}"))
+            print("-" * 80)
+
+        if not _get_bool("Sign this transaction?", default=True):
+            return
+
+        if psbt_obj.sign_with_private_keys(private_keys) is True:
+            print()
+            print(green_fg(f"Signed PSBT to broadcast:\n"))
+            print(green_fg(psbt_obj.serialize_base64()))
+        else:
+            return _abort("PSBT wasn't signed")
+
 
     def do_exit(self, arg):
         """Exit Program"""
