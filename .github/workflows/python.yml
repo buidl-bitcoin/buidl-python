@@ -31,7 +31,7 @@ jobs:
         flake8 . --count --statistics
     - name: Test with pytest
       run: |
-        pytest .
+        pytest -v
     - name: Lint with black
       uses: psf/black@stable # the default is equivalent to `black . --diff --check`.
       with:
