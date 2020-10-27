@@ -1,12 +1,9 @@
-from io import BytesIO
-
 import hashlib
 import hmac
 
 from buidl.helper import (
     big_endian_to_int,
     encode_base58_checksum,
-    encode_bech32_checksum,
     hash160,
     hash256,
     int_to_big_endian,
@@ -164,8 +161,6 @@ class S256Point:
     def parse(self, sec_bin):
         """returns a Point object from a SEC binary (not hex)"""
         if sec_bin[0] == 4:
-            x = int.from_bytes(sec_bin[1:33], "big")
-            y = int.from_bytes(sec_bin[33:65], "big")
             return S256Point(usec=sec_bin)
         else:
             return S256Point(csec=sec_bin)
@@ -197,7 +192,7 @@ class Signature:
         return self.der() == other.der()
 
     def __repr__(self):
-        return "Signature()".format(self.der().hex())
+        return "Signature{}".format(self.der().hex())
 
     def der(self):
         if not self.der_cache:

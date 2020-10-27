@@ -16,6 +16,16 @@ $ git clone git@github.com:buidl-bitcoin/buidl-python.git && cd buidl-python
 $ pytest -v
 ```
 
+Run `black`:
+```bash
+$ black . --diff --check
+```
+
+Run `flake8`:
+```bash
+$ flake8 .
+```
+
 ## Performance
 
 You can speed this library up by using C-bindings to [bitcoin core's `libsecp256k1` library](https://github.com/bitcoin-core/secp256k1).

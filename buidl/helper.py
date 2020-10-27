@@ -34,6 +34,8 @@ GEN = [0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3]
 PBKDF2_ROUNDS = 2048
 GOLOMB_P = 19
 GOLOMB_M = int(round(1.497137 * 2 ** GOLOMB_P))
+TWO_WEEKS = 60 * 60 * 24 * 14
+MAX_TARGET = 0xffff * 256**(0x1d - 3)
 
 
 def bytes_to_str(b, encoding="ascii"):
@@ -515,6 +517,37 @@ def serialize_binary_path(path):
     return bin_path
 
 
+def bits_to_target(bits):
+    '''Turns bits into a target (large 256-bit integer)'''
+    # last byte is exponent
+    exponent = bits[-1]
+    # the first three bytes are the coefficient in little endian
+    coefficient = little_endian_to_int(bits[:-1])
+    # the formula is:
+    # coefficient * 256**(exponent-3)
+    return coefficient * 256**(exponent - 3)
+
+
+def target_to_bits(target):
+    '''Turns a target integer back into bits, which is 4 bytes'''
+    raw_bytes = target.to_bytes(32, 'big')
+    # get rid of leading 0's
+    raw_bytes = raw_bytes.lstrip(b'\x00')
+    if raw_bytes[0] > 0x7f:
+        # if the first bit is 1, we have to start with 00
+        exponent = len(raw_bytes) + 1
+        coefficient = b'\x00' + raw_bytes[:2]
+    else:
+        # otherwise, we can show the first 3 bytes
+        # exponent is the number of digits in base-256
+        exponent = len(raw_bytes)
+        # coefficient is the first 3 digits of the base-256 number
+        coefficient = raw_bytes[:3]
+    # we've truncated the number after the first 3 digits of base-256
+    new_bits = coefficient[::-1] + bytes([exponent])
+    return new_bits
+
+
 def calculate_new_bits(previous_bits, time_differential):
     """Calculates the new bits given
     a 2016-block time differential and the previous bits"""
@@ -531,38 +564,6 @@ def calculate_new_bits(previous_bits, time_differential):
         new_target = MAX_TARGET
     # convert the new target to bits
     return target_to_bits(new_target)
-
-
-def pack_bits(bits):
-    """converts bits to a byte-string"""
-    num_bytes = len(bits)
-    bits += [0] * (-num_bytes % 8)
-    result = 0
-    for bit in bits:
-        result <<= 1
-        if bit:
-            result |= 1
-    return result.to_bytes(len(bits) // 8, "big")
-
-
-def unpack_bits(byte_string):
-    bits = []
-    for byte in byte_string:
-        for _ in range(8):
-            if byte & 0x80:
-                bits.append(1)
-            else:
-                bits.append(0)
-            byte <<= 1
-    return bits
-
-
-def filter_null(items):
-    non_null_items = []
-    for item in items:
-        if len(item) > 0:
-            non_null_items.append(item)
-    return non_null_items
 
 
 def hash_to_range(key, value, f):

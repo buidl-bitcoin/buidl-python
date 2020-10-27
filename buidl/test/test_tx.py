@@ -3,7 +3,7 @@ from unittest import TestCase
 from io import BytesIO
 
 from buidl.ecc import PrivateKey, Signature
-from buidl.helper import decode_base58, little_endian_to_int
+from buidl.helper import decode_base58
 from buidl.script import P2PKHScriptPubKey, RedeemScript, WitnessScript
 from buidl.tx import Tx, TxIn, TxOut, TxFetcher
 
