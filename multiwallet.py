@@ -266,6 +266,15 @@ def calculate_msig_digest(quorum_m, root_xfp_hexes):
     return hash256(f"{quorum_m}:{fingerprints_to_hash}".encode()).hex()
 
 
+def _is_libsec_enabled():
+    try:
+        from buidl import cecc
+
+        return True
+    except ModuleNotFoundError:
+        return False
+
+
 class MyPrompt(Cmd):
     intro = "Welcome to multiwallet, a stateless multisig ONLY wallet. Type help or ? to list commands.\n"
     prompt = "(₿) "  # the bitcoin symbol :)
@@ -274,7 +283,7 @@ class MyPrompt(Cmd):
         super().__init__()
 
     def do_seedpicker(self, arg):
-        """Calculate bitcoin public and private key information from BIP39 words drawn out of a hat"""
+        """Calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
         network = _get_network()
         first_words, valid_checksum_words = _get_bip39_seed_from_firstwords()
 
@@ -289,7 +298,7 @@ class MyPrompt(Cmd):
             first_words + " " + valid_checksum_words[0]
         )
 
-        print(green_fg("SECRET INFO") + red_fg(" guard this very carefully"))
+        print(green_fg("SECRET INFO") + yellow_fg(" guard this very carefully"))
         print(green_fg(f"Calculated last word: {valid_checksum_words[0]}"))
         print(
             green_fg(
@@ -315,12 +324,15 @@ class MyPrompt(Cmd):
         )
 
     def do_verify_receive_address(self, arg):
-        """Verify receive addresses for a multisig wallet (using output descriptors from Specter-Desktop)"""
+        """
+        Verify receive addresses for a multisig wallet (using output descriptors from Specter-Desktop).
+        No private key information needed.
+        """
         pubkeys_info = _get_output_descriptor()
         network = _get_network()
         limit = _get_int(
             prompt="Limit of addresses to display",
-            default=50,
+            default=20,  # This is slow without libsecp256k1 :(
             minimum=1,
         )
         offset = _get_int(
@@ -329,7 +341,11 @@ class MyPrompt(Cmd):
             minimum=0,
         )
 
-        print(green_fg(f"Multisig Addresses:"))
+        print(
+            green_fg(
+                f"Multisig Addresses:{'(this would be 100x faster with libsec bindings)' if not _is_libsec_enabled() else ''}"
+            )
+        )
         for cnt in range(limit):
             sec_hexes_to_use = []
             for pubkey_info in pubkeys_info["pubkey_dicts"]:
@@ -349,12 +365,12 @@ class MyPrompt(Cmd):
             redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
             print(
                 green_fg(
-                    f"Address #{cnt + offset}: {redeem_script.address(testnet=network.lower()=='testnet')}"
+                    f"#{cnt + offset}: {redeem_script.address(testnet=network.lower()=='testnet')}"
                 )
             )
 
     def do_psbt_signer(self, arg):
-        """Sign a PSBT from Specter-Desktop using one of your mnemonics"""
+        """Sign a multisig PSBT from using 1 of your BIP39 seed phrases"""
         psbt_obj = _get_psbt_obj()
         TX_FEE_SATS = psbt_obj.tx_obj.fee()
         IS_TESTNET = psbt_obj.tx_obj.testnet
