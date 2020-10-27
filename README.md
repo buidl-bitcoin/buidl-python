@@ -28,7 +28,7 @@ $ flake8 .
 
 ## Performance
 
-You can speed this library up by using C-bindings to [bitcoin core's `libsecp256k1` library](https://github.com/bitcoin-core/secp256k1).
+You can speed this library up ~100x by using C-bindings to [bitcoin core's `libsecp256k1` library](https://github.com/bitcoin-core/secp256k1).
 
 #### OS Installation
 
