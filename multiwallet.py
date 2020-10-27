@@ -99,9 +99,9 @@ def _get_pubkeys_info_from_descriptor(descriptor):
     ), "ERROR: multiple conflicting networks in pubkeys: {}".format(all_pubkeys)
 
     xpub_prefix = all_pubkeys[0][:4]
-    if xpub_prefix == 'tpub':
+    if xpub_prefix == "tpub":
         is_testnet = True
-    elif xpub_prefix == 'xpub':
+    elif xpub_prefix == "xpub":
         is_testnet = False
     else:
         raise Exception(f"Invalid xpub prefix: {xpub_prefix}")
