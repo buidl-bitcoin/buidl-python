@@ -1,15 +1,17 @@
-import argparse, re, sys
+import argparse
+import re
 from pathlib import Path
 
 from buidl.hd import HDPublicKey
 from buidl.helper import sha256
-from buidl.script import Script, P2WSHScriptPubKey, WitnessScript
+from buidl.script import P2WSHScriptPubKey, WitnessScript
 from buidl.op import OP_CODE_NAMES_LOOKUP
 
 
 def re_pubkey_info_from_descriptor_fragment(fragment):
     xfp, path, xpub, idx = re.match(
-        "\[([0-9a-f]+)\*?(.*?)\]([0-9A-Za-z]+).*([0-9]+?)", fragment
+        "\[([0-9a-f]+)\*?(.*?)\]([0-9A-Za-z]+).*([0-9]+?)",  # noqa: W605
+        fragment,
     ).groups()
     return {
         "xfp": xfp,
@@ -20,7 +22,7 @@ def re_pubkey_info_from_descriptor_fragment(fragment):
 
 
 def get_pubkeys_info_from_descriptor(descriptor):
-    re_results = re.findall("wsh\(sortedmulti\((.*)\)\)", descriptor)
+    re_results = re.findall("wsh\(sortedmulti\((.*)\)\)", descriptor)  # noqa: W605
     parts = re_results[0].split(",")
     quorum_m = int(parts.pop(0))
     quorum_n = len(parts)  # remaining entries are pubkeys with fingerprint/path

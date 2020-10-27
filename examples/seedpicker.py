@@ -1,4 +1,5 @@
-import argparse, sys
+import argparse
+import sys
 
 from buidl.hd import HDPrivateKey
 from buidl.mnemonic import WORD_LIST

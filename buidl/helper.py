@@ -35,7 +35,7 @@ PBKDF2_ROUNDS = 2048
 GOLOMB_P = 19
 GOLOMB_M = int(round(1.497137 * 2 ** GOLOMB_P))
 TWO_WEEKS = 60 * 60 * 24 * 14
-MAX_TARGET = 0xffff * 256**(0x1d - 3)
+MAX_TARGET = 0xFFFF * 256 ** (0x1D - 3)
 
 
 def bytes_to_str(b, encoding="ascii"):
@@ -518,25 +518,25 @@ def serialize_binary_path(path):
 
 
 def bits_to_target(bits):
-    '''Turns bits into a target (large 256-bit integer)'''
+    """Turns bits into a target (large 256-bit integer)"""
     # last byte is exponent
     exponent = bits[-1]
     # the first three bytes are the coefficient in little endian
     coefficient = little_endian_to_int(bits[:-1])
     # the formula is:
     # coefficient * 256**(exponent-3)
-    return coefficient * 256**(exponent - 3)
+    return coefficient * 256 ** (exponent - 3)
 
 
 def target_to_bits(target):
-    '''Turns a target integer back into bits, which is 4 bytes'''
-    raw_bytes = target.to_bytes(32, 'big')
+    """Turns a target integer back into bits, which is 4 bytes"""
+    raw_bytes = target.to_bytes(32, "big")
     # get rid of leading 0's
-    raw_bytes = raw_bytes.lstrip(b'\x00')
-    if raw_bytes[0] > 0x7f:
+    raw_bytes = raw_bytes.lstrip(b"\x00")
+    if raw_bytes[0] > 0x7F:
         # if the first bit is 1, we have to start with 00
         exponent = len(raw_bytes) + 1
-        coefficient = b'\x00' + raw_bytes[:2]
+        coefficient = b"\x00" + raw_bytes[:2]
     else:
         # otherwise, we can show the first 3 bytes
         # exponent is the number of digits in base-256
