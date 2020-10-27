@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from buidl.ecc import G, N, S256Point, PrivateKey, Signature
+from buidl.ecc import G, S256Point, PrivateKey, Signature
 from buidl.helper import decode_bech32
 
 from random import randint

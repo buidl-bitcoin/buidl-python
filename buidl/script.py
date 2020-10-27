@@ -1,7 +1,6 @@
 from io import BytesIO
 
 from buidl.helper import (
-    byte_to_int,
     encode_base58_checksum,
     encode_bech32_checksum,
     encode_varstr,
