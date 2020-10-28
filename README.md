@@ -16,6 +16,7 @@ Welcome to multiwallet...
 Since `buidl` has no dependencies, you can run multiwallet by just `cd`ing to the root directory of this project:
 ```bash
 $ python multiwallet.py
+Welcome to multiwallet...
 ```
 
 If you have instlled `buidl`, you can run `multiwallet.py` from any directory as follows:
