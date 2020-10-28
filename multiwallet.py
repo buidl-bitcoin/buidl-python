@@ -1,15 +1,12 @@
 #!/usr/bin/env python
-
-from platform import platform
-import pkg_resources
 import re
 import readline
 import sys
-
 from cmd import Cmd
+from platform import platform
+from pkg_resources import DistributionNotFound, get_distribution
 
 import buidl  # noqa: F401 (used below with pkg_resources for versioning)
-
 from buidl.hd import HDPrivateKey, HDPublicKey
 from buidl.helper import sha256, hash256
 from buidl.mnemonic import WORD_LIST, WORD_LOOKUP
@@ -59,6 +56,13 @@ def print_green(string):
 
 def print_red(string):
     print(red_fg(string))
+
+
+def _get_buidl_version():
+    try:
+        return get_distribution("buidl").version
+    except DistributionNotFound:
+        return "Unknown"
 
 
 def _get_all_valid_checksum_words(first_words):
@@ -621,10 +625,11 @@ class MyPrompt(Cmd):
         else:
             return _abort("PSBT wasn't signed")
 
-    def do_settings(self, arg):
-        """Print program settings"""
+    def do_debug(self, arg):
+        """Print program settings for debug purposes"""
+
         to_print = [
-            f"buidl Version: {pkg_resources.get_distribution('buidl').version}",
+            f"buidl Version: {_get_buidl_version()}",
             f"Python Version: {sys.version_info}",
             f"Platform: {platform()}",
             f"libsecp256k1 Configured: {_is_libsec_enabled()}",
@@ -633,7 +638,7 @@ class MyPrompt(Cmd):
 
     def do_exit(self, arg):
         """Exit Program"""
-        print_yellow("\nNo data saved\n")
+        print_yellow("\nNo data saved")
         return True
 
 
@@ -641,7 +646,7 @@ def main():
     try:
         MyPrompt().cmdloop()
     except KeyboardInterrupt:
-        print_yellow("\nNo data saved\n")
+        print_yellow("\nNo data saved")
 
 
 if __name__ == "__main__":
