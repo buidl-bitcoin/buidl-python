@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
+from platform import platform
+import pkg_resources
 import re
 import readline
 import sys
 
 from cmd import Cmd
+
+import buidl  # noqa: F401 (used below with pkg_resources for versioning)
 
 from buidl.hd import HDPrivateKey, HDPublicKey
 from buidl.helper import sha256, hash256
@@ -16,31 +20,48 @@ from buidl.op import OP_CODE_NAMES, OP_CODE_NAMES_LOOKUP
 readline.parse_and_bind("tab: complete")
 
 
+#####################################################################
+# CLI UX
+#####################################################################
+
+
 # https://stackoverflow.com/questions/287871/how-to-print-colored-text-in-python
 RESET_TERMINAL_COLOR = "\033[0m"
-BLUE_FOREGOUND_COLOR = "\033[34m"
-YELLOW_FOREGOUND_COLOR = "\033[93m"
-GREEN_FOREGOUND_COLOR = "\033[32m"
-RED_FOREGOUND_COLOR = "\033[31m"
 
 
 def blue_fg(string):
-    return f"{BLUE_FOREGOUND_COLOR}{string}{RESET_TERMINAL_COLOR}"
+    return f"\033[34m{string}{RESET_TERMINAL_COLOR}"
 
 
 def yellow_fg(string):
-    return f"{YELLOW_FOREGOUND_COLOR}{string}{RESET_TERMINAL_COLOR}"
+    return f"\033[93m{string}{RESET_TERMINAL_COLOR}"
 
 
 def green_fg(string):
-    return f"{GREEN_FOREGOUND_COLOR}{string}{RESET_TERMINAL_COLOR}"
+    return f"\033[32m{string}{RESET_TERMINAL_COLOR}"
 
 
 def red_fg(string):
-    return f"{RED_FOREGOUND_COLOR}{string}{RESET_TERMINAL_COLOR}"
+    return f"\033[31m{string}{RESET_TERMINAL_COLOR}"
 
 
-def get_all_valid_checksum_words(first_words):
+def print_blue(string):
+    print(blue_fg(string))
+
+
+def print_yellow(string):
+    print(yellow_fg(string))
+
+
+def print_green(string):
+    print(green_fg(string))
+
+
+def print_red(string):
+    print(red_fg(string))
+
+
+def _get_all_valid_checksum_words(first_words):
     to_return = []
     for word in WORD_LIST:
         try:
@@ -55,6 +76,54 @@ def get_all_valid_checksum_words(first_words):
     return to_return, ""
 
 
+def _get_int(prompt, default=20, minimum=0, maximum=None):
+    res = input(blue_fg(f"{prompt} [{default}]: ")).strip()
+    if not res:
+        res = str(default)
+    try:
+        res_int = int(res)
+    except ValueError:
+        print_red(f"{res} is not an integer")
+        return _get_int(
+            prompt=prompt,
+            default=default,
+            minimum=minimum,
+            maximum=maximum,
+        )
+
+    if maximum is not None:
+        if not minimum <= res_int <= maximum:
+            print_red(
+                f"Please pick a number between {minimum} and {maximum} (inclusive)"
+            )
+            return _get_int(
+                prompt=prompt, default=default, minimum=minimum, maximum=maximum
+            )
+    elif res_int < minimum:
+        print_red(f"Please pick a number >= {minimum}")
+        return _get_int(
+            prompt=prompt, default=default, minimum=minimum, maximum=maximum
+        )
+
+    return res_int
+
+
+def _get_bool(prompt, default=True):
+    if default is True:
+        yn = "[Y/n]"
+    else:
+        yn = "[y/N]"
+    response_str = input(blue_fg(f"{prompt} {yn}: ")).strip().lower()
+    if response_str == "":
+        return default
+    if response_str in ("n", "no"):
+        return False
+    if response_str in ("y", "yes"):
+        return True
+    print_red("Please choose either y or n")
+    return _get_bool(prompt=prompt, default=default)
+
+
 class WordCompleter:
     def __init__(self, wordlist):
         self.wordlist = wordlist
@@ -62,6 +131,11 @@ class WordCompleter:
     def complete(self, text, state):
         results = [x for x in self.wordlist if x.startswith(text)] + [None]
         return results[state] + " "
+
+
+#####################################################################
+# Verify Receive Address
+#####################################################################
 
 
 def _re_pubkey_info_from_descriptor_fragment(fragment):
@@ -116,7 +190,23 @@ def _get_pubkeys_info_from_descriptor(descriptor):
     }
 
 
-def _get_bip39_seed_from_firstwords():
+def _get_output_descriptor():
+    output_descriptor = input(
+        blue_fg("Paste in your output descriptor from Specter-Desktop: ")
+    ).strip()
+    try:
+        return _get_pubkeys_info_from_descriptor(descriptor=output_descriptor)
+    except Exception as e:
+        print_red(f"Could not parse output descriptor: {e}")
+        return _get_output_descriptor()
+
+
+#####################################################################
+# Seedpicker
+#####################################################################
+
+
+def _get_bip39_checksums_and_firstwords():
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=WORD_LIST)
 
@@ -125,107 +215,48 @@ def _get_bip39_seed_from_firstwords():
     fw_num = len(fw.split())
     if fw_num not in (11, 14, 17, 20, 23):
         # TODO: 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for advanced users
-        print(red_fg(f"Enter 23 word seed-phrase (you entered {fw_num} words)"))
-        return _get_bip39_seed_from_firstwords()
+        print_red(f"Enter 23 word seed-phrase (you entered {fw_num} words)")
+        return _get_bip39_checksums_and_firstwords()
     for cnt, word in enumerate(fw.split()):
         if word not in WORD_LOOKUP:
-            print(red_fg(f"Word #{cnt+1} ({word} is not a valid BIP39 word"))
-            return _get_bip39_seed_from_firstwords()
-    valid_checksum_words, err_str = get_all_valid_checksum_words(fw)
+            print_red(f"Word #{cnt+1} ({word} is not a valid BIP39 word")
+            return _get_bip39_checksums_and_firstwords()
+    valid_checksum_words, err_str = _get_all_valid_checksum_words(fw)
     if err_str:
-        print(red_fg(f"Error calculating checksum word: {err_str}"))
-        return _get_bip39_seed_from_firstwords()
+        print_red(f"Error calculating checksum word: {err_str}")
+        return _get_bip39_checksums_and_firstwords()
 
     readline.set_completer(old_completer)
     return fw, valid_checksum_words
 
 
-def _get_network():
-    network = input(blue_fg("Network [Test/main]: ")).strip().lower()
-    if network == "" or network in ("test", "testnet"):
-        return "Testnet"
-    if network in ("main", "mainet", "mainnet"):
-        return "Mainnet"
-
-    # Bad input, ask again
-    print(red_fg("Please choose either test or main"))
-    return _get_network()
-
-
-def _get_int(prompt, default=20, minimum=0, maximum=None):
-    res = input(blue_fg(f"{prompt} [{default}]: ")).strip()
-    if not res:
-        res = str(default)
-    try:
-        res_int = int(res)
-    except ValueError:
-        print(red_fg(f"{res} is not an integer"))
-        return _get_int(
-            prompt=prompt,
-            default=default,
-            minimum=minimum,
-            maximum=maximum,
-        )
-
-    if maximum is not None:
-        if not minimum <= res_int <= maximum:
-            print(red_fg(f"{res_int} must be between {minimum} and {maximum}"))
-            return _get_int(
-                prompt=prompt, default=default, minimum=minimum, maximum=maximum
-            )
-    elif res_int < minimum:
-        print(red_fg(f"{res_int} must be >={minimum}"))
-
-    return res_int
-
-
-def _get_output_descriptor():
-    output_descriptor = input(
-        blue_fg("Paste in your output descriptor from Specter-Desktop: ")
-    ).strip()
-    try:
-        return _get_pubkeys_info_from_descriptor(descriptor=output_descriptor)
-    except Exception as e:
-        print(red_fg(f"Could not parse output descriptor: {e}"))
-        return _get_output_descriptor()
+#####################################################################
+# PSBT Signer
+#####################################################################
 
 
 def _get_psbt_obj():
     psbt_b64 = input(
         blue_fg("Paste partially signed bitcoin transaction (PSBT) in base64 form: ")
     ).strip()
+    if not psbt_b64:
+        return _get_psbt_obj()
     try:
         psbt_obj = PSBT.parse_base64(psbt_b64)
         # redundant but explicit
         if psbt_obj.validate() is not True:
             raise Exception("PSBT does not validate")
     except Exception as e:
-        print(red_fg(f"Could not parse PSBT: {e}"))
+        print_red(f"Could not parse PSBT: {e}")
         return _get_psbt_obj()
     return psbt_obj
 
 
 def _abort(msg):
     " Used because TX signing is complicated and we might bail after intial pasting of PSBT "
-    print(red_fg("ABORTING WITHOUT SIGNING:\n"))
-    print(red_fg(msg))
+    print_red("ABORTING WITHOUT SIGNING:\n")
+    print_red(msg)
     return True
-
-
-def _get_bool(prompt, default=True):
-    if default is True:
-        yn = "[Y/n]"
-    else:
-        yn = "[y/N]"
-    response_str = input(blue_fg(f"{prompt} {yn}: ")).strip().lower()
-    if response_str == "":
-        return default
-    if response_str in ("n", "no"):
-        return False
-    if response_str in ("y", "yes"):
-        return True
-    print(red_fg("Please choose either y or n"))
-    return _get_bool(prompt=prompt, default=default)
 
 
 def _get_hd_priv_from_bip39_seed(is_testnet):
@@ -236,19 +267,17 @@ def _get_hd_priv_from_bip39_seed(is_testnet):
     seed_phrase = input(blue_fg("Enter your 24 word BIP39 seed phrase: ")).strip()
     seed_phrase_num = len(seed_phrase.split())
     if seed_phrase_num not in (12, 15, 18, 21, 24):
-        print(
-            red_fg(f"Enter 24 word seed-phrase (you entered {seed_phrase_num} words)")
-        )
+        print_red(f"Enter 24 word seed-phrase (you entered {seed_phrase_num} words)")
         # Other length seed phrases also work but this is not documented as it's for advanced users
         return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
     for cnt, word in enumerate(seed_phrase.split()):
         if word not in WORD_LOOKUP:
-            print(red_fg(f"Word #{cnt+1} ({word}) is not a valid BIP39 word"))
+            print_red(f"Word #{cnt+1} ({word}) is not a valid BIP39 word")
             return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
     try:
         hd_priv = HDPrivateKey.from_mnemonic(seed_phrase, testnet=is_testnet)
     except Exception as e:
-        print(red_fg(f"Invalid mnemonic: {e}"))
+        print_red(f"Invalid mnemonic: {e}")
         return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
 
     readline.set_completer(old_completer)
@@ -261,7 +290,7 @@ def _get_units():
         return "btc"
     if units in ("sat", "satoshis", "sats"):
         return "sats"
-    print(red_fg("Please choose either BTC or sats"))
+    print_red("Please choose either BTC or sats")
     return units
 
 
@@ -274,7 +303,7 @@ def _format_satoshis(sats, in_btc=False):
 
 # TODO: is there a standard to use here?
 # Inspired by https://github.com/trezor/trezor-firmware/blob/e23bb10ec49710cc2b2b993db9c907d3c7becf2c/core/src/apps/wallet/sign_tx/multisig.py#L37
-def calculate_msig_digest(quorum_m, root_xfp_hexes):
+def _calculate_msig_digest(quorum_m, root_xfp_hexes):
     fingerprints_to_hash = "-".join(sorted(root_xfp_hexes))
     return hash256(f"{quorum_m}:{fingerprints_to_hash}".encode()).hex()
 
@@ -288,6 +317,11 @@ def _is_libsec_enabled():
         return False
 
 
+#####################################################################
+# Command Line App Code Starts Here
+#####################################################################
+
+
 class MyPrompt(Cmd):
     intro = "Welcome to multiwallet, a stateless multisig ONLY wallet. Type help or ? to list commands.\n"
     prompt = "(₿) "  # the bitcoin symbol :)
@@ -297,10 +331,13 @@ class MyPrompt(Cmd):
 
     def do_seedpicker(self, arg):
         """Calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
-        network = _get_network()
-        first_words, valid_checksum_words = _get_bip39_seed_from_firstwords()
+        is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
 
-        if _get_bool("Use default checksum index for BIP39 seed phrase?", default=True):
+        first_words, valid_checksum_words = _get_bip39_checksums_and_firstwords()
+
+        if _get_bool(
+            prompt="Use default checksum index for BIP39 seed phrase?", default=True
+        ):
             index = 0
         else:
             line = ""
@@ -310,7 +347,7 @@ class MyPrompt(Cmd):
                     current += "\t"
                 line += f"{current}\t"
                 if i % 4 == 3:
-                    print(line)
+                    print_yellow(line)
                     line = ""
             index = _get_int(
                 prompt="Choose one of the possible last words from above",
@@ -320,35 +357,30 @@ class MyPrompt(Cmd):
             )
 
         last_word = valid_checksum_words[index]
-        if network == "Mainnet":
-            PATH = "m/48'/0'/0'/2'"
-            SLIP132_VERSION_BYTES = "02aa7ed3"
-        elif network == "Testnet":
+        if is_testnet:
             PATH = "m/48'/1'/0'/2'"
             SLIP132_VERSION_BYTES = "02575483"
+        else:
+            PATH = "m/48'/0'/0'/2'"
+            SLIP132_VERSION_BYTES = "02aa7ed3"
         hd_priv = HDPrivateKey.from_mnemonic(first_words + " " + last_word)
-        print(green_fg("SECRET INFO") + yellow_fg(" (guard this VERY carefully)"))
-        print(green_fg(f"Last word: {last_word}"))
-        print(
-            green_fg(
-                f"Full ({len(first_words.split()) + 1} word) mnemonic with last word: {first_words + ' ' + last_word}"
-            )
+        print(yellow_fg("SECRET INFO") + red_fg(" (guard this VERY carefully)"))
+        print_green(f"Last word: {last_word}")
+        print_green(
+            f"Full ({len(first_words.split()) + 1} word) mnemonic (including last word: {first_words + ' ' + last_word})"
         )
         print("")
-        print(green_fg("PUBLIC KEY INFO"))
-        print(green_fg(f"Network: {network}"))
+        print_yellow(f"PUBLIC KEY INFO ({'testnet' if is_testnet else 'mainnet'})")
 
-        print(green_fg("Specter-Desktop Input Format:"))
-        print(
-            green_fg(
-                "  [{}{}]{}".format(
-                    hd_priv.fingerprint().hex(),
-                    PATH.replace("m", "").replace("'", "h"),
-                    hd_priv.traverse(PATH).xpub(
-                        version=bytes.fromhex(SLIP132_VERSION_BYTES)
-                    ),
+        print_yellow("Copy-paste this into Specter-Desktop:")
+        print_green(
+            "  [{}{}]{}".format(
+                hd_priv.fingerprint().hex(),
+                PATH.replace("m", "").replace("'", "h"),
+                hd_priv.traverse(PATH).xpub(
+                    version=bytes.fromhex(SLIP132_VERSION_BYTES)
                 ),
-            )
+            ),
         )
 
     def do_verify_receive_address(self, arg):
@@ -365,10 +397,8 @@ class MyPrompt(Cmd):
             minimum=0,
         )
 
-        print(
-            green_fg(
-                f"Multisig Addresses:{'(this would be 100x faster with libsec bindings)' if not _is_libsec_enabled() else ''}"
-            )
+        print_yellow(
+            f"Multisig Addresses{' (this is ~100x faster if you install libsec)' if not _is_libsec_enabled() else ''}:"
         )
         for cnt in range(limit):
             sec_hexes_to_use = []
@@ -387,14 +417,12 @@ class MyPrompt(Cmd):
             commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
             witness_script = WitnessScript(commands)
             redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
-            print(
-                green_fg(
-                    f"#{cnt + offset}: {redeem_script.address(testnet=pubkeys_info['is_testnet'])}"
-                )
+            print_green(
+                f"#{cnt + offset}: {redeem_script.address(testnet=pubkeys_info['is_testnet'])}"
             )
 
     def do_psbt_signer(self, arg):
-        """Sign a multisig PSBT from using 1 of your BIP39 seed phrases"""
+        """Sign a multisig PSBT using 1 of your BIP39 seed phrases"""
         psbt_obj = _get_psbt_obj()
         TX_FEE_SATS = psbt_obj.tx_obj.fee()
         IS_TESTNET = psbt_obj.tx_obj.testnet
@@ -449,7 +477,7 @@ class MyPrompt(Cmd):
                 "addr": psbt_in.witness_script.address(testnet=IS_TESTNET),
                 # "p2sh_addr": psbt_in.witness_script.p2sh_address(testnet=IS_TESTNET),
                 "witness_script": str(psbt_in.witness_script),
-                "msig_digest": calculate_msig_digest(
+                "msig_digest": _calculate_msig_digest(
                     quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
                 ),
             }
@@ -515,7 +543,7 @@ class MyPrompt(Cmd):
                         f"Witness script for input #{cnt} is not p2wsh:\n{psbt_in})"
                     )
 
-                output_msig_digest = calculate_msig_digest(
+                output_msig_digest = _calculate_msig_digest(
                     quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
                 )
                 if (
@@ -554,7 +582,7 @@ class MyPrompt(Cmd):
         UNITS = _get_units()
         TX_SUMMARY = " ".join(
             [
-                "send",
+                "PSBT sends",
                 _format_satoshis(output_spend_sats, in_btc=UNITS == "btc"),
                 "to",
                 spend_addr,
@@ -563,43 +591,49 @@ class MyPrompt(Cmd):
                 f"({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)",
             ]
         )
-        print(green_fg(f"Transaction Summary: {TX_SUMMARY}"))
+        print_yellow(TX_SUMMARY)
 
-        if _get_bool("In Depth Transaction View?", default=False):
-            print(green_fg("-" * 80))
-            print(green_fg("DETAILED VIEW"))
-            print(green_fg(f"TXID: {psbt_obj.tx_obj.id()}"))
-            print(green_fg(f"{len(inputs_desc)} input(s):"))
+        if _get_bool(prompt="In Depth Transaction View?", default=False):
+            to_print = []
+            to_print.append("DETAILED VIEW")
+            to_print.append(f"TXID: {psbt_obj.tx_obj.id()}")
+            to_print.append("-" * 80)
+            to_print.append(f"{len(inputs_desc)} Input(s):")
             for cnt, input_desc in enumerate(inputs_desc):
-                print(green_fg(f"  Input #{cnt}"))
-                for (
-                    k,
-                    v,
-                ) in input_desc.items():
-                    print(green_fg(f"    {k}: {v}"))
-            print(green_fg(f"{len(outputs_desc)} output(s):"))
+                to_print.append(f"  input #{cnt}")
+                for k in input_desc:
+                    to_print.append(f"    {k}: {input_desc[k]}")
+            to_print.append("-" * 80)
+            to_print.append(f"{len(outputs_desc)} Output(s):")
             for cnt, output_desc in enumerate(outputs_desc):
-                print(green_fg(f"  Output #{cnt}"))
-                for (
-                    k,
-                    v,
-                ) in output_desc.items():
-                    print(green_fg(f"    {k}: {v}"))
-            print("-" * 80)
+                to_print.append(f"  output #{cnt}")
+                for k in output_desc:
+                    to_print.append(f"    {k}: {output_desc[k]}")
+            print_yellow("\n".join(to_print))
 
-        if not _get_bool("Sign this transaction?", default=True):
+        if not _get_bool(prompt="Sign this transaction?", default=True):
             return
 
         if psbt_obj.sign_with_private_keys(private_keys) is True:
             print()
-            print(green_fg("Signed PSBT to broadcast:\n"))
-            print(green_fg(psbt_obj.serialize_base64()))
+            print_yellow("Signed PSBT to broadcast:\n")
+            print_green(psbt_obj.serialize_base64())
         else:
             return _abort("PSBT wasn't signed")
 
+    def do_settings(self, arg):
+        """Print program settings"""
+        to_print = [
+            f"buidl Version: {pkg_resources.get_distribution('buidl').version}",
+            f"Python Version: {sys.version_info}",
+            f"Platform: {platform()}",
+            f"libsecp256k1 Configured: {_is_libsec_enabled()}",
+        ]
+        print_yellow("\n".join(to_print))
+
     def do_exit(self, arg):
         """Exit Program"""
-        print(yellow_fg("Quitting multiwallet, "))
+        print_yellow("\nNo data saved\n")
         return True
 
 
@@ -607,8 +641,7 @@ def main():
     try:
         MyPrompt().cmdloop()
     except KeyboardInterrupt:
-        print(yellow_fg("\nNo data saved\n"))
-        sys.exit(0)
+        print_yellow("\nNo data saved\n")
 
 
 if __name__ == "__main__":
