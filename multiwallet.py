@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import re
 import readline
 import sys
@@ -601,9 +603,13 @@ class MyPrompt(Cmd):
         return True
 
 
-if __name__ == "__main__":
+def main():
     try:
         MyPrompt().cmdloop()
     except KeyboardInterrupt:
         print(yellow_fg("\nNo data saved\n"))
         sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
