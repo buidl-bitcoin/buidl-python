@@ -17,3 +17,4 @@ share/
 *\.o
 *\.so
 *\.swp
+.DS_Store
