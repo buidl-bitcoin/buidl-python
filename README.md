@@ -1,7 +1,9 @@
 # THIS REPOSITORY COMES WITH ZERO GUARANTEES! USE AT YOUR OWN RISK!
 
-`buidl` is a `python3` bitcoin library with no dependencies, designed to make it easy to BUIDL.
-`buidl` has extensive test coverage, which you can use as documentation.
+`buidl` is a `python3` bitcoin library with no dependencies.
+It is easy-to-read and has extensive test coverage.
+
+Because `buidl` has no dependencies, it is easy to install on airgapped computers (just copy over this directory).
 
 ## Installation
 ```bash
@@ -16,11 +18,12 @@ Since `buidl` has no dependencies, you can run multiwallet by just `cd`ing to th
 $ python multiwallet.py
 ```
 
-If you have instlled `buidl`, you can run `multiwallet` from any directory as follows:
+If you have instlled `buidl`, you can run `multiwallet.py` from any directory as follows:
 ```bash
-$ multiwallet
+$ multiwallet.py
 Welcome to multiwallet...
 ```
+TODO: install without strange `.py` name (while also keeping it installation-free over airgap)
 
 ## Tests
 
