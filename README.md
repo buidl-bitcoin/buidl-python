@@ -7,7 +7,7 @@ Because `buidl` has no dependencies, it is easy to install on airgapped computer
 
 ## Installation
 ```bash
-$ pip3 install buidl
+$ pip3 install buidl --upgrade
 Welcome to multiwallet...
 ```
 
