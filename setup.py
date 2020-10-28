@@ -13,7 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/buidl-bitcoin/buidl-python",
     packages=find_packages(),
-    scripts=['multiwallet.py'],  # hack to not require installation
+    scripts=["multiwallet.py"],  # hack to not require installation
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
