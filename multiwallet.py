@@ -333,8 +333,8 @@ class MyPrompt(Cmd):
     def __init__(self):
         super().__init__()
 
-    def do_seedpicker(self, arg):
-        """Calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
+    def do_generate_seed(self, arg):
+        """Seedpicker implementation: calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
         is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
 
         first_words, valid_checksum_words = _get_bip39_checksums_and_firstwords()
@@ -387,7 +387,7 @@ class MyPrompt(Cmd):
             ),
         )
 
-    def do_verify_receive_address(self, arg):
+    def do_receive(self, arg):
         """Verify receive addresses for a multisig wallet (using output descriptors from Specter-Desktop)"""
         pubkeys_info = _get_output_descriptor()
         limit = _get_int(
@@ -407,7 +407,6 @@ class MyPrompt(Cmd):
         for cnt in range(limit):
             sec_hexes_to_use = []
             for pubkey_info in pubkeys_info["pubkey_dicts"]:
-                # import pdb; pdb.set_trace()
                 leaf_xpub = pubkey_info["child_pubkey_obj"].child(index=cnt + offset)
                 sec_hexes_to_use.append(leaf_xpub.sec().hex())
 
@@ -425,11 +424,13 @@ class MyPrompt(Cmd):
                 f"#{cnt + offset}: {redeem_script.address(testnet=pubkeys_info['is_testnet'])}"
             )
 
-    def do_psbt_signer(self, arg):
-        """Sign a multisig PSBT using 1 of your BIP39 seed phrases"""
+    def do_send(self, arg):
+        """Sign a multisig PSBT using 1 of your BIP39 seed phrases. Can also be used to just inspect a TX and not sign it."""
         psbt_obj = _get_psbt_obj()
         TX_FEE_SATS = psbt_obj.tx_obj.fee()
-        IS_TESTNET = psbt_obj.tx_obj.testnet
+        IS_TESTNET = not _get_bool(
+            prompt="Use Mainnet?", default=False
+        )  # FIXME: can we infer this from the PSBT?
 
         hd_priv = _get_hd_priv_from_bip39_seed(is_testnet=IS_TESTNET)
 
@@ -517,7 +518,6 @@ class MyPrompt(Cmd):
                 "addr_type": psbt_out.tx_out.script_pubkey.__class__.__name__.rstrip(
                     "ScriptPubKey"
                 ),
-                "is_change": False,
             }
 
             if psbt_out.witness_script:
@@ -616,6 +616,7 @@ class MyPrompt(Cmd):
             print_yellow("\n".join(to_print))
 
         if not _get_bool(prompt="Sign this transaction?", default=True):
+            print_yellow(f"Transaction {psbt_obj.tx_obj.id()} NOT signed")
             return
 
         if psbt_obj.sign_with_private_keys(private_keys) is True:
