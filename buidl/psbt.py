@@ -11,6 +11,7 @@ from buidl.helper import (
     little_endian_to_int,
     op_code_to_number,
     parse_binary_path,
+    path_is_testnet,
     read_varint,
     read_varstr,
     serialize_binary_path,
@@ -58,6 +59,7 @@ class NamedPublicKey(S256Point):
         self.root_fingerprint = raw_path[:4]
         self.root_path = parse_binary_path(raw_path[4:])
         self.raw_path = raw_path
+        self.testnet = path_is_testnet(self.root_path)
 
     @classmethod
     def parse(cls, key, s):
@@ -82,6 +84,7 @@ class NamedHDPublicKey(HDPublicKey):
         self.root_path = parse_binary_path(bin_path)
         if self.depth != len(bin_path) // 4:
             raise ValueError("raw path calculated depth and depth are different")
+        self.testnet = path_is_testnet(self.root_path)
         self.raw_path = raw_path
         self.sync_point()
 
@@ -90,12 +93,14 @@ class NamedHDPublicKey(HDPublicKey):
         self.point.root_fingerprint = self.root_fingerprint
         self.point.root_path = self.root_path
         self.point.raw_path = self.raw_path
+        self.point.testnet = self.testnet
 
     def child(self, index):
         child = super().child(index)
         child.__class__ = self.__class__
         child.root_fingerprint = self.root_fingerprint
         child.root_path = self.root_path + child_to_path(index)
+        child.testnet = path_is_testnet(child.root_path)
         child.raw_path = self.raw_path + int_to_little_endian(index, 4)
         child.sync_point()
         return child
@@ -178,12 +183,16 @@ class NamedHDPublicKey(HDPublicKey):
 
 
 class PSBT:
-    def __init__(self, tx_obj, psbt_ins, psbt_outs, hd_pubs=None, extra_map=None):
+    def __init__(
+        self, tx_obj, psbt_ins, psbt_outs, hd_pubs=None, extra_map=None, testnet=False
+    ):
         self.tx_obj = tx_obj
         self.psbt_ins = psbt_ins
         self.psbt_outs = psbt_outs
         self.hd_pubs = hd_pubs or {}
         self.extra_map = extra_map or {}
+        self.testnet = testnet
+        self.tx_obj.testnet = testnet
         self.validate()
 
     def validate(self):
@@ -240,6 +249,7 @@ class PSBT:
             # validate the NamedPublicKeys
             if psbt_in.named_pubs:
                 for named_pub in psbt_in.named_pubs.values():
+                    named_pub.testnet = self.testnet
                     for hd_pub in self.hd_pubs.values():
                         if hd_pub.is_ancestor(named_pub):
                             if not hd_pub.verify_descendent(named_pub):
@@ -259,6 +269,7 @@ class PSBT:
             # validate the NamedPublicKeys
             if psbt_out.named_pubs:
                 for named_pub in psbt_out.named_pubs.values():
+                    named_pub.testnet = self.testnet
                     for hd_pub in self.hd_pubs.values():
                         if hd_pub.is_ancestor(named_pub):
                             if not hd_pub.verify_descendent(named_pub):
@@ -457,7 +468,7 @@ class PSBT:
         return cls.parse(stream)
 
     @classmethod
-    def parse(cls, s):
+    def parse(cls, s, testnet=None):
         """Returns an instance of PSBT from a stream"""
         # prefix
         magic = s.read(4)
@@ -485,6 +496,10 @@ class PSBT:
                     raise KeyError("Wrong length for the key")
                 hd_pub = NamedHDPublicKey.parse(key, s)
                 hd_pubs[hd_pub.raw_serialize()] = hd_pub
+                if testnet is None:
+                    testnet = hd_pub.testnet
+                if hd_pub.testnet != testnet:
+                    raise ValueError("Mainnet/Testnet mixing")
             else:
                 if extra_map.get(key):
                     raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
@@ -495,12 +510,24 @@ class PSBT:
         # per input data
         psbt_ins = []
         for tx_in in tx_obj.tx_ins:
-            psbt_ins.append(PSBTIn.parse(s, tx_in))
+            psbt_in = PSBTIn.parse(s, tx_in)
+            for named_pub in psbt_in.named_pubs.values():
+                if testnet is None:
+                    testnet = named_pub.testnet
+                if named_pub.testnet != testnet:
+                    raise ValueError("Mainnet/Testnet mixing")
+            psbt_ins.append(psbt_in)
         # per output data
         psbt_outs = []
         for tx_out in tx_obj.tx_outs:
-            psbt_outs.append(PSBTOut.parse(s, tx_out))
-        return cls(tx_obj, psbt_ins, psbt_outs, hd_pubs, extra_map)
+            psbt_out = PSBTOut.parse(s, tx_out)
+            for named_pub in psbt_out.named_pubs.values():
+                if testnet is None:
+                    testnet = named_pub.testnet
+                if named_pub.testnet != testnet:
+                    raise ValueError("Mainnet/Testnet mixing")
+            psbt_outs.append(psbt_out)
+        return cls(tx_obj, psbt_ins, psbt_outs, hd_pubs, extra_map, testnet)
 
     def serialize_base64(self):
         return base64_encode(self.serialize())

@@ -498,6 +498,14 @@ def path_to_child(path_component):
     return child_number
 
 
+def path_is_testnet(root_path):
+    components = root_path.split("/")
+    if len(components) < 2:
+        return False
+    else:
+        return components[1] in ("44'", "84'", "48'") and components[2] == "1'"
+
+
 def parse_binary_path(bin_path):
     if len(bin_path) % 4 != 0:
         raise ValueError("Not a valid binary path: {}".format(bin_path.hex()))
