@@ -463,9 +463,9 @@ class PSBT:
         return tx_obj
 
     @classmethod
-    def parse_base64(cls, b64):
+    def parse_base64(cls, b64, testnet=None):
         stream = BytesIO(base64_decode(b64))
-        return cls.parse(stream)
+        return cls.parse(stream, testnet=testnet)
 
     @classmethod
     def parse(cls, s, testnet=None):
