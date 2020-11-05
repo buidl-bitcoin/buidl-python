@@ -30,7 +30,7 @@ TODO: install without strange `.py` name (while also keeping it installation-fre
 
 Run tests with `pytest`:
 ```bash
-$ git clone git@github.com:buidl-bitcoin/buidl-python.git && cd buidl-python
+$ git clone https://github.com/buidl-bitcoin/buidl-python.git && cd buidl-python
 $ pytest -v
 ```
 
