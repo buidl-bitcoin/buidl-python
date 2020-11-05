@@ -622,7 +622,9 @@ class MyPrompt(Cmd):
         if not root_paths:
             return _abort("Seed supplied does not correspond to transaction input(s)")
 
-        private_keys = [hd_priv.traverse(root_path).private_key for root_path in root_paths]
+        private_keys = [
+            hd_priv.traverse(root_path).private_key for root_path in root_paths
+        ]
 
         if psbt_obj.sign_with_private_keys(private_keys) is True:
             print()
