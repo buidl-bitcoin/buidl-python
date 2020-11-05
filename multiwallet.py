@@ -430,9 +430,7 @@ class MyPrompt(Cmd):
         TX_FEE_SATS = psbt_obj.tx_obj.fee()
         IS_TESTNET = not _get_bool(
             prompt="Use Mainnet?", default=False
-        )  # FIXME: can we infer this from the PSBT?
-
-        hd_priv = _get_hd_priv_from_bip39_seed(is_testnet=IS_TESTNET)
+        )  # We CANNOT reliably infer this from the PSBT unfortunately :(
 
         # Validate multisig transaction
         # TODO: abstract some of this into buidl library?
@@ -463,17 +461,14 @@ class MyPrompt(Cmd):
                     f"Witness script for input #{cnt} is not p2wsh:\n{psbt_in})"
                 )
 
-            root_path_used = None
-            root_xfp_hexes = []  # for calculating msig fingerprint
+            # for calculating msig fingerprint
+            root_xfp_hexes = []
             for _, details in psbt_in.named_pubs.items():
                 root_xfp_hexes.append(details.root_fingerprint.hex())
-                if details.root_fingerprint.hex() == hd_priv.fingerprint().hex():
-                    root_path_used = details.root_path
 
             input_desc = {
                 "quorum": f"{quorum_m}-of-{len(root_xfp_hexes)}",
                 "root_xfp_hexes": root_xfp_hexes,
-                "root_path_used": root_path_used,
                 "prev_txhash": psbt_in.tx_in.prev_tx.hex(),
                 "prev_idx": psbt_in.tx_in.prev_index,
                 "n_sequence": psbt_in.tx_in.sequence,
@@ -486,11 +481,6 @@ class MyPrompt(Cmd):
                     quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
                 ),
             }
-            if not root_path_used:
-                return _abort(
-                    f"This key is not a participant in input #{cnt}:\n{input_desc}"
-                )
-
             inputs_desc.append(input_desc)
 
         if not all(
@@ -578,11 +568,6 @@ class MyPrompt(Cmd):
                     f"Cannot have both outputs be change or spend, must be 1-and-1. {outputs_desc}"
                 )
 
-        # Derive list of child private keys we'll use to sign the TX
-        private_keys = []
-        for root_path in set([x["root_path_used"] for x in inputs_desc]):
-            private_keys.append(hd_priv.traverse(root_path).private_key)
-
         UNITS = _get_units()
         TX_SUMMARY = " ".join(
             [
@@ -618,6 +603,26 @@ class MyPrompt(Cmd):
         if not _get_bool(prompt="Sign this transaction?", default=True):
             print_yellow(f"Transaction {psbt_obj.tx_obj.id()} NOT signed")
             return
+
+        hd_priv = _get_hd_priv_from_bip39_seed(is_testnet=IS_TESTNET)
+
+        # Derive list of child private keys we'll use to sign the TX
+        root_paths = set()
+        for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
+            # Safety check
+            if inputs_desc[cnt]["prev_txhash"] != psbt_in.tx_in.prev_tx.hex():
+                _abort("Script error")
+            if inputs_desc[cnt]["prev_idx"] != psbt_in.tx_in.prev_index:
+                _abort("Script error")
+
+            for _, details in psbt_in.named_pubs.items():
+                if details.root_fingerprint.hex() == hd_priv.fingerprint().hex():
+                    root_paths.add(details.root_path)
+
+        if not root_paths:
+            return _abort("Seed supplied does not correspond to transaction input(s)")
+
+        private_keys = [hd_priv.traverse(root_path).private_key for root_path in root_paths]
 
         if psbt_obj.sign_with_private_keys(private_keys) is True:
             print()
