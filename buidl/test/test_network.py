@@ -3,8 +3,9 @@ from unittest import TestCase
 from io import BytesIO
 
 from buidl.block import Block
-from buidl.helper import decode_base58
+from buidl.helper import decode_base58, decode_gcs
 from buidl.network import (
+    BASIC_FILTER_TYPE,
     CFCheckPointMessage,
     CFHeadersMessage,
     CFilterMessage,
@@ -152,6 +153,27 @@ class CFilterTest(TestCase):
         self.assertFalse([b"\x00"] in cfilter)
         with self.assertRaises(RuntimeError):
             GetCFiltersMessage()
+
+    def test_cfilter_without_network(self):
+        # Example from Trezor Blog Post (https://blog.trezor.io/bip158-compact-block-filters-9b813b07a878)
+        block_hash_hex = (
+            "000000000000015d6077a411a8f5cc95caf775ccf11c54e27df75ce58d187313"
+        )
+        filter_hex = "09027acea61b6cc3fb33f5d52f7d088a6b2f75d234e89ca800"
+        key = bytes.fromhex(block_hash_hex)[::-1][:16]
+        filter_bytes = bytes.fromhex(filter_hex)
+        cfilter = CFilterMessage(
+            filter_type=BASIC_FILTER_TYPE,
+            block_hash=bytes.fromhex(block_hash_hex),
+            filter_bytes=filter_bytes,
+            hashes=decode_gcs(key, filter_bytes),
+        )
+        for script, want in (
+            ("76a9143ebc40e411ed3c76f86711507ab952300890397288ac", True),
+            ("76a914c01a7ca16b47be50cbdbc60724f701d52d75156688ac", True),
+            ("76a914000000000000000000000000000000000000000088ac", False),  # made up
+        ):
+            self.assertEqual(bytes.fromhex(script) in cfilter, want)
 
 
 class CFHeaderTest(TestCase):
