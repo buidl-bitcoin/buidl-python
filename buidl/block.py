@@ -43,7 +43,7 @@ class Block:
 
     @classmethod
     def parse_header(cls, s):
-        """Takes a byte stream and parses a block. Returns a Block object"""
+        """Takes a byte stream and parses block headers. Returns a Block object"""
         # s.read(n) will read n bytes from the stream
         # version - 4 bytes, little endian, interpret as int
         version = little_endian_to_int(s.read(4))
@@ -62,6 +62,7 @@ class Block:
 
     @classmethod
     def parse(cls, s):
+        """Takes a byte stream and parses a block. Returns a Block object"""
         b = cls.parse_header(s)
         num_txs = read_varint(s)
         b.txs = []

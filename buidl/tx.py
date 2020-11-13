@@ -60,7 +60,7 @@ class TxFetcher:
     def load_cache(cls, filename):
         disk_cache = json.loads(open(filename, "r").read())
         for k, raw_hex in disk_cache.items():
-            cls.cache[k] = Tx.parse(BytesIO(bytes.fromhex(raw_hex)))
+            cls.cache[k] = Tx.parse_hex(raw_hex)
 
     @classmethod
     def dump_cache(cls, filename):
@@ -113,6 +113,13 @@ class Tx:
     def hash(self):
         """Binary hash of the legacy serialization"""
         return hash256(self.serialize_legacy())[::-1]
+
+    @classmethod
+    def parse_hex(cls, s, testnet=False):
+        """Parses a transaction from a hex string"""
+        raw_hex = bytes.fromhex(s)
+        stream = BytesIO(raw_hex)
+        return cls.parse(s=stream, testnet=testnet)
 
     @classmethod
     def parse(cls, s, testnet=False):
