@@ -572,12 +572,6 @@ class PSBTIn:
         self.tx_in = tx_in
         self.prev_tx = prev_tx
         self.prev_out = prev_out
-        if self.prev_tx and self.prev_out:
-            raise ValueError(
-                "only one of prev_tx and prev_out should be defined: {} {}".format(
-                    prev_tx, prev_out
-                )
-            )
         self.sigs = sigs or {}
         self.hash_type = hash_type
         self.redeem_script = redeem_script
@@ -598,41 +592,12 @@ class PSBTIn:
                 )
             if self.tx_in.prev_index >= len(self.prev_tx.tx_outs):
                 raise ValueError("input refers to an output index that does not exist")
-            if self.redeem_script:
-                if not script_pubkey.is_p2sh():
-                    raise ValueError("RedeemScript defined for non-p2sh ScriptPubKey")
-                # non-witness p2sh
-                if self.redeem_script.is_p2wsh() or self.redeem_script.is_p2wpkh():
-                    raise ValueError("Non-witness UTXO provided for witness input")
-                h160 = script_pubkey.commands[1]
-                if self.redeem_script.hash160() != h160:
-                    raise ValueError(
-                        "RedeemScript hash160 and ScriptPubKey hash160 do not match"
-                    )
-                for sec in self.named_pubs.keys():
-                    try:
-                        # this will raise a ValueError if it's not in there
-                        self.redeem_script.commands.index(sec)
-                    except ValueError:
-                        raise ValueError(
-                            "pubkey is not in RedeemScript {}".format(self)
-                        )
-            elif script_pubkey.is_p2pkh():
-                if len(self.named_pubs) > 1:
-                    raise ValueError("too many pubkeys in p2pkh")
-                elif len(self.named_pubs) == 1:
-                    named_pub = list(self.named_pubs.values())[0]
-                    if script_pubkey.commands[2] != named_pub.hash160():
-                        raise ValueError(
-                            "pubkey {} does not match the hash160".format(
-                                named_pub.sec().hex()
-                            )
-                        )
-        elif self.prev_out:
-            if (
-                not script_pubkey.is_p2sh()
-                and not script_pubkey.is_p2wsh()
-                and not script_pubkey.is_p2wpkh()
+        if self.prev_out:
+            # witness input
+            if not (
+                script_pubkey.is_p2sh()
+                or script_pubkey.is_p2wsh()
+                or script_pubkey.is_p2wpkh()
             ):
                 raise ValueError("Witness UTXO provided for non-witness input")
             if self.witness_script:  # p2wsh or p2sh-p2wsh
@@ -671,6 +636,38 @@ class PSBTIn:
                 elif len(self.named_pubs) == 1:
                     named_pub = list(self.named_pubs.values())[0]
                     if script_pubkey.commands[1] != named_pub.hash160():
+                        raise ValueError(
+                            "pubkey {} does not match the hash160".format(
+                                named_pub.sec().hex()
+                            )
+                        )
+        else:
+            # non-witness input
+            if self.redeem_script:
+                if not script_pubkey.is_p2sh():
+                    raise ValueError("RedeemScript defined for non-p2sh ScriptPubKey")
+                # non-witness p2sh
+                if self.redeem_script.is_p2wsh() or self.redeem_script.is_p2wpkh():
+                    raise ValueError("Non-witness UTXO provided for witness input")
+                h160 = script_pubkey.commands[1]
+                if self.redeem_script.hash160() != h160:
+                    raise ValueError(
+                        "RedeemScript hash160 and ScriptPubKey hash160 do not match"
+                    )
+                for sec in self.named_pubs.keys():
+                    try:
+                        # this will raise a ValueError if it's not in there
+                        self.redeem_script.commands.index(sec)
+                    except ValueError:
+                        raise ValueError(
+                            "pubkey is not in RedeemScript {}".format(self)
+                        )
+            elif script_pubkey and script_pubkey.is_p2pkh():
+                if len(self.named_pubs) > 1:
+                    raise ValueError("too many pubkeys in p2pkh")
+                elif len(self.named_pubs) == 1:
+                    named_pub = list(self.named_pubs.values())[0]
+                    if script_pubkey.commands[2] != named_pub.hash160():
                         raise ValueError(
                             "pubkey {} does not match the hash160".format(
                                 named_pub.sec().hex()
