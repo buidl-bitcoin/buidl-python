@@ -33,7 +33,7 @@ python3 -m pip install virtualenv
 python3 -m virtualenv .venv3
 source .venv3/bin/activate
 # python3 -m pip uninstall pyinstaller -y
-python3 -m pip install -r requirements.txt
+if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
 python3 setup.py install
 python3 -m pip freeze
 # Package
