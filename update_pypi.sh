@@ -19,7 +19,7 @@ find . | grep -E "(__pycache__|\.pyc|\.pyo$)" | xargs rm -rf
 # Tests
 black --check .
 flake8 .
-# pytest -v
+pytest -v
 
 # Safety
 git push
