@@ -348,31 +348,30 @@ class PSBT:
                     # get the private key at the root_path of the NamedPublicKey
                     private_key = hd_priv.traverse(named_pub.root_path).private_key
                     # check if prev_tx is defined (legacy)
-                    if psbt_in.prev_tx:
-                        # get the signature using get_sig_legacy
-                        sig = self.tx_obj.get_sig_legacy(
-                            i, private_key, psbt_in.redeem_script
+                    if (
+                        psbt_in.witness_script
+                        or psbt_in.witness
+                        or (
+                            psbt_in.redeem_script
+                            and psbt_in.redeem_script.is_witness_script()
                         )
-                        # update the sigs dict of the PSBTIn object
-                        #  key is the sec and the value is the sig
-                        psbt_in.sigs[private_key.point.sec()] = sig
-                    # Exercise 4: check if prev_out is defined (segwit)
-                    elif psbt_in.prev_out:
-                        # get the signature using get_sig_segwit
+                        or psbt_in.tx_in.script_pubkey().is_witness_script()
+                    ):
+                        # get the signature using segwit
                         sig = self.tx_obj.get_sig_segwit(
                             i,
                             private_key,
                             psbt_in.redeem_script,
                             psbt_in.witness_script,
                         )
-                        # update the sigs dict of the PSBTIn object
-                        #  key is the sec and the value is the sig
-                        psbt_in.sigs[private_key.point.sec()] = sig
                     else:
-                        raise ValueError("pubkey included without the previous output")
-                    # set signed to True
+                        # get the signature using legacy
+                        sig = self.tx_obj.get_sig_legacy(
+                            i, private_key, psbt_in.redeem_script
+                        )
+                    # update the sigs dict of the PSBTIn object
+                    psbt_in.sigs[private_key.point.sec()] = sig
                     signed = True
-        # return whether we signed something
         return signed
 
     def sign_with_private_keys(self, private_keys):

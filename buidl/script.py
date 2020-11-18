@@ -279,6 +279,12 @@ class Script:
     def has_op_return(self):
         return 106 in self.commands
 
+    def is_witness_script(self):
+        if self.is_p2wpkh() or self.is_p2wsh():
+            return True
+        else:
+            return False
+
 
 class ScriptPubKey(Script):
     """Represents a ScriptPubKey in a transaction"""
