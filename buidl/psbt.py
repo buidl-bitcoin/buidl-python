@@ -347,17 +347,7 @@ class PSBT:
                 if named_pub.root_fingerprint == fingerprint:
                     # get the private key at the root_path of the NamedPublicKey
                     private_key = hd_priv.traverse(named_pub.root_path).private_key
-                    # check if prev_tx is defined (legacy)
-                    if (
-                        psbt_in.witness_script
-                        or psbt_in.witness
-                        or (
-                            psbt_in.redeem_script
-                            and psbt_in.redeem_script.is_witness_script()
-                        )
-                        or psbt_in.tx_in.script_pubkey().is_witness_script()
-                    ):
-                        # get the signature using segwit
+                    if psbt_in.use_segwit_signature():
                         sig = self.tx_obj.get_sig_segwit(
                             i,
                             private_key,
@@ -365,7 +355,6 @@ class PSBT:
                             psbt_in.witness_script,
                         )
                     else:
-                        # get the signature using legacy
                         sig = self.tx_obj.get_sig_legacy(
                             i, private_key, psbt_in.redeem_script
                         )
@@ -386,16 +375,7 @@ class PSBT:
             for i, psbt_in in enumerate(self.psbt_ins):
                 # if the sec is in the named_pubs dictionary
                 if psbt_in.named_pubs.get(point.sec()):
-                    if (
-                        psbt_in.witness_script
-                        or psbt_in.witness
-                        or (
-                            psbt_in.redeem_script
-                            and psbt_in.redeem_script.is_witness_script()
-                        )
-                        or psbt_in.tx_in.script_pubkey().is_witness_script()
-                    ):
-                        # get the signature using get_sig_segwit
+                    if psbt_in.use_segwit_signature():
                         sig = self.tx_obj.get_sig_segwit(
                             i,
                             private_key,
@@ -403,7 +383,6 @@ class PSBT:
                             psbt_in.witness_script,
                         )
                     else:
-                        # get the signature using get_sig_legacy
                         sig = self.tx_obj.get_sig_legacy(
                             i, private_key, psbt_in.redeem_script
                         )
@@ -843,6 +822,16 @@ class PSBTIn:
             return self.prev_out.script_pubkey
         else:
             return None
+
+    def use_segwit_signature(self):
+        # https://github.com/buidl-bitcoin/buidl-python/issues/23
+        if self.witness_script or self.witness:
+            return True
+        if self.redeem_script and self.redeem_script.is_witness_script():
+            return True
+        if self.script_pubkey() and self.script_pubkey().is_witness_script():
+            return True
+        return False
 
     def update(self, tx_lookup, pubkey_lookup, redeem_lookup, witness_lookup):
         """Updates the input with NamedPublicKeys, RedeemScript or WitnessScript that
