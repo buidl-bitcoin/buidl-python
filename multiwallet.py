@@ -404,7 +404,7 @@ class MyPrompt(Cmd):
         to_print = "Multisig Receiving Addresses"
         if not is_libsec_enabled:
             to_print += " (this is ~100x faster if you install libsec)"
-        print_yellow(to_print)
+        print_yellow(to_print + ":")
         for cnt in range(limit):
             sec_hexes_to_use = []
             for pubkey_info in pubkeys_info["pubkey_dicts"]:
