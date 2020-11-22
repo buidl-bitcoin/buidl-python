@@ -12,8 +12,6 @@ from buidl.hd import (
     calc_valid_seedpicker_checksums,
     HDPrivateKey,
     HDPublicKey,
-    InvalidBIP39Length,
-    InvalidChecksumWordsError,
 )
 from buidl.helper import sha256, hash256
 from buidl.mnemonic import WORD_LIST, WORD_LOOKUP
