@@ -209,7 +209,9 @@ def _get_bip39_firstwords():
     fw_num = len(fw.split())
     if fw_num not in (11, 14, 17, 20, 23):
         # TODO: 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for advanced users
-        print_red(f"You entered {fw_num} words. We recommend 23 words, but advanced users may enter 11, 14, 17 or 20 BIP39 words.")
+        print_red(
+            f"You entered {fw_num} words. We recommend 23 words, but advanced users may enter 11, 14, 17 or 20 BIP39 words."
+        )
         return _get_bip39_firstwords()
     for cnt, word in enumerate(fw.split()):
         if word not in WORD_LOOKUP:
