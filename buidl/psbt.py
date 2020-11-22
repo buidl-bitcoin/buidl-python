@@ -55,17 +55,20 @@ class NamedPublicKey(S256Point):
             self.sec().hex(), self.root_fingerprint.hex(), self.root_path
         )
 
-    def add_raw_path_data(self, raw_path):
+    def add_raw_path_data(self, raw_path, testnet=None):
         self.root_fingerprint = raw_path[:4]
         self.root_path = parse_binary_path(raw_path[4:])
         self.raw_path = raw_path
-        self.testnet = path_is_testnet(self.root_path)
+        if testnet is None:
+            self.testnet = path_is_testnet(self.root_path)
+        else:
+            self.testnet = testnet
 
     @classmethod
-    def parse(cls, key, s):
+    def parse(cls, key, s, testnet=None):
         point = super().parse(key[1:])
         point.__class__ = cls
-        point.add_raw_path_data(read_varstr(s))
+        point.add_raw_path_data(read_varstr(s), testnet=testnet)
         return point
 
     def serialize(self, prefix):
@@ -78,13 +81,16 @@ class NamedHDPublicKey(HDPublicKey):
             super().__repr__(), self.root_fingerprint.hex(), self.root_path
         )
 
-    def add_raw_path_data(self, raw_path):
+    def add_raw_path_data(self, raw_path, testnet=None):
         self.root_fingerprint = raw_path[:4]
         bin_path = raw_path[4:]
         self.root_path = parse_binary_path(bin_path)
         if self.depth != len(bin_path) // 4:
             raise ValueError("raw path calculated depth and depth are different")
-        self.testnet = path_is_testnet(self.root_path)
+        if testnet is None:
+            self.testnet = path_is_testnet(self.root_path)
+        else:
+            self.testnet = testnet
         self.raw_path = raw_path
         self.sync_point()
 
@@ -149,10 +155,10 @@ class NamedHDPublicKey(HDPublicKey):
         }
 
     @classmethod
-    def parse(cls, key, s):
+    def parse(cls, key, s, testnet=None):
         hd_key = cls.raw_parse(BytesIO(key[1:]))
         hd_key.__class__ = cls
-        hd_key.add_raw_path_data(read_varstr(s))
+        hd_key.add_raw_path_data(read_varstr(s), testnet=testnet)
         return hd_key
 
     @classmethod
@@ -472,7 +478,7 @@ class PSBT:
             elif psbt_type == PSBT_GLOBAL_XPUB:
                 if len(key) != 79:
                     raise KeyError("Wrong length for the key")
-                hd_pub = NamedHDPublicKey.parse(key, s)
+                hd_pub = NamedHDPublicKey.parse(key, s, testnet=testnet)
                 hd_pubs[hd_pub.raw_serialize()] = hd_pub
                 if testnet is None:
                     testnet = hd_pub.testnet
@@ -488,7 +494,7 @@ class PSBT:
         # per input data
         psbt_ins = []
         for tx_in in tx_obj.tx_ins:
-            psbt_in = PSBTIn.parse(s, tx_in)
+            psbt_in = PSBTIn.parse(s, tx_in, testnet=testnet)
             for named_pub in psbt_in.named_pubs.values():
                 if testnet is None:
                     testnet = named_pub.testnet
@@ -498,7 +504,7 @@ class PSBT:
         # per output data
         psbt_outs = []
         for tx_out in tx_obj.tx_outs:
-            psbt_out = PSBTOut.parse(s, tx_out)
+            psbt_out = PSBTOut.parse(s, tx_out, testnet=testnet)
             for named_pub in psbt_out.named_pubs.values():
                 if testnet is None:
                     testnet = named_pub.testnet
@@ -666,7 +672,7 @@ class PSBTIn:
         )
 
     @classmethod
-    def parse(cls, s, tx_in):
+    def parse(cls, s, tx_in, testnet=None):
         prev_tx = None
         prev_out = None
         sigs = {}
@@ -727,7 +733,7 @@ class PSBTIn:
             elif psbt_type == PSBT_IN_BIP32_DERIVATION:
                 if len(key) != 34:
                     raise KeyError("Wrong length for the key")
-                named_pub = NamedPublicKey.parse(key, s)
+                named_pub = NamedPublicKey.parse(key, s, testnet=testnet)
                 named_pubs[named_pub.sec()] = named_pub
             elif psbt_type == PSBT_IN_FINAL_SCRIPTSIG:
                 if len(key) != 1:
@@ -1174,7 +1180,7 @@ class PSBTOut:
         )
 
     @classmethod
-    def parse(cls, s, tx_out):
+    def parse(cls, s, tx_out, testnet=None):
         redeem_script = None
         witness_script = None
         named_pubs = {}
@@ -1197,7 +1203,7 @@ class PSBTOut:
             elif psbt_type == PSBT_OUT_BIP32_DERIVATION:
                 if len(key) != 34:
                     raise KeyError("Wrong length for the key")
-                named_pub = NamedPublicKey.parse(key, s)
+                named_pub = NamedPublicKey.parse(key, s, testnet=testnet)
                 named_pubs[named_pub.sec()] = named_pub
             else:
                 if extra_map.get(key):
