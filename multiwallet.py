@@ -205,11 +205,11 @@ def _get_bip39_firstwords():
     completer = WordCompleter(wordlist=WORD_LIST)
 
     readline.set_completer(completer.complete)
-    fw = input(blue_fg("Enter your 23 word BIP39 seed phrase: ")).strip()
+    fw = input(blue_fg("Enter the first 23 words of your BIP39 seed phrase: ")).strip()
     fw_num = len(fw.split())
     if fw_num not in (11, 14, 17, 20, 23):
         # TODO: 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for advanced users
-        print_red(f"Enter 23 word seed-phrase (you entered {fw_num} words)")
+        print_red(f"You entered {fw_num} words. We recommend 23 words, but advanced users may enter 11, 14, 17 or 20 BIP39 words.")
         return _get_bip39_firstwords()
     for cnt, word in enumerate(fw.split()):
         if word not in WORD_LOOKUP:
@@ -299,6 +299,7 @@ def _calculate_msig_digest(quorum_m, root_xfp_hexes):
 
 
 def _is_libsec_enabled():
+    # TODO: move this to buidl library
     try:
         from buidl import cecc  # noqa: F401
 
@@ -321,7 +322,6 @@ class MyPrompt(Cmd):
 
     def do_generate_seed(self, arg):
         """Seedpicker implementation: calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
-        is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
         first_words = _get_bip39_firstwords()
         use_default_checksum = _get_bool(
             prompt="Use default checksum index for BIP39 seed phrase?", default=True
@@ -329,6 +329,7 @@ class MyPrompt(Cmd):
         valid_checksums_generator = calc_valid_seedpicker_checksums(
             first_words=first_words
         )
+        is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
 
         if use_default_checksum:
             # This will be VERY fast
@@ -337,9 +338,13 @@ class MyPrompt(Cmd):
             num_valid_seedpicker_checksums = calc_num_valid_seedpicker_checksums(
                 num_first_words=len(first_words.split())
             )
-            print_yellow(
-                f"Generating the {num_valid_seedpicker_checksums} valid checksum words for this seed phrase..."
-            )
+
+            to_print = f"Generating the {num_valid_seedpicker_checksums} valid checksum words for this seed phrase"
+            if not _is_libsec_enabled():
+                to_print += " (this is ~10x faster if you install libsec)"
+            to_print += ":\n"
+            print_yellow(to_print)
+
             # This is slow, but will display progress in a UX-friendly way
             valid_checksum_words = []
             line = ""
@@ -350,8 +355,9 @@ class MyPrompt(Cmd):
                     current += "\t"
                 line += f"{current}\t"
                 if i % 4 == 3:
-                    print_yellow("  " + line)
+                    print_yellow("\t" + line)
                     line = ""
+            print()
             index = _get_int(
                 prompt="Choose one of the possible last words from above",
                 default=0,
