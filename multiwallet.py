@@ -125,7 +125,7 @@ def _get_bool(prompt, default=True, scary_text=False):
 
 
 def _get_path_string():
-    res = input(blue_fg(f"Path to use (should start with 'm/'): ")).strip()
+    res = input(blue_fg(f'Path to use (should start with "m/"): ')).strip()
     if not res.startswith("m/"):
         print_red(f'Invalid path "{res}" must start with "m/")')
         return _get_path_string()
@@ -281,20 +281,20 @@ def _get_bip39_firstwords():
 #####################################################################
 
 
-def _get_psbt_obj():
+def _get_psbt_obj(parse_as_testnet):
     psbt_b64 = input(
         blue_fg("Paste partially signed bitcoin transaction (PSBT) in base64 form: ")
     ).strip()
     if not psbt_b64:
-        return _get_psbt_obj()
+        return _get_psbt_obj(parse_as_testnet)
     try:
-        psbt_obj = PSBT.parse_base64(psbt_b64)
+        psbt_obj = PSBT.parse_base64(psbt_b64, testnet=parse_as_testnet)
         # redundant but explicit
         if psbt_obj.validate() is not True:
             raise Exception("PSBT does not validate")
     except Exception as e:
         print_red(f"Could not parse PSBT: {e}")
-        return _get_psbt_obj()
+        return _get_psbt_obj(parse_as_testnet)
     return psbt_obj
 
 
@@ -484,11 +484,19 @@ class MyPrompt(Cmd):
 
     def do_send(self, arg):
         """Sign a multisig PSBT using 1 of your BIP39 seed phrases. Can also be used to just inspect a TX and not sign it."""
-        psbt_obj = _get_psbt_obj()
+        guess_network = _get_bool(
+            prompt="Guess network (testnet or mainnet) from PSBT?", default=True
+        )
+        # PSBT doesn't encode a network, but we can use a best-guess that is often accurate
+        if guess_network:
+            parse_as_testnet = None
+        else:
+            parse_as_testnet = not _get_bool(
+                prompt="Use mainnet?", default=True
+            )
+
+        psbt_obj = _get_psbt_obj(parse_as_testnet=parse_as_testnet)
         TX_FEE_SATS = psbt_obj.tx_obj.fee()
-        IS_TESTNET = not _get_bool(
-            prompt="Use Mainnet?", default=False
-        )  # We CANNOT reliably infer this from the PSBT unfortunately :(
 
         # Validate multisig transaction
         # TODO: abstract some of this into buidl library?
@@ -532,8 +540,8 @@ class MyPrompt(Cmd):
                 "n_sequence": psbt_in.tx_in.sequence,
                 "sats": psbt_in.tx_in.value(),
                 # TODO: would be possible for transaction to be p2sh-wrapped p2wsh (can we tell?)
-                "addr": psbt_in.witness_script.address(testnet=IS_TESTNET),
-                # "p2sh_addr": psbt_in.witness_script.p2sh_address(testnet=IS_TESTNET),
+                "addr": psbt_in.witness_script.address(testnet=psbt_obj.testnet),
+                # "p2sh_addr": psbt_in.witness_script.p2sh_address(testnet=psbt_obj.testnet),
                 "witness_script": str(psbt_in.witness_script),
                 "msig_digest": _calculate_msig_digest(
                     quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
@@ -570,11 +578,11 @@ class MyPrompt(Cmd):
 
             if psbt_out.witness_script:
                 output_desc["addr"] = psbt_out.witness_script.address(
-                    testnet=IS_TESTNET
+                    testnet=psbt_obj.testnet
                 )
             else:
                 output_desc["addr"] = psbt_out.tx_out.script_pubkey.address(
-                    testnet=IS_TESTNET
+                    testnet=psbt_obj.testnet
                 )
 
             if psbt_out.named_pubs:
@@ -662,7 +670,7 @@ class MyPrompt(Cmd):
             print_yellow(f"Transaction {psbt_obj.tx_obj.id()} NOT signed")
             return
 
-        hd_priv = _get_hd_priv_from_bip39_seed(is_testnet=IS_TESTNET)
+        hd_priv = _get_hd_priv_from_bip39_seed(is_testnet=psbt_obj.testnet)
 
         # Derive list of child private keys we'll use to sign the TX
         root_paths = set()
