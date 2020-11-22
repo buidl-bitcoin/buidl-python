@@ -46,3 +46,11 @@ Welcome to multiwallet...
 
 If you get a `permission denied` error, you will need to run `$ sudo python3 multiwallet.py`.
 On TAILs, you need to setup an [Administration Password](https://tails.boum.org/doc/first_steps/welcome_screen/administration_password/).
+
+## Product Roadmap
+
+* Add multiple paths
+* Add passphrase
+* Show change addresses (not just receiving addresses)
+* Save outputs to a file?
+* Dispay QR codes?
