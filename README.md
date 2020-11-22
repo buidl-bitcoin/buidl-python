@@ -15,7 +15,7 @@ Welcome to multiwallet...
 `multiwallet` is a stateless CLI multisig PSBT wallet.
 Since `buidl` has no dependencies, you can run multiwallet by just `cd`ing to the root directory of this project:
 ```bash
-$ python multiwallet.py
+$ python3 multiwallet.py
 Welcome to multiwallet...
 ```
 
