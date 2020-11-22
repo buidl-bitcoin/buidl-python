@@ -14,6 +14,7 @@ from buidl.hd import (
     HDPublicKey,
 )
 from buidl.helper import sha256, hash256
+from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import WORD_LIST, WORD_LOOKUP
 from buidl.psbt import PSBT
 from buidl.script import P2WSHScriptPubKey, WitnessScript
@@ -300,16 +301,6 @@ def _calculate_msig_digest(quorum_m, root_xfp_hexes):
     return hash256(f"{quorum_m}:{fingerprints_to_hash}".encode()).hex()
 
 
-def _is_libsec_enabled():
-    # TODO: move this to buidl library
-    try:
-        from buidl import cecc  # noqa: F401
-
-        return True
-    except ModuleNotFoundError:
-        return False
-
-
 #####################################################################
 # Command Line App Code Starts Here
 #####################################################################
@@ -342,7 +333,7 @@ class MyPrompt(Cmd):
             )
 
             to_print = f"Generating the {num_valid_seedpicker_checksums} valid checksum words for this seed phrase"
-            if not _is_libsec_enabled():
+            if not is_libsec_enabled():
                 to_print += " (this is ~10x faster if you install libsec)"
             to_print += ":\n"
             print_yellow(to_print)
@@ -400,7 +391,8 @@ class MyPrompt(Cmd):
         pubkeys_info = _get_output_descriptor()
         limit = _get_int(
             prompt="Limit of addresses to display",
-            default=20,  # This is slow without libsecp256k1 :(
+            # This is slow without libsecp256k1:
+            default=25 if is_libsec_enabled() else 5,
             minimum=1,
         )
         offset = _get_int(
@@ -409,9 +401,10 @@ class MyPrompt(Cmd):
             minimum=0,
         )
 
-        print_yellow(
-            f"Multisig Addresses{' (this is ~100x faster if you install libsec)' if not _is_libsec_enabled() else ''}:"
-        )
+        to_print = f"Multisig Receiving Addresses"
+        if not is_libsec_enabled:
+            to_print += ' (this is ~100x faster if you install libsec)'
+        print_yellow(to_print)
         for cnt in range(limit):
             sec_hexes_to_use = []
             for pubkey_info in pubkeys_info["pubkey_dicts"]:
@@ -648,7 +641,7 @@ class MyPrompt(Cmd):
             f"buidl Version: {_get_buidl_version()}",
             f"Python Version: {sys.version_info}",
             f"Platform: {platform()}",
-            f"libsecp256k1 Configured: {_is_libsec_enabled()}",
+            f"libsecp256k1 Configured: {is_libsec_enabled()}",
         ]
         print_yellow("\n".join(to_print))
 

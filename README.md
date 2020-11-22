@@ -71,7 +71,7 @@ $ brew tap cuber/homebrew-libsecp256k1 && brew install pkg-config libffi libsecp
 #### Python Installation
 
 ```bash
-$ git clone git@github.com:buidl-bitcoin/buidl-python.git && cd buidl-python && pip3 install --editable . && pip3 install cffi && cd buidl && python libsec_build.py
+$ git clone git@github.com:buidl-bitcoin/buidl-python.git && cd buidl-python && python3 -m pip install -r requirements-libsec.txt && python3 -m pip install --editable . && cd buidl && python libsec_build.py && cd ..
 ```
 
 ## TODO:
