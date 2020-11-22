@@ -401,7 +401,7 @@ class MyPrompt(Cmd):
             minimum=0,
         )
 
-        to_print = f"Multisig Receiving Addresses"
+        to_print = "Multisig Receiving Addresses"
         if not is_libsec_enabled:
             to_print += " (this is ~100x faster if you install libsec)"
         print_yellow(to_print)
