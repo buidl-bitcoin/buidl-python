@@ -103,12 +103,17 @@ def _get_int(prompt, default=20, minimum=0, maximum=None):
     return res_int
 
 
-def _get_bool(prompt, default=True):
+def _get_bool(prompt, default=True, scary_text=False):
     if default is True:
         yn = "[Y/n]"
     else:
         yn = "[y/N]"
-    response_str = input(blue_fg(f"{prompt} {yn}: ")).strip().lower()
+
+    if scary_text is True:
+        add_color_method = red_fg
+    else:
+        add_color_method = blue_fg
+    response_str = input(add_color_method(f"{prompt} {yn}: ")).strip().lower()
     if response_str == "":
         return default
     if response_str in ("n", "no"):
@@ -117,6 +122,54 @@ def _get_bool(prompt, default=True):
         return True
     print_red("Please choose either y or n")
     return _get_bool(prompt=prompt, default=default)
+
+
+def _get_path_string():
+    res = input(blue_fg(f"Path to use (should start with 'm/'): ")).strip()
+    if not res.startswith("m/"):
+        print_red(f'Invalid path "{res}" must start with "m/")')
+        return _get_path_string()
+    if res == "m/":
+        # TODO: support this?
+        print_red("Empty path (must have a depth of > 0): m/somenumberhere")
+        return _get_path_string()
+    for sub_path in res[2:].split("/")[1:]:
+        if sub_path.endswith("'") or sub_path.lower().endswith("h"):
+            # Trim trailing hardening indicator
+            sub_path_cleaned = sub_path[:-1]
+        else:
+            sub_path_cleaned = sub_path
+        try:
+            int(sub_path_cleaned)
+        except Exception as e:
+            print_red(f"Invalid Path Section: {sub_path}")
+            return _get_path_string()
+    return res.replace("h", "'")
+
+
+def _get_path(is_testnet):
+    if is_testnet:
+        network_string = "Testnet"
+        default_path = "m/48'/1'/0'/2'"
+    else:
+        network_string = "Mainnet"
+        default_path = "m/48'/0'/0'/2'"
+    use_default_path = _get_bool(
+        prompt=f"Use default path for {network_string} ({default_path})",
+        default=True,
+    )
+    if use_default_path:
+        return default_path
+    else:
+        scary_string = (
+            "WARNING: this feature is for advanced users. "
+            "A mistake here could cause loss of funds. "
+            "Are you sure you want to continue?"
+        )
+        if _get_bool(prompt=scary_string, default=False, scary_text=True):
+            return _get_path_string()
+        else:
+            return _get_path(is_testnet)
 
 
 class WordCompleter:
@@ -322,7 +375,6 @@ class MyPrompt(Cmd):
         valid_checksums_generator = calc_valid_seedpicker_checksums(
             first_words=first_words
         )
-        is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
 
         if use_default_checksum:
             # This will be VERY fast
@@ -359,12 +411,17 @@ class MyPrompt(Cmd):
             )
             last_word = valid_checksum_words[index]
 
+        is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
+        path_to_use = _get_path(is_testnet=is_testnet)
+
+        # TODO: migrate away from SLIP132 bytes?
+        # https://github.com/cryptoadvance/specter-desktop/issues/628
         if is_testnet:
-            PATH = "m/48'/1'/0'/2'"
             SLIP132_VERSION_BYTES = "02575483"
         else:
-            PATH = "m/48'/0'/0'/2'"
             SLIP132_VERSION_BYTES = "02aa7ed3"
+
+        print("FIXME Using SLIP132_VERSION_BYTES", SLIP132_VERSION_BYTES)
 
         hd_priv = HDPrivateKey.from_mnemonic(first_words + " " + last_word)
         print(yellow_fg("SECRET INFO") + red_fg(" (guard this VERY carefully)"))
@@ -379,8 +436,8 @@ class MyPrompt(Cmd):
         print_green(
             "  [{}{}]{}".format(
                 hd_priv.fingerprint().hex(),
-                PATH.replace("m", "").replace("'", "h"),
-                hd_priv.traverse(PATH).xpub(
+                path_to_use.replace("m", "").replace("'", "h"),
+                hd_priv.traverse(path_to_use).xpub(
                     version=bytes.fromhex(SLIP132_VERSION_BYTES)
                 ),
             ),
@@ -651,12 +708,8 @@ class MyPrompt(Cmd):
         return True
 
 
-def main():
+if __name__ == "__main__":
     try:
         MyPrompt().cmdloop()
     except KeyboardInterrupt:
         print_yellow("\nNo data saved")
-
-
-if __name__ == "__main__":
-    main()
