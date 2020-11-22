@@ -29,6 +29,14 @@ TESTNET_ZPRV = bytes.fromhex("045f18bc")
 TESTNET_ZPUB = bytes.fromhex("045f1cf6")
 
 
+class InvalidBIP39Length(Exception):
+    pass
+
+
+class InvalidChecksumWordsError(Exception):
+    pass
+
+
 class HDPrivateKey:
     def __init__(
         self,
@@ -340,7 +348,9 @@ class HDPrivateKey:
         # check that there are 12, 15, 18, 21 or 24 words
         # if not, raise a ValueError
         if len(words) not in (12, 15, 18, 21, 24):
-            raise ValueError("you need 12, 15, 18, 21, or 24 words")
+            raise InvalidBIP39Length(
+                f"{len(words)} words (you need 12, 15, 18, 21, or 24 words)"
+            )
         # calculate the number
         number = 0
         # each word is 11 bits
@@ -362,7 +372,7 @@ class HDPrivateKey:
         computed_checksum = sha256(data)[0] >> (8 - checksum_bits_length)
         # check that the checksum is correct or raise ValueError
         if checksum != computed_checksum:
-            raise ValueError("words fail checksum: {}".format(words))
+            raise InvalidChecksumWordsError(words)
         # normalize in case we got a mnemonic that's just the first 4 letters
         normalized_words = []
         for word in words:
@@ -571,3 +581,31 @@ class HDPublicKey:
             child_number=child_number,
             testnet=testnet,
         )
+
+
+def calc_valid_seedpicker_checksums(first_words):
+    """
+    Generator to return all valid seedpicker checksums.
+
+    For normal useage, just grab the first one only
+    """
+    for word in WORD_LIST:
+        try:
+            HDPrivateKey.from_mnemonic(first_words + " " + word)
+            yield (word)
+        except InvalidChecksumWordsError:
+            pass
+
+
+def calc_num_valid_seedpicker_checksums(num_first_words):
+    """
+    If you have K firstwords, you will have V valid checksum words to choose from
+    This convenience method is used for displaying progress to the user.
+    """
+    return {
+        11: 128,
+        14: 64,
+        17: 32,
+        20: 16,
+        23: 8,
+    }[num_first_words]

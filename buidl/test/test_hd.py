@@ -1,6 +1,13 @@
 from unittest import TestCase
 
-from buidl.hd import HDPublicKey, HDPrivateKey
+from buidl.hd import (
+    calc_num_valid_seedpicker_checksums,
+    calc_valid_seedpicker_checksums,
+    HDPublicKey,
+    HDPrivateKey,
+    InvalidBIP39Length,
+    InvalidChecksumWordsError,
+)
 from buidl.helper import encode_base58_checksum
 from buidl.mnemonic import WORD_LIST
 
@@ -419,9 +426,40 @@ class HDTest(TestCase):
         with self.assertRaises(ValueError):
             derived_pub.child(1 << 31)
 
-    def test_errors(self):
-        with self.assertRaises(ValueError):
+    def test_from_mnemonic_errors(self):
+        with self.assertRaises(InvalidBIP39Length):
             HDPrivateKey.from_mnemonic("hello")
-        with self.assertRaises(ValueError):
+
+        with self.assertRaises(InvalidChecksumWordsError):
             mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon"
             HDPrivateKey.from_mnemonic(mnemonic)
+
+    def test_seedpicker(self):
+        first_words = "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo"
+        want = ["buddy", "cash", "gap", "leaf", "move", "party", "sudden", "vote"]
+        # calc_valid_seedpicker_checksums is a generator
+        for cnt, checksum in enumerate(
+            calc_valid_seedpicker_checksums(first_words=first_words)
+        ):
+            self.assertEqual(checksum, want[cnt])
+
+        self.assertEqual(
+            calc_num_valid_seedpicker_checksums(len(first_words.split())), len(want)
+        )
+
+        zoo_tests = [
+            # length, default_checksum
+            ["zoo " * 11, "abstract"],
+            ["zoo " * 14, "account"],
+            ["zoo " * 17, "advice"],
+            ["zoo " * 20, "arrow"],
+            ["zoo " * 23, "buddy"],
+        ]
+        for first_words, default_checksum_want in zoo_tests:
+            generator = calc_valid_seedpicker_checksums(first_words=first_words.strip())
+            self.assertEqual(default_checksum_want, next(generator))
+
+        for length in (2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15, 16, 18, 19, 21, 22, 24):
+            with self.assertRaises(InvalidBIP39Length):
+                # Next is just a way to call the generator
+                next(calc_valid_seedpicker_checksums(first_words="able " * length))

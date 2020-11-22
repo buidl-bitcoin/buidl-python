@@ -7,7 +7,14 @@ from platform import platform
 from pkg_resources import DistributionNotFound, get_distribution
 
 import buidl  # noqa: F401 (used below with pkg_resources for versioning)
-from buidl.hd import HDPrivateKey, HDPublicKey
+from buidl.hd import (
+    calc_num_valid_seedpicker_checksums,
+    calc_valid_seedpicker_checksums,
+    HDPrivateKey,
+    HDPublicKey,
+    InvalidBIP39Length,
+    InvalidChecksumWordsError,
+)
 from buidl.helper import sha256, hash256
 from buidl.mnemonic import WORD_LIST, WORD_LOOKUP
 from buidl.psbt import PSBT
@@ -63,21 +70,6 @@ def _get_buidl_version():
         return get_distribution("buidl").version
     except DistributionNotFound:
         return "Unknown"
-
-
-def _get_all_valid_checksum_words(first_words):
-    to_return = []
-    for word in WORD_LIST:
-        try:
-            HDPrivateKey.from_mnemonic(first_words + " " + word)
-            to_return.append(word)
-        except KeyError as e:
-            # We have a word in first_words that is not in WORD_LIST
-            return [], "Invalid BIP39 Word: {}".format(e.args[0])
-        except ValueError:
-            pass
-
-    return to_return, ""
 
 
 def _get_int(prompt, default=20, minimum=0, maximum=None):
@@ -210,7 +202,7 @@ def _get_output_descriptor():
 #####################################################################
 
 
-def _get_bip39_checksums_and_firstwords():
+def _get_bip39_firstwords():
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=WORD_LIST)
 
@@ -220,18 +212,14 @@ def _get_bip39_checksums_and_firstwords():
     if fw_num not in (11, 14, 17, 20, 23):
         # TODO: 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for advanced users
         print_red(f"Enter 23 word seed-phrase (you entered {fw_num} words)")
-        return _get_bip39_checksums_and_firstwords()
+        return _get_bip39_firstwords()
     for cnt, word in enumerate(fw.split()):
         if word not in WORD_LOOKUP:
             print_red(f"Word #{cnt+1} ({word} is not a valid BIP39 word")
-            return _get_bip39_checksums_and_firstwords()
-    valid_checksum_words, err_str = _get_all_valid_checksum_words(fw)
-    if err_str:
-        print_red(f"Error calculating checksum word: {err_str}")
-        return _get_bip39_checksums_and_firstwords()
+            return _get_bip39_firstwords()
 
     readline.set_completer(old_completer)
-    return fw, valid_checksum_words
+    return fw
 
 
 #####################################################################
@@ -336,22 +324,35 @@ class MyPrompt(Cmd):
     def do_generate_seed(self, arg):
         """Seedpicker implementation: calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
         is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
-
-        first_words, valid_checksum_words = _get_bip39_checksums_and_firstwords()
-
-        if _get_bool(
+        first_words = _get_bip39_firstwords()
+        use_default_checksum = _get_bool(
             prompt="Use default checksum index for BIP39 seed phrase?", default=True
-        ):
-            index = 0
+        )
+        valid_checksums_generator = calc_valid_seedpicker_checksums(
+            first_words=first_words
+        )
+
+        if use_default_checksum:
+            # This will be VERY fast
+            last_word = next(valid_checksums_generator)
         else:
+            num_valid_seedpicker_checksums = calc_num_valid_seedpicker_checksums(
+                num_first_words=len(first_words.split())
+            )
+            print_yellow(
+                f"Generating the {num_valid_seedpicker_checksums} valid checksum words for this seed phrase..."
+            )
+            # This is slow, but will display progress in a UX-friendly way
+            valid_checksum_words = []
             line = ""
-            for i, word in enumerate(valid_checksum_words):
+            for i, word in enumerate(valid_checksums_generator):
+                valid_checksum_words.append(word)
                 current = f"{i}. {word}"
                 if len(current) < 8:
                     current += "\t"
                 line += f"{current}\t"
                 if i % 4 == 3:
-                    print_yellow(line)
+                    print_yellow("  " + line)
                     line = ""
             index = _get_int(
                 prompt="Choose one of the possible last words from above",
@@ -359,14 +360,15 @@ class MyPrompt(Cmd):
                 minimum=0,
                 maximum=len(valid_checksum_words) - 1,
             )
+            last_word = valid_checksum_words[index]
 
-        last_word = valid_checksum_words[index]
         if is_testnet:
             PATH = "m/48'/1'/0'/2'"
             SLIP132_VERSION_BYTES = "02575483"
         else:
             PATH = "m/48'/0'/0'/2'"
             SLIP132_VERSION_BYTES = "02aa7ed3"
+
         hd_priv = HDPrivateKey.from_mnemonic(first_words + " " + last_word)
         print(yellow_fg("SECRET INFO") + red_fg(" (guard this VERY carefully)"))
         print_green(f"Last word: {last_word}")
