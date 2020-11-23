@@ -125,7 +125,7 @@ def _get_bool(prompt, default=True, scary_text=False):
 
 
 def _get_path_string():
-    res = input(blue_fg('Path to use (should start with "m/"): ')).strip()
+    res = input(blue_fg('Path to use (should start with "m/"): ')).strip().lower()
     if not res.startswith("m/"):
         print_red(f'Invalid path "{res}" must start with "m/")')
         return _get_path_string()
@@ -134,7 +134,7 @@ def _get_path_string():
         print_red("Empty path (must have a depth of > 0): m/somenumberhere")
         return _get_path_string()
     for sub_path in res[2:].split("/")[1:]:
-        if sub_path.endswith("'") or sub_path.lower().endswith("h"):
+        if sub_path.endswith("'") or sub_path.endswith("h"):
             # Trim trailing hardening indicator
             sub_path_cleaned = sub_path[:-1]
         else:
