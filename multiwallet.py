@@ -576,14 +576,9 @@ class MyPrompt(Cmd):
                 ),
             }
 
-            if psbt_out.witness_script:
-                output_desc["addr"] = psbt_out.witness_script.address(
-                    testnet=psbt_obj.testnet
-                )
-            else:
-                output_desc["addr"] = psbt_out.tx_out.script_pubkey.address(
-                    testnet=psbt_obj.testnet
-                )
+            output_desc["addr"] = psbt_out.tx_out.script_pubkey.address(
+                testnet=psbt_obj.testnet
+            )
 
             if psbt_out.named_pubs:
                 # Validate below that this is correct and abort otherwise
