@@ -16,7 +16,7 @@ from buidl.hd import (
 from buidl.helper import sha256, hash256
 from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import WORD_LIST, WORD_LOOKUP
-from buidl.psbt import PSBT
+from buidl.psbt import MixedNetwork, PSBT
 from buidl.script import P2WSHScriptPubKey, WitnessScript
 from buidl.op import OP_CODE_NAMES, OP_CODE_NAMES_LOOKUP
 
@@ -281,20 +281,45 @@ def _get_bip39_firstwords():
 #####################################################################
 
 
-def _get_psbt_obj(parse_as_testnet):
+def _get_psbt_obj():
     psbt_b64 = input(
         blue_fg("Paste partially signed bitcoin transaction (PSBT) in base64 form: ")
     ).strip()
     if not psbt_b64:
-        return _get_psbt_obj(parse_as_testnet)
+        return _get_psbt_obj()
+
     try:
-        psbt_obj = PSBT.parse_base64(psbt_b64, testnet=parse_as_testnet)
-        # redundant but explicit
-        if psbt_obj.validate() is not True:
-            raise Exception("PSBT does not validate")
+        # Attempt to infer network from BIP32 paths
+        psbt_obj = PSBT.parse_base64(psbt_b64, testnet=None)
+        if psbt_obj.testnet:
+            use_testnet = _get_bool(
+                prompt="Transaction appears to be a testnet transaction. Display as testnet?",
+                default=True,
+            )
+        else:
+            use_testnet = not _get_bool(
+                prompt="Transaction appears to be a mainnet transaction. Display as mainnet?",
+                default=True,
+            )
+        if psbt_obj.testnet != use_testnet:
+            psbt_obj = PSBT.parse_base64(psbt_b64, testnet=use_testnet)
+
+    except MixedNetwork:
+        use_testnet = not _get_bool(
+            prompt="Cannot infer PSBT network from BIP32 paths. Use Mainnet?",
+            default=True,
+        )
+        psbt_obj = PSBT.parse_base64(psbt_b64, testnet=use_testnet)
+
     except Exception as e:
         print_red(f"Could not parse PSBT: {e}")
-        return _get_psbt_obj(parse_as_testnet)
+        return _get_psbt_obj()
+
+    # redundant but explicit
+    if psbt_obj.validate() is not True:
+        print_red("PSBT does not validate")
+        return _get_psbt_obj()
+
     return psbt_obj
 
 
@@ -484,16 +509,8 @@ class MyPrompt(Cmd):
 
     def do_send(self, arg):
         """Sign a multisig PSBT using 1 of your BIP39 seed phrases. Can also be used to just inspect a TX and not sign it."""
-        guess_network = _get_bool(
-            prompt="Guess network (testnet or mainnet) from PSBT?", default=True
-        )
-        # PSBT doesn't encode a network, but we can use a best-guess that is often accurate
-        if guess_network:
-            parse_as_testnet = None
-        else:
-            parse_as_testnet = not _get_bool(prompt="Use mainnet?", default=True)
 
-        psbt_obj = _get_psbt_obj(parse_as_testnet=parse_as_testnet)
+        psbt_obj = _get_psbt_obj()
         TX_FEE_SATS = psbt_obj.tx_obj.fee()
 
         # Validate multisig transaction
@@ -664,6 +681,7 @@ class MyPrompt(Cmd):
             return
 
         hd_priv = _get_hd_priv_from_bip39_seed(is_testnet=psbt_obj.testnet)
+        xfp_hex = hd_priv.fingerprint().hex()
 
         # Derive list of child private keys we'll use to sign the TX
         root_paths = set()
@@ -675,11 +693,18 @@ class MyPrompt(Cmd):
                 _abort("Script error")
 
             for _, details in psbt_in.named_pubs.items():
-                if details.root_fingerprint.hex() == hd_priv.fingerprint().hex():
+                if details.root_fingerprint.hex() == xfp_hex:
                     root_paths.add(details.root_path)
 
         if not root_paths:
-            return _abort("Seed supplied does not correspond to transaction input(s)")
+            # We confirmed above that all inputs have identical encumberance so we choose the first one as representative
+            err = [
+                "Did you enter a seed for another wallet?",
+                f"The seed supplied (fingerprint {xfp_hex}) does not correspond to the transaction inputs, which are {inputs_desc[0]['quorum']} of the following:",
+            ]
+            for xfp in sorted(inputs_desc[0]["root_xfp_hexes"]):
+                err.append("  " + xfp)
+            return _abort("\n".join(err))
 
         private_keys = [
             hd_priv.traverse(root_path).private_key for root_path in root_paths

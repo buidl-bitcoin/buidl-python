@@ -49,6 +49,10 @@ PSBT_OUT_WITNESS_SCRIPT = b"\x01"
 PSBT_OUT_BIP32_DERIVATION = b"\x02"
 
 
+class MixedNetwork(Exception):
+    pass
+
+
 class NamedPublicKey(S256Point):
     def __repr__(self):
         return "Point:\n{}\nPath:\n{}:{}\n".format(
@@ -483,7 +487,7 @@ class PSBT:
                 if testnet is None:
                     testnet = hd_pub.testnet
                 if hd_pub.testnet != testnet:
-                    raise ValueError("Mainnet/Testnet mixing")
+                    raise MixedNetwork("PSBT Mainnet/Testnet Mixing")
             else:
                 if extra_map.get(key):
                     raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
@@ -499,7 +503,7 @@ class PSBT:
                 if testnet is None:
                     testnet = named_pub.testnet
                 if named_pub.testnet != testnet:
-                    raise ValueError("Mainnet/Testnet mixing")
+                    raise MixedNetwork("PSBTIn Mainnet/Testnet Mixing")
             psbt_ins.append(psbt_in)
         # per output data
         psbt_outs = []
@@ -509,7 +513,7 @@ class PSBT:
                 if testnet is None:
                     testnet = named_pub.testnet
                 if named_pub.testnet != testnet:
-                    raise ValueError("Mainnet/Testnet mixing")
+                    raise MixedNetwork("PSBTOut Mainnet/Testnet Mixing")
             psbt_outs.append(psbt_out)
         return cls(tx_obj, psbt_ins, psbt_outs, hd_pubs, extra_map, testnet)
 

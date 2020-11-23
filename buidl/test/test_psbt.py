@@ -5,7 +5,7 @@ from io import BytesIO
 from buidl.ecc import PrivateKey
 from buidl.hd import HDPrivateKey
 from buidl.helper import serialize_binary_path, encode_varstr, SIGHASH_ALL, read_varstr
-from buidl.psbt import PSBT, NamedHDPublicKey
+from buidl.psbt import PSBT, MixedNetwork, NamedHDPublicKey
 from buidl.script import RedeemScript, Script, WitnessScript
 from buidl.tx import Tx, TxIn, TxOut
 
@@ -564,7 +564,7 @@ class PSBTTest(TestCase):
             psbt_obj = PSBT.parse_base64(mixed_psbt_b64, testnet=testnet)
             self.assertEqual(psbt_obj.testnet, testnet)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(MixedNetwork):
             PSBT.parse_base64(mixed_psbt_b64, testnet=None)
 
     def test_inferring_psbt_network(self):
