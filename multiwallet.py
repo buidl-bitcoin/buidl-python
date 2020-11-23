@@ -16,7 +16,7 @@ from buidl.hd import (
 from buidl.helper import sha256, hash256
 from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import WORD_LIST, WORD_LOOKUP
-from buidl.psbt import PSBT
+from buidl.psbt import MixedNetwork, PSBT
 from buidl.script import P2WSHScriptPubKey, WitnessScript
 from buidl.op import OP_CODE_NAMES, OP_CODE_NAMES_LOOKUP
 
@@ -103,12 +103,17 @@ def _get_int(prompt, default=20, minimum=0, maximum=None):
     return res_int
 
 
-def _get_bool(prompt, default=True):
+def _get_bool(prompt, default=True, scary_text=False):
     if default is True:
         yn = "[Y/n]"
     else:
         yn = "[y/N]"
-    response_str = input(blue_fg(f"{prompt} {yn}: ")).strip().lower()
+
+    if scary_text is True:
+        add_color_method = red_fg
+    else:
+        add_color_method = blue_fg
+    response_str = input(add_color_method(f"{prompt} {yn}: ")).strip().lower()
     if response_str == "":
         return default
     if response_str in ("n", "no"):
@@ -117,6 +122,54 @@ def _get_bool(prompt, default=True):
         return True
     print_red("Please choose either y or n")
     return _get_bool(prompt=prompt, default=default)
+
+
+def _get_path_string():
+    res = input(blue_fg('Path to use (should start with "m/"): ')).strip().lower()
+    if not res.startswith("m/"):
+        print_red(f'Invalid path "{res}" must start with "m/")')
+        return _get_path_string()
+    if res == "m/":
+        # TODO: support this?
+        print_red("Empty path (must have a depth of > 0): m/somenumberhere")
+        return _get_path_string()
+    for sub_path in res.split("/")[1:]:
+        if sub_path.endswith("'") or sub_path.endswith("h"):
+            # Trim trailing hardening indicator
+            sub_path_cleaned = sub_path[:-1]
+        else:
+            sub_path_cleaned = sub_path
+        try:
+            int(sub_path_cleaned)
+        except Exception:
+            print_red(f"Invalid Path Section: {sub_path}")
+            return _get_path_string()
+    return res.replace("h", "'")
+
+
+def _get_path(is_testnet):
+    if is_testnet:
+        network_string = "Testnet"
+        default_path = "m/48'/1'/0'/2'"
+    else:
+        network_string = "Mainnet"
+        default_path = "m/48'/0'/0'/2'"
+    use_default_path = _get_bool(
+        prompt=f"Use default path for {network_string} ({default_path})",
+        default=True,
+    )
+    if use_default_path:
+        return default_path
+    else:
+        scary_string = (
+            "WARNING: this feature is for advanced users. "
+            "A mistake here could cause loss of funds. "
+            "Are you sure you want to continue?"
+        )
+        if _get_bool(prompt=scary_string, default=False, scary_text=True):
+            return _get_path_string()
+        else:
+            return _get_path(is_testnet)
 
 
 class WordCompleter:
@@ -234,14 +287,39 @@ def _get_psbt_obj():
     ).strip()
     if not psbt_b64:
         return _get_psbt_obj()
+
     try:
-        psbt_obj = PSBT.parse_base64(psbt_b64)
-        # redundant but explicit
-        if psbt_obj.validate() is not True:
-            raise Exception("PSBT does not validate")
+        # Attempt to infer network from BIP32 paths
+        psbt_obj = PSBT.parse_base64(psbt_b64, testnet=None)
+        if psbt_obj.testnet:
+            use_testnet = _get_bool(
+                prompt="Transaction appears to be a testnet transaction. Display as testnet?",
+                default=True,
+            )
+        else:
+            use_testnet = not _get_bool(
+                prompt="Transaction appears to be a mainnet transaction. Display as mainnet?",
+                default=True,
+            )
+        if psbt_obj.testnet != use_testnet:
+            psbt_obj = PSBT.parse_base64(psbt_b64, testnet=use_testnet)
+
+    except MixedNetwork:
+        use_testnet = not _get_bool(
+            prompt="Cannot infer PSBT network from BIP32 paths. Use Mainnet?",
+            default=True,
+        )
+        psbt_obj = PSBT.parse_base64(psbt_b64, testnet=use_testnet)
+
     except Exception as e:
         print_red(f"Could not parse PSBT: {e}")
         return _get_psbt_obj()
+
+    # redundant but explicit
+    if psbt_obj.validate() is not True:
+        print_red("PSBT does not validate")
+        return _get_psbt_obj()
+
     return psbt_obj
 
 
@@ -322,7 +400,6 @@ class MyPrompt(Cmd):
         valid_checksums_generator = calc_valid_seedpicker_checksums(
             first_words=first_words
         )
-        is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
 
         if use_default_checksum:
             # This will be VERY fast
@@ -359,11 +436,14 @@ class MyPrompt(Cmd):
             )
             last_word = valid_checksum_words[index]
 
+        is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
+        path_to_use = _get_path(is_testnet=is_testnet)
+
+        # TODO: migrate away from SLIP132 bytes?
+        # https://github.com/cryptoadvance/specter-desktop/issues/628
         if is_testnet:
-            PATH = "m/48'/1'/0'/2'"
             SLIP132_VERSION_BYTES = "02575483"
         else:
-            PATH = "m/48'/0'/0'/2'"
             SLIP132_VERSION_BYTES = "02aa7ed3"
 
         hd_priv = HDPrivateKey.from_mnemonic(first_words + " " + last_word)
@@ -379,8 +459,8 @@ class MyPrompt(Cmd):
         print_green(
             "  [{}{}]{}".format(
                 hd_priv.fingerprint().hex(),
-                PATH.replace("m", "").replace("'", "h"),
-                hd_priv.traverse(PATH).xpub(
+                path_to_use.replace("m", "").replace("'", "h"),
+                hd_priv.traverse(path_to_use).xpub(
                     version=bytes.fromhex(SLIP132_VERSION_BYTES)
                 ),
             ),
@@ -427,11 +507,9 @@ class MyPrompt(Cmd):
 
     def do_send(self, arg):
         """Sign a multisig PSBT using 1 of your BIP39 seed phrases. Can also be used to just inspect a TX and not sign it."""
+
         psbt_obj = _get_psbt_obj()
         TX_FEE_SATS = psbt_obj.tx_obj.fee()
-        IS_TESTNET = not _get_bool(
-            prompt="Use Mainnet?", default=False
-        )  # We CANNOT reliably infer this from the PSBT unfortunately :(
 
         # Validate multisig transaction
         # TODO: abstract some of this into buidl library?
@@ -475,8 +553,8 @@ class MyPrompt(Cmd):
                 "n_sequence": psbt_in.tx_in.sequence,
                 "sats": psbt_in.tx_in.value(),
                 # TODO: would be possible for transaction to be p2sh-wrapped p2wsh (can we tell?)
-                "addr": psbt_in.witness_script.address(testnet=IS_TESTNET),
-                # "p2sh_addr": psbt_in.witness_script.p2sh_address(testnet=IS_TESTNET),
+                "addr": psbt_in.witness_script.address(testnet=psbt_obj.testnet),
+                # "p2sh_addr": psbt_in.witness_script.p2sh_address(testnet=psbt_obj.testnet),
                 "witness_script": str(psbt_in.witness_script),
                 "msig_digest": _calculate_msig_digest(
                     quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
@@ -511,14 +589,9 @@ class MyPrompt(Cmd):
                 ),
             }
 
-            if psbt_out.witness_script:
-                output_desc["addr"] = psbt_out.witness_script.address(
-                    testnet=IS_TESTNET
-                )
-            else:
-                output_desc["addr"] = psbt_out.tx_out.script_pubkey.address(
-                    testnet=IS_TESTNET
-                )
+            output_desc["addr"] = psbt_out.tx_out.script_pubkey.address(
+                testnet=psbt_obj.testnet
+            )
 
             if psbt_out.named_pubs:
                 # Validate below that this is correct and abort otherwise
@@ -605,7 +678,8 @@ class MyPrompt(Cmd):
             print_yellow(f"Transaction {psbt_obj.tx_obj.id()} NOT signed")
             return
 
-        hd_priv = _get_hd_priv_from_bip39_seed(is_testnet=IS_TESTNET)
+        hd_priv = _get_hd_priv_from_bip39_seed(is_testnet=psbt_obj.testnet)
+        xfp_hex = hd_priv.fingerprint().hex()
 
         # Derive list of child private keys we'll use to sign the TX
         root_paths = set()
@@ -617,11 +691,18 @@ class MyPrompt(Cmd):
                 _abort("Script error")
 
             for _, details in psbt_in.named_pubs.items():
-                if details.root_fingerprint.hex() == hd_priv.fingerprint().hex():
+                if details.root_fingerprint.hex() == xfp_hex:
                     root_paths.add(details.root_path)
 
         if not root_paths:
-            return _abort("Seed supplied does not correspond to transaction input(s)")
+            # We confirmed above that all inputs have identical encumberance so we choose the first one as representative
+            err = [
+                "Did you enter a seed for another wallet?",
+                f"The seed supplied (fingerprint {xfp_hex}) does not correspond to the transaction inputs, which are {inputs_desc[0]['quorum']} of the following:",
+            ]
+            for xfp in sorted(inputs_desc[0]["root_xfp_hexes"]):
+                err.append("  " + xfp)
+            return _abort("\n".join(err))
 
         private_keys = [
             hd_priv.traverse(root_path).private_key for root_path in root_paths
@@ -651,12 +732,8 @@ class MyPrompt(Cmd):
         return True
 
 
-def main():
+if __name__ == "__main__":
     try:
         MyPrompt().cmdloop()
     except KeyboardInterrupt:
         print_yellow("\nNo data saved")
-
-
-if __name__ == "__main__":
-    main()
