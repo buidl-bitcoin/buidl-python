@@ -125,7 +125,7 @@ def _get_bool(prompt, default=True, scary_text=False):
 
 
 def _get_path_string():
-    res = input(blue_fg(f'Path to use (should start with "m/"): ')).strip()
+    res = input(blue_fg('Path to use (should start with "m/"): ')).strip()
     if not res.startswith("m/"):
         print_red(f'Invalid path "{res}" must start with "m/")')
         return _get_path_string()
@@ -141,7 +141,7 @@ def _get_path_string():
             sub_path_cleaned = sub_path
         try:
             int(sub_path_cleaned)
-        except Exception as e:
+        except Exception:
             print_red(f"Invalid Path Section: {sub_path}")
             return _get_path_string()
     return res.replace("h", "'")
