@@ -133,7 +133,7 @@ def _get_path_string():
         # TODO: support this?
         print_red("Empty path (must have a depth of > 0): m/somenumberhere")
         return _get_path_string()
-    for sub_path in res[2:].split("/")[1:]:
+    for sub_path in res.split("/")[1:]:
         if sub_path.endswith("'") or sub_path.endswith("h"):
             # Trim trailing hardening indicator
             sub_path_cleaned = sub_path[:-1]
@@ -445,8 +445,6 @@ class MyPrompt(Cmd):
             SLIP132_VERSION_BYTES = "02575483"
         else:
             SLIP132_VERSION_BYTES = "02aa7ed3"
-
-        print("FIXME Using SLIP132_VERSION_BYTES", SLIP132_VERSION_BYTES)
 
         hd_priv = HDPrivateKey.from_mnemonic(first_words + " " + last_word)
         print(yellow_fg("SECRET INFO") + red_fg(" (guard this VERY carefully)"))
