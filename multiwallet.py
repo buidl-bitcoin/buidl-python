@@ -491,9 +491,7 @@ class MyPrompt(Cmd):
         if guess_network:
             parse_as_testnet = None
         else:
-            parse_as_testnet = not _get_bool(
-                prompt="Use mainnet?", default=True
-            )
+            parse_as_testnet = not _get_bool(prompt="Use mainnet?", default=True)
 
         psbt_obj = _get_psbt_obj(parse_as_testnet=parse_as_testnet)
         TX_FEE_SATS = psbt_obj.tx_obj.fee()

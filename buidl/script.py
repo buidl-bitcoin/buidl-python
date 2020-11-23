@@ -299,7 +299,7 @@ class ScriptPubKey(Script):
         elif script_pubkey.is_p2wpkh():
             return P2WPKHScriptPubKey(script_pubkey.commands[1])
         elif script_pubkey.is_p2wsh():
-            return P2WSHScriptPubKey(script_pubkey.commands[1]) 
+            return P2WSHScriptPubKey(script_pubkey.commands[1])
         else:
             return script_pubkey
 
