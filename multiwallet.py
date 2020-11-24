@@ -163,7 +163,7 @@ def _get_path(is_testnet):
         network_string = "Mainnet"
         default_path = "m/48'/0'/0'/2'"
     use_default_path = _get_bool(
-        prompt=f"Use default path for {network_string} ({default_path})",
+        prompt=f"Use default path ({network_string} for {default_path})",
         default=True,
     )
     if use_default_path:
@@ -179,7 +179,8 @@ def _get_confirmed_pw():
     first = getpass(prompt=blue_fg("Enter custom passphrase: "))
     if first.strip() != first:
         print_red(
-            "Leading/trailing spaces in passphrases are not supported. Please use an unambiguous passphrase."
+            "Leading/trailing spaces in passphrases are not supported. "
+            "Please use an unambiguous passphrase."
         )
         return _get_confirmed_pw()
     second = getpass(prompt=blue_fg("Confirm custom passphrase: "))
@@ -299,7 +300,7 @@ def _get_bip39_firstwords():
     if fw_num not in (11, 14, 17, 20, 23):
         # TODO: 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for advanced users
         print_red(
-            f"You entered {fw_num} words. We recommend 23 words, but advanced users may enter 11, 14, 17 or 20 BIP39 words."
+            f"You entered {fw_num} words. We recommend 23 words, but advanced users may enter 11, 14, 17 or 20 words."
         )
         return _get_bip39_firstwords()
     for cnt, word in enumerate(fw.split()):
