@@ -55,7 +55,6 @@ On TAILs, you need to setup an [Administration Password](https://tails.boum.org/
 
 ## Product Roadmap
 
-* Add passphrase
 * Show change addresses (not just receiving addresses)
 * Save outputs to a file?
 * Dispay QR codes?
