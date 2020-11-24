@@ -545,7 +545,7 @@ class MyPrompt(Cmd):
         )
 
         quorum_display = f"{pubkeys_info['quorum_m']}-of-{pubkeys_info['quorum_n']}"
-        to_print =  f"{quorum_display} Multisig Receive Addresses"
+        to_print = f"{quorum_display} Multisig Receive Addresses"
         if not is_libsec_enabled:
             to_print += " (this is ~100x faster if you install libsec)"
         print_yellow(to_print + ":")
