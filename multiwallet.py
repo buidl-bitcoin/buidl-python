@@ -391,7 +391,9 @@ def _get_hd_priv_from_bip39_seed(is_testnet):
     try:
         password = _get_password(reconfirm=False)
         _ = HDPrivateKey.from_mnemonic(mnemonic=seed_phrase, testnet=is_testnet)
-        hd_priv = HDPrivateKey.from_mnemonic(mnemonic=seed_phrase, testnet=is_testnet, password=password.encode())
+        hd_priv = HDPrivateKey.from_mnemonic(
+            mnemonic=seed_phrase, testnet=is_testnet, password=password.encode()
+        )
     except Exception as e:
         print_red(f"Invalid mnemonic: {e}")
         return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
