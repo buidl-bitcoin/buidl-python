@@ -259,7 +259,7 @@ def _get_pubkeys_info_from_descriptor(descriptor):
 
 def _get_output_descriptor():
     output_descriptor = input(
-        blue_fg("Paste in your output descriptor from Specter-Desktop: ")
+        blue_fg("Paste in your output descriptor (from Specter-Desktop): ")
     ).strip()
     try:
         return _get_pubkeys_info_from_descriptor(descriptor=output_descriptor)
@@ -530,7 +530,7 @@ class MyPrompt(Cmd):
         )
 
     def do_receive(self, arg):
-        """Verify receive addresses for a multisig wallet (using output descriptors from Specter-Desktop)"""
+        """Verify receive addresses for a multisig wallet using output descriptors (from Specter-Desktop)"""
         pubkeys_info = _get_output_descriptor()
         limit = _get_int(
             prompt="Limit of addresses to display",
@@ -544,7 +544,8 @@ class MyPrompt(Cmd):
             minimum=0,
         )
 
-        to_print = f"{pubkeys_info['quorum_m']}-of-{pubkeys_info['quorum_n']} Multisig Receive Addresses"
+        quorum_display = f"{pubkeys_info['quorum_m']}-of-{pubkeys_info['quorum_n']}"
+        to_print =  f"{quorum_display} Multisig Receive Addresses"
         if not is_libsec_enabled:
             to_print += " (this is ~100x faster if you install libsec)"
         print_yellow(to_print + ":")
