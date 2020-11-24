@@ -4,6 +4,7 @@ import readline
 import sys
 from cmd import Cmd
 from getpass import getpass
+from os import environ
 from platform import platform
 from pkg_resources import DistributionNotFound, get_distribution
 
@@ -21,7 +22,7 @@ from buidl.psbt import MixedNetwork, PSBT
 from buidl.script import P2WSHScriptPubKey, WitnessScript
 from buidl.op import OP_CODE_NAMES, OP_CODE_NAMES_LOOKUP
 
-readline.parse_and_bind("tab: complete")
+readline.parse_and_bind("tab: complete")  # TODO: can this be moved inside a method?
 
 
 #####################################################################
@@ -33,11 +34,8 @@ readline.parse_and_bind("tab: complete")
 RESET_TERMINAL_COLOR = "\033[0m"
 
 
-ADVANCED_WARNING_STRING = (
-    "WARNING: this feature is for advanced users ONLY. "
-    "A mistake here could cause loss of funds. "
-    "Are you sure you want to continue?"
-)
+DEFAULT_TESTNET_PATH = "m/48'/1'/0'/2'"
+DEFAULT_MAINNET_PATH = "m/48'/0'/0'/2'"
 
 
 def blue_fg(string):
@@ -111,17 +109,13 @@ def _get_int(prompt, default=20, minimum=0, maximum=None):
     return res_int
 
 
-def _get_bool(prompt, default=True, scary_text=False):
+def _get_bool(prompt, default=True):
     if default is True:
         yn = "[Y/n]"
     else:
         yn = "[y/N]"
 
-    if scary_text is True:
-        add_color_method = red_fg
-    else:
-        add_color_method = blue_fg
-    response_str = input(add_color_method(f"{prompt} {yn}: ")).strip().lower()
+    response_str = input(blue_fg(f"{prompt} {yn}: ")).strip().lower()
     if response_str == "":
         return default
     if response_str in ("n", "no"):
@@ -158,21 +152,18 @@ def _get_path_string():
 def _get_path(is_testnet):
     if is_testnet:
         network_string = "Testnet"
-        default_path = "m/48'/1'/0'/2'"
+        default_path = DEFAULT_TESTNET_PATH
     else:
         network_string = "Mainnet"
-        default_path = "m/48'/0'/0'/2'"
-    use_default_path = _get_bool(
-        prompt=f"Use default path ({network_string} for {default_path})",
+        default_path = DEFAULT_MAINNET_PATH
+
+    if _get_bool(
+        prompt=f"Use default path ({default_path} for {network_string})",
         default=True,
-    )
-    if use_default_path:
+    ):
         return default_path
     else:
-        if _get_bool(prompt=ADVANCED_WARNING_STRING, default=False, scary_text=True):
-            return _get_path_string()
-        else:
-            return _get_path(is_testnet)
+        return _get_path_string()
 
 
 def _get_confirmed_pw():
@@ -190,25 +181,14 @@ def _get_confirmed_pw():
     return first
 
 
-def _get_password(reconfirm=False):
-    if not _get_bool(
+def _get_password():
+    if _get_bool(
         prompt="Use a passphrase (advanced users only)?",
         default=False,
     ):
+        return _get_confirmed_pw()
+    else:
         return ""
-
-    # Reconfirm
-    if reconfirm:
-        if _get_bool(
-            prompt=ADVANCED_WARNING_STRING,
-            default=False,
-            scary_text=True,
-        ):
-            return _get_confirmed_pw()
-        else:
-            return ""
-
-    return _get_confirmed_pw()
 
 
 class WordCompleter:
@@ -370,33 +350,34 @@ def _abort(msg):
     return True
 
 
-def _get_hd_priv_from_bip39_seed(is_testnet):
+def _get_bip39_seed(is_testnet):
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=WORD_LIST)
 
     readline.set_completer(completer.complete)
-    seed_phrase = input(blue_fg("Enter your 24 word BIP39 seed phrase: ")).strip()
+    seed_phrase = input(blue_fg("Enter your full BIP39 seed phrase: ")).strip()
     seed_phrase_num = len(seed_phrase.split())
     if seed_phrase_num not in (12, 15, 18, 21, 24):
         print_red(
             f"You entered {seed_phrase_num} words. "
-            "We recommend 24 words, but advanced users may enter 12, 15, 18 or 21 words."
+            "By default seed phrases are 24 words long, but advanced users may have seed phrases that are 12, 15, 18 or 21 words long."
         )
         # Other length seed phrases also work but this is not documented as it's for advanced users
-        return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
+        return _get_bip39_seed(is_testnet=is_testnet)
     for cnt, word in enumerate(seed_phrase.split()):
         if word not in WORD_LOOKUP:
             print_red(f"Word #{cnt+1} ({word}) is not a valid BIP39 word")
-            return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
+            return _get_bip39_seed(is_testnet=is_testnet)
     try:
-        password = _get_password(reconfirm=False)
         _ = HDPrivateKey.from_mnemonic(mnemonic=seed_phrase, testnet=is_testnet)
+
+        password = _get_password()
         hd_priv = HDPrivateKey.from_mnemonic(
             mnemonic=seed_phrase, testnet=is_testnet, password=password.encode()
         )
     except Exception as e:
         print_red(f"Invalid mnemonic: {e}")
-        return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
+        return _get_bip39_seed(is_testnet=is_testnet)
 
     readline.set_completer(old_completer)
     return hd_priv
@@ -432,7 +413,19 @@ def _calculate_msig_digest(quorum_m, root_xfp_hexes):
 
 
 class MyPrompt(Cmd):
-    intro = "Welcome to multiwallet, a stateless multisig ONLY wallet. Type help or ? to list commands.\n"
+    ADVANCED_MODE = environ.get("ADVANCED_MODE", "").lower() in (
+        "1",
+        "t",
+        "true",
+        "y",
+        "yes",
+        "on",
+    )
+    intro = (
+        "Welcome to multiwallet, the stateless multisig bitcoin wallet.\n"
+        f"You are currently in {'ADVANCED' if ADVANCED_MODE else 'SAFE'} mode.\n"
+        "Type help or ? to list commands.\n"
+    )
     prompt = "(₿) "  # the bitcoin symbol :)
 
     def __init__(self):
@@ -441,13 +434,23 @@ class MyPrompt(Cmd):
     def do_generate_seed(self, arg):
         """Seedpicker implementation: calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
 
+        if not self.ADVANCED_MODE:
+            print_blue(
+                "Running in SAFE mode.\n"
+                f"For advanced features like passphrases, different checksum indices, and custom paths, first run  `{self.prompt} advanced_mode true` in the main menu.\n"
+            )
+
         first_words = _get_bip39_firstwords()
-        use_default_checksum = _get_bool(
-            prompt="Use the default checksum index?", default=True
-        )
         valid_checksums_generator = calc_valid_seedpicker_checksums(
             first_words=first_words
         )
+
+        if self.ADVANCED_MODE:
+            use_default_checksum = _get_bool(
+                prompt="Use the default checksum index?", default=True
+            )
+        else:
+            use_default_checksum = True
 
         if use_default_checksum:
             # This will be VERY fast
@@ -484,10 +487,17 @@ class MyPrompt(Cmd):
             )
             last_word = valid_checksum_words[index]
 
-        password = _get_password(reconfirm=True)
+        if self.ADVANCED_MODE:
+            password = _get_password()
+        else:
+            password = ""
 
         is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
-        path_to_use = _get_path(is_testnet=is_testnet)
+
+        if self.ADVANCED_MODE:
+            path_to_use = _get_path(is_testnet=is_testnet)
+        else:
+            path_to_use = DEFAULT_TESTNET_PATH if is_testnet else DEFAULT_MAINNET_PATH
 
         # TODO: migrate away from SLIP132 bytes?
         # https://github.com/cryptoadvance/specter-desktop/issues/628
@@ -534,7 +544,7 @@ class MyPrompt(Cmd):
             minimum=0,
         )
 
-        to_print = "Multisig Receiving Addresses"
+        to_print = f"{pubkeys_info['quorum_m']}-of-{pubkeys_info['quorum_n']} Multisig Receive Addresses"
         if not is_libsec_enabled:
             to_print += " (this is ~100x faster if you install libsec)"
         print_yellow(to_print + ":")
@@ -695,7 +705,7 @@ class MyPrompt(Cmd):
                     f"Cannot have both outputs be change or spend, must be 1-and-1. {outputs_desc}"
                 )
 
-        UNITS = _get_units()
+        UNITS = _get_units()  # TODO: move this to an internal setting somewhere
         TX_SUMMARY = " ".join(
             [
                 "PSBT sends",
@@ -731,7 +741,7 @@ class MyPrompt(Cmd):
             print_yellow(f"Transaction {psbt_obj.tx_obj.id()} NOT signed")
             return
 
-        hd_priv = _get_hd_priv_from_bip39_seed(is_testnet=psbt_obj.testnet)
+        hd_priv = _get_bip39_seed(is_testnet=psbt_obj.testnet)
         xfp_hex = hd_priv.fingerprint().hex()
 
         # Derive list of child private keys we'll use to sign the TX
@@ -768,11 +778,31 @@ class MyPrompt(Cmd):
         else:
             return _abort("PSBT wasn't signed")
 
+    def do_advanced_mode(self, arg):
+        """
+        Toggle advanced mode features like passphrases, different BIP39 seed checksums, and non-standard BIP32 paths.
+        WARNING: these features are for advanced users and could lead to loss of funds.
+        """
+        if arg.lower() in ("1", "t", "true", "y", "yes", "on", "enable", "enabled"):
+            if self.ADVANCED_MODE:
+                print_red("ADVANCED mode already set, no changes")
+            else:
+                print_yellow("ADVANCED mode set, don't mess up!")
+                self.ADVANCED_MODE = True
+        else:
+            if self.ADVANCED_MODE:
+                print_yellow("SAFE mode set, your training wheels have been restored!")
+                self.ADVANCED_MODE = False
+            else:
+                print_red("SAFE mode already set, no changes")
+                
+
     def do_debug(self, arg):
         """Print program settings for debug purposes"""
 
         to_print = [
             f"buidl Version: {_get_buidl_version()}",
+            f"Multiwallet Mode: {'Advanced' if self.ADVANCED_MODE else 'Basic'}",
             f"Python Version: {sys.version_info}",
             f"Platform: {platform()}",
             f"libsecp256k1 Configured: {is_libsec_enabled()}",
