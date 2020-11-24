@@ -795,7 +795,6 @@ class MyPrompt(Cmd):
                 self.ADVANCED_MODE = False
             else:
                 print_red("SAFE mode already set, no changes")
-                
 
     def do_debug(self, arg):
         """Print program settings for debug purposes"""
