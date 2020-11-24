@@ -176,8 +176,13 @@ def _get_path(is_testnet):
 
 
 def _get_confirmed_pw():
-    first = getpass(prompt="Enter custom passphrase: ")
-    second = getpass(prompt="Confirm custom passphrase: ")
+    first = getpass(prompt=blue_fg("Enter custom passphrase: "))
+    if first.strip() != first:
+        print_red(
+            "Leading/trailing spaces in passphrases are not supported. Please use an unambiguous passphrase."
+        )
+        return _get_confirmed_pw()
+    second = getpass(prompt=blue_fg("Confirm custom passphrase: "))
     if first != second:
         print_red("Passphrases don't match, please try again.")
         return _get_confirmed_pw()
@@ -199,7 +204,7 @@ def _get_password():
     ):
         return _get_confirmed_pw()
     else:
-        return ""
+        return _get_password()
 
 
 class WordCompleter:
