@@ -3,6 +3,7 @@ import re
 import readline
 import sys
 from cmd import Cmd
+from getpass import getpass
 from platform import platform
 from pkg_resources import DistributionNotFound, get_distribution
 
@@ -30,6 +31,13 @@ readline.parse_and_bind("tab: complete")
 
 # https://stackoverflow.com/questions/287871/how-to-print-colored-text-in-python
 RESET_TERMINAL_COLOR = "\033[0m"
+
+
+ADVANCED_WARNING_STRING = (
+    "WARNING: this feature is for advanced users ONLY. "
+    "A mistake here could cause loss of funds. "
+    "Are you sure you want to continue?"
+)
 
 
 def blue_fg(string):
@@ -161,15 +169,37 @@ def _get_path(is_testnet):
     if use_default_path:
         return default_path
     else:
-        scary_string = (
-            "WARNING: this feature is for advanced users. "
-            "A mistake here could cause loss of funds. "
-            "Are you sure you want to continue?"
-        )
-        if _get_bool(prompt=scary_string, default=False, scary_text=True):
+        if _get_bool(prompt=ADVANCED_WARNING_STRING, default=False, scary_text=True):
             return _get_path_string()
         else:
             return _get_path(is_testnet)
+
+
+def _get_confirmed_pw():
+    first = getpass(prompt="Enter custom passphrase: ")
+    second = getpass(prompt="Confirm custom passphrase: ")
+    if first != second:
+        print_red("Passphrases don't match, please try again.")
+        return _get_confirmed_pw()
+    return first
+
+
+def _get_password():
+    if not _get_bool(
+        prompt="Use a passphrase (advanced users only)?",
+        default=False,
+    ):
+        return ""
+
+    # Reconfirm
+    if _get_bool(
+        prompt=ADVANCED_WARNING_STRING,
+        default=False,
+        scary_text=True,
+    ):
+        return _get_confirmed_pw()
+    else:
+        return ""
 
 
 class WordCompleter:
@@ -393,9 +423,10 @@ class MyPrompt(Cmd):
 
     def do_generate_seed(self, arg):
         """Seedpicker implementation: calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
+
         first_words = _get_bip39_firstwords()
         use_default_checksum = _get_bool(
-            prompt="Use default checksum index for BIP39 seed phrase?", default=True
+            prompt="Use the default checksum index?", default=True
         )
         valid_checksums_generator = calc_valid_seedpicker_checksums(
             first_words=first_words
@@ -436,6 +467,8 @@ class MyPrompt(Cmd):
             )
             last_word = valid_checksum_words[index]
 
+        password = _get_password()
+
         is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
         path_to_use = _get_path(is_testnet=is_testnet)
 
@@ -446,15 +479,18 @@ class MyPrompt(Cmd):
         else:
             SLIP132_VERSION_BYTES = "02aa7ed3"
 
-        hd_priv = HDPrivateKey.from_mnemonic(first_words + " " + last_word)
+        hd_priv = HDPrivateKey.from_mnemonic(
+            mnemonic=f"{first_words} {last_word}", password=password.encode()
+        )
         print(yellow_fg("SECRET INFO") + red_fg(" (guard this VERY carefully)"))
         print_green(f"Last word: {last_word}")
         print_green(
-            f"Full ({len(first_words.split()) + 1} word) mnemonic (including last word: {first_words + ' ' + last_word})"
+            f"Full ({len(first_words.split()) + 1} word) mnemonic (including last word): {first_words + ' ' + last_word}"
         )
-        print("")
-        print_yellow(f"PUBLIC KEY INFO ({'testnet' if is_testnet else 'mainnet'})")
+        if password:
+            print_green(f"Passphrase: {password}")
 
+        print_yellow(f"\nPUBLIC KEY INFO ({'testnet' if is_testnet else 'mainnet'})")
         print_yellow("Copy-paste this into Specter-Desktop:")
         print_green(
             "  [{}{}]{}".format(
