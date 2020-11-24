@@ -190,7 +190,7 @@ def _get_confirmed_pw():
     return first
 
 
-def _get_password():
+def _get_password(reconfirm=False):
     if not _get_bool(
         prompt="Use a passphrase (advanced users only)?",
         default=False,
@@ -198,14 +198,17 @@ def _get_password():
         return ""
 
     # Reconfirm
-    if _get_bool(
-        prompt=ADVANCED_WARNING_STRING,
-        default=False,
-        scary_text=True,
-    ):
-        return _get_confirmed_pw()
-    else:
-        return _get_password()
+    if reconfirm:
+        if _get_bool(
+            prompt=ADVANCED_WARNING_STRING,
+            default=False,
+            scary_text=True,
+        ):
+            return _get_confirmed_pw()
+        else:
+            return ""
+
+    return _get_confirmed_pw()
 
 
 class WordCompleter:
@@ -300,7 +303,8 @@ def _get_bip39_firstwords():
     if fw_num not in (11, 14, 17, 20, 23):
         # TODO: 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for advanced users
         print_red(
-            f"You entered {fw_num} words. We recommend 23 words, but advanced users may enter 11, 14, 17 or 20 words."
+            f"You entered {fw_num} words. "
+            "We recommend 23 words, but advanced users may enter 11, 14, 17 or 20 words."
         )
         return _get_bip39_firstwords()
     for cnt, word in enumerate(fw.split()):
@@ -374,7 +378,10 @@ def _get_hd_priv_from_bip39_seed(is_testnet):
     seed_phrase = input(blue_fg("Enter your 24 word BIP39 seed phrase: ")).strip()
     seed_phrase_num = len(seed_phrase.split())
     if seed_phrase_num not in (12, 15, 18, 21, 24):
-        print_red(f"Enter 24 word seed-phrase (you entered {seed_phrase_num} words)")
+        print_red(
+            f"You entered {seed_phrase_num} words. "
+            "We recommend 24 words, but advanced users may enter 12, 15, 18 or 21 words."
+        )
         # Other length seed phrases also work but this is not documented as it's for advanced users
         return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
     for cnt, word in enumerate(seed_phrase.split()):
@@ -382,7 +389,9 @@ def _get_hd_priv_from_bip39_seed(is_testnet):
             print_red(f"Word #{cnt+1} ({word}) is not a valid BIP39 word")
             return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
     try:
-        hd_priv = HDPrivateKey.from_mnemonic(seed_phrase, testnet=is_testnet)
+        password = _get_password(reconfirm=False)
+        _ = HDPrivateKey.from_mnemonic(mnemonic=seed_phrase, testnet=is_testnet)
+        hd_priv = HDPrivateKey.from_mnemonic(mnemonic=seed_phrase, testnet=is_testnet, password=password.encode())
     except Exception as e:
         print_red(f"Invalid mnemonic: {e}")
         return _get_hd_priv_from_bip39_seed(is_testnet=is_testnet)
@@ -473,7 +482,7 @@ class MyPrompt(Cmd):
             )
             last_word = valid_checksum_words[index]
 
-        password = _get_password()
+        password = _get_password(reconfirm=True)
 
         is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
         path_to_use = _get_path(is_testnet=is_testnet)
