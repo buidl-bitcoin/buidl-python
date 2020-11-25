@@ -37,6 +37,19 @@ RESET_TERMINAL_COLOR = "\033[0m"
 DEFAULT_TESTNET_PATH = "m/48'/1'/0'/2'"
 DEFAULT_MAINNET_PATH = "m/48'/0'/0'/2'"
 
+ENV_VAR_YES_STRINGS = set(
+    {
+        "1",
+        "t",
+        "true",
+        "y",
+        "yes",
+        "on",
+        "enabled",
+        "active",
+    }
+)
+
 
 def blue_fg(string):
     return f"\033[34m{string}{RESET_TERMINAL_COLOR}"
@@ -183,7 +196,7 @@ def _get_confirmed_pw():
 
 def _get_password():
     if _get_bool(
-        prompt="Use a passphrase (advanced users only)?",
+        prompt="Use a passphrase (expert users only)?",
         default=False,
     ):
         return _get_confirmed_pw()
@@ -281,10 +294,10 @@ def _get_bip39_firstwords():
     fw = input(blue_fg("Enter the first 23 words of your BIP39 seed phrase: ")).strip()
     fw_num = len(fw.split())
     if fw_num not in (11, 14, 17, 20, 23):
-        # TODO: 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for advanced users
+        # 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for expert users
         print_red(
             f"You entered {fw_num} words. "
-            "We recommend 23 words, but advanced users may enter 11, 14, 17 or 20 words."
+            "We recommend 23 words, but expert users may enter 11, 14, 17 or 20 words."
         )
         return _get_bip39_firstwords()
     for cnt, word in enumerate(fw.split()):
@@ -358,11 +371,11 @@ def _get_bip39_seed(is_testnet):
     seed_phrase = input(blue_fg("Enter your full BIP39 seed phrase: ")).strip()
     seed_phrase_num = len(seed_phrase.split())
     if seed_phrase_num not in (12, 15, 18, 21, 24):
+        # Other length seed phrases also work but this is not documented as it's for expert users
         print_red(
             f"You entered {seed_phrase_num} words. "
-            "By default seed phrases are 24 words long, but advanced users may have seed phrases that are 12, 15, 18 or 21 words long."
+            "By default seed phrases are 24 words long, but expert users may have seed phrases that are 12, 15, 18 or 21 words long."
         )
-        # Other length seed phrases also work but this is not documented as it's for advanced users
         return _get_bip39_seed(is_testnet=is_testnet)
     for cnt, word in enumerate(seed_phrase.split()):
         if word not in WORD_LOOKUP:
@@ -413,17 +426,13 @@ def _calculate_msig_digest(quorum_m, root_xfp_hexes):
 
 
 class MyPrompt(Cmd):
-    ADVANCED_MODE = environ.get("ADVANCED_MODE", "").lower() in (
-        "1",
-        "t",
-        "true",
-        "y",
-        "yes",
-        "on",
-    )
+    # Allow default setting via environmental variable, but can be over-ridden after boot:
+    DANGEROUS_MODE = environ.get("LIVE_DANGEROUSLY", "").lower() in ENV_VAR_YES_STRINGS
+
     intro = (
         "Welcome to multiwallet, the stateless multisig bitcoin wallet.\n"
-        f"You are currently in {'ADVANCED' if ADVANCED_MODE else 'SAFE'} mode.\n"
+        # I'd like to move this to a property but intro is called by Cmd on init and that would break :(
+        f"You are currently in { 'DANGEROUS' if DANGEROUS_MODE else 'SAFE' } mode.\n"
         "Type help or ? to list commands.\n"
     )
     prompt = "(₿) "  # the bitcoin symbol :)
@@ -434,10 +443,10 @@ class MyPrompt(Cmd):
     def do_generate_seed(self, arg):
         """Seedpicker implementation: calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
 
-        if not self.ADVANCED_MODE:
+        if not self.DANGEROUS_MODE:
             print_blue(
                 "Running in SAFE mode.\n"
-                f"For advanced features like passphrases, different checksum indices, and custom paths, first run  `{self.prompt} advanced_mode true` in the main menu.\n"
+                f"For expert features like passphrases, different checksum indices, and custom paths, first run  `{self.prompt} dangerous_mode true` in the main menu.\n"
             )
 
         first_words = _get_bip39_firstwords()
@@ -445,7 +454,7 @@ class MyPrompt(Cmd):
             first_words=first_words
         )
 
-        if self.ADVANCED_MODE:
+        if self.DANGEROUS_MODE:
             use_default_checksum = _get_bool(
                 prompt="Use the default checksum index?", default=True
             )
@@ -487,14 +496,14 @@ class MyPrompt(Cmd):
             )
             last_word = valid_checksum_words[index]
 
-        if self.ADVANCED_MODE:
+        if self.DANGEROUS_MODE:
             password = _get_password()
         else:
             password = ""
 
         is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
 
-        if self.ADVANCED_MODE:
+        if self.DANGEROUS_MODE:
             path_to_use = _get_path(is_testnet=is_testnet)
         else:
             path_to_use = DEFAULT_TESTNET_PATH if is_testnet else DEFAULT_MAINNET_PATH
@@ -779,21 +788,21 @@ class MyPrompt(Cmd):
         else:
             return _abort("PSBT wasn't signed")
 
-    def do_advanced_mode(self, arg):
+    def do_dangerous_mode(self, arg):
         """
-        Toggle advanced mode features like passphrases, different BIP39 seed checksums, and non-standard BIP32 paths.
-        WARNING: these features are for advanced users and could lead to loss of funds.
+        Toggle dangerous mode features like passphrases, different BIP39 seed checksums, and non-standard BIP32 paths.
+        WARNING: these features are for expert users and could lead to loss of funds.
         """
         if arg.lower() in ("1", "t", "true", "y", "yes", "on", "enable", "enabled"):
-            if self.ADVANCED_MODE:
-                print_red("ADVANCED mode already set, no changes")
+            if self.DANGEROUS_MODE:
+                print_red("DANGEROUS mode already set, no changes")
             else:
-                print_yellow("ADVANCED mode set, don't mess up!")
-                self.ADVANCED_MODE = True
+                print_yellow("DANGEROUS mode set, don't mess up!")
+                self.DANGEROUS_MODE = True
         else:
-            if self.ADVANCED_MODE:
+            if self.DANGEROUS_MODE:
                 print_yellow("SAFE mode set, your training wheels have been restored!")
-                self.ADVANCED_MODE = False
+                self.DANGEROUS_MODE = False
             else:
                 print_red("SAFE mode already set, no changes")
 
@@ -802,7 +811,7 @@ class MyPrompt(Cmd):
 
         to_print = [
             f"buidl Version: {_get_buidl_version()}",
-            f"Multiwallet Mode: {'Advanced' if self.ADVANCED_MODE else 'Basic'}",
+            f"Multiwallet Mode: { 'DANGEROUS' if self.DANGEROUS_MODE else 'SAFE' }",
             f"Python Version: {sys.version_info}",
             f"Platform: {platform()}",
             f"libsecp256k1 Configured: {is_libsec_enabled()}",
