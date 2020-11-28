@@ -3,13 +3,21 @@ from secrets import randbits
 from buidl.helper import int_to_big_endian, sha256
 
 
-def secure_mnemonic(entropy=0, num_bits=128):
-    """Generates a mnemonic phrase using the number of bits"""
-    # if we have more than 128 bits, just mask everything but the last 128 bits
-    if len(bin(entropy)) > num_bits + 2:
-        entropy &= (1 << num_bits) - 1
-    # xor some random bits with the entropy that was passed in
-    preseed = randbits(num_bits) ^ entropy
+def secure_mnemonic(extra_entropy=0, num_bits=128):
+    """
+    Generates a mnemonic phrase using the number of bits
+    It is recommended for users to supply extra_entropy to XOR into the CSPRNG in case of a faulty RNG.
+    """
+
+    assert (
+        type(extra_entropy) is int
+    ), f"{extra_entropy} is of type {type(extra_entropy)}, not int"
+
+    # if we have more than num_bits of extra_entropy, just use the modulus as the extra_entropy
+    extra_entropy = extra_entropy % num_bits
+
+    # xor RNG (randbits) using the extra_entropy that was passed in
+    preseed = randbits(num_bits) ^ extra_entropy
     # convert the number to big-endian
     s = int_to_big_endian(preseed, 16)
     # 1 extra bit for checksum is needed per 32 bits
@@ -2096,6 +2104,8 @@ WORD_LIST = [
     "zone",
     "zoo",
 ]
+
+assert len(WORD_LIST) == 2048, "bip39 WORD_LIST length != 2,048 words"
 
 
 __init__()

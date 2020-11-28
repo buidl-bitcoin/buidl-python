@@ -397,7 +397,7 @@ class HDTest(TestCase):
         self.assertEqual(first_key.bech32_address(), want)
 
     def test_zprv(self):
-        mnemonic, priv = HDPrivateKey.generate(entropy=1 << 128)
+        mnemonic, priv = HDPrivateKey.generate(extra_entropy=1 << 128)
         for word in mnemonic.split():
             self.assertTrue(word in WORD_LIST)
         zprv = priv.zprv()
