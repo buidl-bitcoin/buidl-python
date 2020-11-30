@@ -5,13 +5,14 @@ from buidl.helper import int_to_big_endian, sha256
 
 def secure_mnemonic(entropy=0, num_bits=128):
     """Generates a mnemonic phrase using the number of bits"""
+    assert num_bits in (128, 160, 192, 224, 256), f"Invalid num_bits: {num_bits}"
     # if we have more than 128 bits, just mask everything but the last 128 bits
     if len(bin(entropy)) > num_bits + 2:
         entropy &= (1 << num_bits) - 1
     # xor some random bits with the entropy that was passed in
     preseed = randbits(num_bits) ^ entropy
     # convert the number to big-endian
-    s = int_to_big_endian(preseed, 16)
+    s = int_to_big_endian(preseed, num_bits // 8)
     # 1 extra bit for checksum is needed per 32 bits
     checksum_bits_needed = num_bits // 32
     # the checksum is the sha256's first n bits. At most this is 8
