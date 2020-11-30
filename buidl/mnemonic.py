@@ -5,6 +5,7 @@ from buidl.helper import int_to_big_endian, sha256
 
 def secure_mnemonic(entropy=0, num_bits=128):
     """Generates a mnemonic phrase using the number of bits"""
+    assert num_bits in (128, 160, 192, 224, 256), f"Invalid num_bits: {num_bits}"
     # if we have more than 128 bits, just mask everything but the last 128 bits
     if len(bin(entropy)) > num_bits + 2:
         entropy &= (1 << num_bits) - 1
