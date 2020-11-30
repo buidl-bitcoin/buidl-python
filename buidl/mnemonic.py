@@ -11,7 +11,7 @@ def secure_mnemonic(entropy=0, num_bits=128):
     # xor some random bits with the entropy that was passed in
     preseed = randbits(num_bits) ^ entropy
     # convert the number to big-endian
-    s = int_to_big_endian(preseed, 16)
+    s = int_to_big_endian(preseed, num_bits // 8)
     # 1 extra bit for checksum is needed per 32 bits
     checksum_bits_needed = num_bits // 32
     # the checksum is the sha256's first n bits. At most this is 8
