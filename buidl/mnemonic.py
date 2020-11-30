@@ -1,16 +1,29 @@
 from secrets import randbits
+from time import time
 
 from buidl.helper import int_to_big_endian, sha256
 
 
-def secure_mnemonic(entropy=0, num_bits=128):
-    """Generates a mnemonic phrase using the number of bits"""
+def secure_mnemonic(num_bits=256, extra_entropy=0):
+    """
+    Generates a mnemonic phrase using num_bits of entropy
+    extra_entropy is optional and should not be saved as it is NOT SUFFICIENT to recover your mnemonic.
+    extra_entropy exists only to prevent 100% reliance on your random number generator.
+    """
     assert num_bits in (128, 160, 192, 224, 256), f"Invalid num_bits: {num_bits}"
+    assert type(extra_entropy) is int, f"extra_entropy must be an int: {extra_entropy}"
+    assert extra_entropy >= 0, f"extra_entropy cannot be negative: {extra_entropy}"
+
     # if we have more than 128 bits, just mask everything but the last 128 bits
-    if len(bin(entropy)) > num_bits + 2:
-        entropy &= (1 << num_bits) - 1
-    # xor some random bits with the entropy that was passed in
-    preseed = randbits(num_bits) ^ entropy
+    if len(bin(extra_entropy)) > num_bits + 2:
+        extra_entropy &= (1 << num_bits) - 1
+
+    # For added paranoia, xor current epoch to extra_entropy
+    # Would use time.time_ns() but that requires python3.7
+    extra_entropy ^= int(time() * 1_000_000)
+
+    # xor some random bits with the extra_entropy that was passed in
+    preseed = randbits(num_bits) ^ extra_entropy
     # convert the number to big-endian
     s = int_to_big_endian(preseed, num_bits // 8)
     # 1 extra bit for checksum is needed per 32 bits

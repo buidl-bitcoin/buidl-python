@@ -336,8 +336,8 @@ class HDPrivateKey:
         return self._get_address("84'", account, False, address)
 
     @classmethod
-    def generate(cls, password=b"", entropy=0, testnet=False):
-        mnemonic = secure_mnemonic(entropy=entropy)
+    def generate(cls, password=b"", extra_entropy=0, testnet=False):
+        mnemonic = secure_mnemonic(extra_entropy=extra_entropy)
         return mnemonic, cls.from_mnemonic(mnemonic, password=password, testnet=testnet)
 
     @classmethod

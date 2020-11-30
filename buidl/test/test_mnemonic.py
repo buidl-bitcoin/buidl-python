@@ -5,7 +5,7 @@ from buidl.hd import HDPrivateKey
 
 
 class MnemonicTest(TestCase):
-    def test_secure_mnemonic(self):
+    def test_secure_mnemonic_bits(self):
         tests = (
             # num_bits, num_words
             (128, 12),
@@ -18,8 +18,29 @@ class MnemonicTest(TestCase):
         for num_bits, num_words in tests:
             mnemonic = secure_mnemonic(num_bits=num_bits)
             self.assertEqual(num_words, len(mnemonic.split(" ")))
+            # This is inherently non-deterministic, so we can't check the specific output
             HDPrivateKey.from_mnemonic(mnemonic, testnet=True)
 
-        for invalid_num_bits in (1, 127, 129, 257):
+        for invalid_num_bits in (-1, 1, 127, 129, 257, "notanint"):
             with self.assertRaises(AssertionError):
                 secure_mnemonic(num_bits=invalid_num_bits)
+
+    def test_secure_mnemonic_extra_entropy(self):
+        tests = (
+            # num_bits, num_words, extra_entropy
+            (128, 12, 0),
+            (160, 15, 1),
+            (192, 18, 2 ** 128),
+            (224, 21, 2 ** 256),
+            (256, 24, 2 ** 512),
+        )
+
+        for num_bits, num_words, extra_entropy in tests:
+            mnemonic = secure_mnemonic(num_bits=num_bits, extra_entropy=extra_entropy)
+            self.assertEqual(num_words, len(mnemonic.split(" ")))
+            # This is inherently non-deterministic, so we can't check the specific output
+            HDPrivateKey.from_mnemonic(mnemonic, testnet=True)
+
+        for invalid_extra_entropy in (-1, "notanint"):
+            with self.assertRaises(AssertionError):
+                secure_mnemonic(extra_entropy=invalid_extra_entropy)
