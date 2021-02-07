@@ -584,7 +584,7 @@ class PSBT:
             quorum_m, quorum_n = psbt_in.witness_script.get_quorum()
             if quorum_n != len(root_xfp_hexes):
                 raise SuspiciousTransaction(
-                    f"Transaction claims {quorum_m}-of-{quorum-n} but has {len(root_xfp_hexes)} root fingerprints, which != {quorum_n}"
+                    f"Transaction claims {quorum_m}-of-{quorum_n} but has {len(root_xfp_hexes)} root fingerprints, which != {quorum_n}"
                 )
 
             input_desc = {
@@ -643,7 +643,7 @@ class PSBT:
                 quorum_m, quorum_n = psbt_out.witness_script.get_quorum()
                 if quorum_n != len(root_xfp_hexes):
                     raise SuspiciousTransaction(
-                        f"Transaction claims {quorum_m}-of-{quorum-n} but has {len(root_xfp_hexes)} root fingerprints, which != {quorum_n}"
+                        f"Transaction claims {quorum_m}-of-{quorum_n} but has {len(root_xfp_hexes)} root fingerprints, which != {quorum_n}"
                     )
 
                 output_msig_id = calc_multisig_id(
@@ -720,6 +720,8 @@ class PSBT:
             "tx_fee_sats": TX_FEE_SATS,
             "total_input_sats": TOTAL_INPUT_SATS,
             "output_spend_sats": output_spend_sats,
+            "change_addr": change_addr,
+            "output_change_sats": output_change_sats,
             "change_sats": TOTAL_INPUT_SATS - TX_FEE_SATS - output_spend_sats,
             "spend_addr": spend_addr,
             # Input/output level

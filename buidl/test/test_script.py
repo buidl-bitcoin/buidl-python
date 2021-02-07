@@ -6,7 +6,6 @@ from buidl.helper import decode_base58
 from buidl.script import (
     P2PKHScriptPubKey,
     P2SHScriptPubKey,
-    P2WSHScriptPubKey,
     RedeemScript,
     Script,
     WitnessScript,
