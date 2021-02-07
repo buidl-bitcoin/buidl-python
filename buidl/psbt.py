@@ -5,6 +5,7 @@ from buidl.hd import HDPublicKey
 from buidl.helper import (
     base64_decode,
     base64_encode,
+    calc_multisig_id,
     child_to_path,
     encode_varstr,
     int_to_little_endian,
@@ -190,6 +191,10 @@ class NamedHDPublicKey(HDPublicKey):
             current = current.child(child_index)
             remainder = remainder[4:]
         return current.point == named_pubkey
+
+
+class SuspiciousTransaction(Exception):
+    pass
 
 
 class PSBT:
@@ -540,6 +545,192 @@ class PSBT:
         for psbt_out in self.psbt_outs:
             result += psbt_out.serialize()
         return result
+
+    def describe_basic_multisig_tx(self, root_fingerprint_for_signing=None):
+        """
+        Describe a typical multisig transaction in a human-readable way for manual verification before signing.
+
+        This tool supports transactions with the following constraints:
+        * We sign ALL inputs with the same multisig wallet (quorum + root fingerprints).
+        * There can only be 1 output (sweep transaction) or 2 outputs (spend + change). If 2 outputs, we validate the change (it has the same quorum/xfp as the inputs we sign).
+
+        Advanced/atypical transactions will throw an error as these cannot be easily summarized.
+        An error does not mean there is a problem with the transaction, only that it cannot be trivially summarized.
+
+        If `root_fingerprint_for_signing` (a hex string) is included, then the root_paths needed to derive child private keys (for signing) from that seed will be returned.
+        """
+
+        self.validate()
+
+        TX_FEE_SATS = self.tx_obj.fee()
+
+        # Gather TX info and validate
+        inputs_desc = []
+        for cnt, psbt_in in enumerate(self.psbt_ins):
+            psbt_in.validate()
+
+            if type(psbt_in.witness_script) != WitnessScript:
+                # TODO: add support for legacy TXs?
+                raise SuspiciousTransaction(
+                    f"Input #{cnt} does not contain a witness script. "
+                    "This tool can only sign p2wsh transactions."
+                )
+
+            # for calculating msig fingerprint
+            root_xfp_hexes = []
+            for _, details in psbt_in.named_pubs.items():
+                root_xfp_hexes.append(details.root_fingerprint.hex())
+
+            quorum_m, quorum_n = psbt_in.witness_script.get_quorum()
+            if quorum_n != len(root_xfp_hexes):
+                raise SuspiciousTransaction(
+                    f"Transaction claims {quorum_m}-of-{quorum-n} but has {len(root_xfp_hexes)} root fingerprints, which != {quorum_n}"
+                )
+
+            input_desc = {
+                "quorum": f"{quorum_m}-of-{len(root_xfp_hexes)}",
+                "root_xfp_hexes": root_xfp_hexes,
+                "prev_txhash": psbt_in.tx_in.prev_tx.hex(),
+                "prev_idx": psbt_in.tx_in.prev_index,
+                "n_sequence": psbt_in.tx_in.sequence,
+                "sats": psbt_in.tx_in.value(),
+                "addr": psbt_in.witness_script.address(testnet=self.testnet),
+                # if adding support for p2sh in the future, the address would be: psbt_in.witness_script.p2sh_address(testnet=self.testnet),
+                "witness_script": str(psbt_in.witness_script),
+                "msig_id": calc_multisig_id(
+                    quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
+                ),
+            }
+            inputs_desc.append(input_desc)
+
+        if not all(x["msig_id"] == inputs_desc[0]["msig_id"] for x in inputs_desc):
+            raise SuspiciousTransaction(
+                "Multiple different multisig wallets used in inputs. "
+                "Construct a transaction with one input to use this feature."
+            )
+
+        TOTAL_INPUT_SATS = sum([x["sats"] for x in inputs_desc])
+
+        # This too only supports TXs with 1-2 outputs (sweep TX OR spend+change TX):
+        if len(self.psbt_outs) > 2:
+            raise SuspiciousTransaction(
+                f"This tool does not support batching, your transaction has {len(self.psbt_outs)} outputs. "
+                "Please construct a transaction with <= 2 outputs."
+            )
+
+        spend_addr, output_spend_sats = "", 0
+        change_addr, output_change_sats = "", 0
+        outputs_desc = []
+        for cnt, psbt_out in enumerate(self.psbt_outs):
+            psbt_out.validate()
+
+            output_desc = {
+                "sats": psbt_out.tx_out.amount,
+                "addr": psbt_out.tx_out.script_pubkey.address(testnet=self.testnet),
+                "addr_type": psbt_out.tx_out.script_pubkey.__class__.__name__.rstrip(
+                    "ScriptPubKey"
+                ),
+            }
+
+            if psbt_out.named_pubs:
+                # Confirm below that this is correct (throw error otherwise)
+                output_desc["is_change"] = True
+
+                root_xfp_hexes = []  # for calculating msig fingerprint
+                for _, details in psbt_out.named_pubs.items():
+                    root_xfp_hexes.append(details.root_fingerprint.hex())
+
+                quorum_m, quorum_n = psbt_out.witness_script.get_quorum()
+                if quorum_n != len(root_xfp_hexes):
+                    raise SuspiciousTransaction(
+                        f"Transaction claims {quorum_m}-of-{quorum-n} but has {len(root_xfp_hexes)} root fingerprints, which != {quorum_n}"
+                    )
+
+                output_msig_id = calc_multisig_id(
+                    quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
+                )
+                if (
+                    output_msig_id != inputs_desc[0]["msig_id"]
+                ):  # ALL inputs have the same msig_digest
+                    raise SuspiciousTransaction(
+                        f"Output #{cnt} is claiming to be change but has different multisig wallet(s)! Do a sweep transaction (1-output) if you want this wallet to cosign."
+                    )
+                change_addr = output_desc["addr"]
+                output_change_sats = output_desc["sats"]
+
+                output_desc["witness_script"] = str(psbt_out.witness_script)
+                # FIXME:
+                # output_desc["bip32_derivs"] = psbt_out.named_pubs
+
+            else:
+                output_desc["is_change"] = False
+                spend_addr = output_desc["addr"]
+                output_spend_sats = output_desc["sats"]
+
+            outputs_desc.append(output_desc)
+
+        # Sanity check
+        if len(outputs_desc) != len(self.psbt_outs):
+            raise SuspiciousTransaction(
+                f"{len(outputs_desc)} outputs in summary doesn't match {len(self.psbt_outs)} outputs in PSBT"
+            )
+
+        # Confirm if 2 outputs we only have 1 change and 1 spend (can't be 2 changes or 2 spends)
+        if len(outputs_desc) == 2:
+            if all(
+                x["is_change"] == outputs_desc[0]["is_change"] for x in outputs_desc
+            ):
+                raise SuspiciousTransaction(
+                    f"Cannot have both outputs be change or spend, must be 1-and-1. {outputs_desc}"
+                )
+
+        root_paths = set()
+        if root_fingerprint_for_signing:
+            # Derive list of child private keys we'll use to sign the TX
+            for cnt, psbt_in in enumerate(self.psbt_ins):
+                # Safety check
+                if inputs_desc[cnt]["prev_txhash"] != psbt_in.tx_in.prev_tx.hex():
+                    raise SuspiciousTransaction("Script error in prev_txhash")
+                if inputs_desc[cnt]["prev_idx"] != psbt_in.tx_in.prev_index:
+                    raise SuspiciousTransaction("Script error in prev_idx")
+
+                for _, details in psbt_in.named_pubs.items():
+                    if details.root_fingerprint.hex() == root_fingerprint_for_signing:
+                        root_paths.add(details.root_path)
+
+            if not root_paths:
+                # We confirmed above that all inputs have identical encumberance so we choose the first one as representative
+                err = [
+                    "Did you enter a root fingerprint for another seed?",
+                    f"The fingerprint supplied ({root_fingerprint_for_signing}) does not correspond to the transaction inputs, which are {inputs_desc[0]['quorum']} of the following:",
+                ]
+                for xfp in sorted(inputs_desc[0]["root_xfp_hexes"]):
+                    err.append("  " + xfp)
+                raise SuspiciousTransaction("\n".join(err))
+
+        # comma seperating satoshis for better display
+        tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with a fee of {TX_FEE_SATS:,} sats ({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)"
+
+        to_return = {
+            # TX level:
+            "txid": self.tx_obj.id(),
+            "tx_summary_text": tx_summary_text,
+            "locktime": self.tx_obj.locktime,
+            "version": self.tx_obj.version,
+            "tx_fee_sats": TX_FEE_SATS,
+            "total_input_sats": TOTAL_INPUT_SATS,
+            "output_spend_sats": output_spend_sats,
+            "change_sats": TOTAL_INPUT_SATS - TX_FEE_SATS - output_spend_sats,
+            "spend_addr": spend_addr,
+            # Input/output level
+            "inputs_desc": inputs_desc,
+            "outputs_desc": outputs_desc,
+        }
+
+        if root_fingerprint_for_signing:
+            to_return["root_paths"] = root_paths
+
+        return to_return
 
 
 class PSBTIn:

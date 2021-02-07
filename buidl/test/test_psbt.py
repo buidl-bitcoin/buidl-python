@@ -577,3 +577,66 @@ class PSBTTest(TestCase):
         for testnet in (True, False):
             psbt_obj = PSBT.parse_base64(testnet_psbt_b64, testnet=testnet)
             self.assertEqual(psbt_obj.testnet, testnet)
+
+    def test_psbt_describe(self):
+        testnet_psbt_b64 = "cHNidP8BAIkCAAAAAUYAY5RbY81ZhfuXkkRiwfljZDjD8cIGUHBmk/12qz5GAQAAAAD9////AoA4AQAAAAAAIgAgk1U7p/N5g35nzvoUWeBSzN2zF2eajCzQ2Sx5CiRY5CNXTQAAAAAAACIAIB2n9K+g9tTXEmaNsC9yctc0fqbGfIssoC7P+rlmSpcgAAAAAAABASughgEAAAAAACIAIHUJko5YlyOgiN3KsrFLuFJtVfeTLgPGjqZYGhs4nReDAQWtUSEC1YKN9BHfcfd2R7IfAlBK7qjwT2xH8ULojx0GM9xO0YYhAwqoDCSuUc0NvJjK5TElShKNkJg4kMYIs+/sXHAR5jGoIQMZgHao+1eGHjwWLn5hUzrmJ/ChRp+3ZHfgrDWivVRsCiEDpsKKb7ofiMx37vD64ThCvgRV++c9AtRASF15OpQa27UhA8Pni0wHemy313UWoUfiA3lQoVhw86x2wf7zo+8qAL89Va4iBgLVgo30Ed9x93ZHsh8CUEruqPBPbEfxQuiPHQYz3E7RhhD30ECQAQAAAAAAAAAAAAAAIgYDCqgMJK5RzQ28mMrlMSVKEo2QmDiQxgiz7+xccBHmMagc99BAkDAAAIABAACAAAAAgAIAAIAAAAAAAAAAACIGAxmAdqj7V4YePBYufmFTOuYn8KFGn7dkd+CsNaK9VGwKHBKYDu0wAACAAQAAgAAAAIACAACAAAAAAAAAAAAiBgOmwopvuh+IzHfu8PrhOEK+BFX75z0C1EBIXXk6lBrbtRw6UrXNMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAIgYDw+eLTAd6bLfXdRahR+IDeVChWHDzrHbB/vOj7yoAvz0cx9BkijAAAIABAACAAAAAgAIAAIAAAAAAAAAAAAABAa1RIQI2ps9CVMgpChaOyrSu53EBjTV+qHFUpbX+qe2bruJYXiEDVewQAcLE8dzi3pQL6svct9d0YUAoGpKDAAqkbSUdRjEhA4M9bnxBIRgPt5GAt4oFc61XwpmCXxj0n2lCyzi2vwI6IQOp40HDLYhwcGEVRDzxY7/D0toMqFFaKbzBpQDGXPsjuyEDsqwRgDBDwNuITc3f3P8CWZMk1edHsm5CNfV7gBn64EFVriICAjamz0JUyCkKFo7KtK7ncQGNNX6ocVSltf6p7Zuu4lheHMfQZIowAACAAQAAgAAAAIACAACAAQAAAAAAAAAiAgNV7BABwsTx3OLelAvqy9y313RhQCgakoMACqRtJR1GMRw6UrXNMAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAIgIDgz1ufEEhGA+3kYC3igVzrVfCmYJfGPSfaULLOLa/AjocEpgO7TAAAIABAACAAAAAgAIAAIABAAAAAAAAACICA6njQcMtiHBwYRVEPPFjv8PS2gyoUVopvMGlAMZc+yO7HPfQQJAwAACAAQAAgAAAAIACAACAAQAAAAAAAAAiAgOyrBGAMEPA24hNzd/c/wJZkyTV50eybkI19XuAGfrgQRD30ECQAQAAAAEAAAAAAAAAAAA="
+        psbt_obj = PSBT.parse_base64(testnet_psbt_b64, testnet=True)
+
+        want = {
+            "txid": "34b8dbde8f0204be4cf6da72d2eb9068e688366688537cda806ae8c78074c493",
+            "tx_summary_text": "PSBT sends 19,799 sats to tb1qrknlftaq7m2dwynx3kcz7unj6u68afkx0j9jegpwelatjej2jusq8ze0jf with a fee of 201 sats (0.2% of spend)",
+            "locktime": 0,
+            "version": 2,
+            "tx_fee_sats": 201,
+            "total_input_sats": 100000,
+            "output_spend_sats": 19799,
+            "change_sats": 80000,
+            "spend_addr": "tb1qrknlftaq7m2dwynx3kcz7unj6u68afkx0j9jegpwelatjej2jusq8ze0jf",
+            "inputs_desc": [
+                {
+                    "quorum": "1-of-5",
+                    "root_xfp_hexes": [
+                        "f7d04090",
+                        "f7d04090",
+                        "12980eed",
+                        "3a52b5cd",
+                        "c7d0648a",
+                    ],
+                    "prev_txhash": "463eab76fd9366705006c2f1c3386463f9c162449297fb8559cd635b94630046",
+                    "prev_idx": 1,
+                    "n_sequence": 4294967293,
+                    "sats": 100000,
+                    "addr": "tb1qw5ye9rjcju36pzxae2etzjac2fk4taun9cpudr4xtqdpkwyaz7pspwpqvg",
+                    "witness_script": "OP_1 02d5828df411df71f77647b21f02504aeea8f04f6c47f142e88f1d0633dc4ed186 030aa80c24ae51cd0dbc98cae531254a128d90983890c608b3efec5c7011e631a8 03198076a8fb57861e3c162e7e61533ae627f0a1469fb76477e0ac35a2bd546c0a 03a6c28a6fba1f88cc77eef0fae13842be0455fbe73d02d440485d793a941adbb5 03c3e78b4c077a6cb7d77516a147e2037950a15870f3ac76c1fef3a3ef2a00bf3d OP_5 OP_CHECKMULTISIG ",
+                    "msig_id": "04a8038f4788cb7217f1cd29e520f5266e3cafc88c87729297f0e50c833231c4",
+                }
+            ],
+            "outputs_desc": [
+                {
+                    "sats": 80000,
+                    "addr": "tb1qjd2nhfln0xphue7wlg29nczjenwmx9m8n2xze5xe93us5fzcus3sltzqlv",
+                    "addr_type": "P2WSH",
+                    "is_change": True,
+                    "witness_script": "OP_1 0236a6cf4254c8290a168ecab4aee771018d357ea87154a5b5fea9ed9baee2585e 0355ec1001c2c4f1dce2de940beacbdcb7d7746140281a9283000aa46d251d4631 03833d6e7c4121180fb79180b78a0573ad57c299825f18f49f6942cb38b6bf023a 03a9e341c32d8870706115443cf163bfc3d2da0ca8515a29bcc1a500c65cfb23bb 03b2ac11803043c0db884dcddfdcff02599324d5e747b26e4235f57b8019fae041 OP_5 OP_CHECKMULTISIG ",
+                },
+                {
+                    "sats": 19799,
+                    "addr": "tb1qrknlftaq7m2dwynx3kcz7unj6u68afkx0j9jegpwelatjej2jusq8ze0jf",
+                    "addr_type": "P2WSH",
+                    "is_change": False,
+                },
+            ],
+        }
+        self.assertEqual(
+            psbt_obj.describe_basic_multisig_tx(root_fingerprint_for_signing=None), want
+        )
+
+        # root paths for this input given the following xfp to sign for
+        root_xfp_hex = "12980eed"
+        want["root_paths"] = set({"m/48'/1'/0'/2'/0/0"})
+        self.assertEqual(
+            psbt_obj.describe_basic_multisig_tx(
+                root_fingerprint_for_signing=root_xfp_hex
+            ),
+            want,
+        )
