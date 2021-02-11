@@ -1,8 +1,8 @@
 from io import BytesIO
 
+from buidl.bech32 import encode_bech32_checksum
 from buidl.helper import (
     encode_base58_checksum,
-    encode_bech32_checksum,
     encode_varstr,
     hash160,
     little_endian_to_int,

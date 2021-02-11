@@ -1,4 +1,5 @@
 # TODO: specify what specifically to import
+from .bech32 import *
 from .block import *
 from .bloomfilter import *
 from .ecc import *

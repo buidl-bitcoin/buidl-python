@@ -3,14 +3,11 @@ from unittest import TestCase
 from io import BytesIO
 
 from buidl.helper import (
-    BECH32_ALPHABET,
     bit_field_to_bytes,
     bytes_to_bit_field,
     bytes_to_str,
     decode_base58,
     encode_base58_checksum,
-    decode_bech32,
-    encode_bech32_checksum,
     decode_golomb,
     encode_golomb,
     decode_gcs,
@@ -73,37 +70,6 @@ class HelperTest(TestCase):
         raw = bytes.fromhex("005dedfbf9ea599dd4e3ca6a80b333c472fd0b3f69")
         want = "19ZewH8Kk1PDbSNdJ97FP4EiCjTRaZMZQA"
         self.assertEqual(encode_base58_checksum(raw), want)
-
-    def test_bech32(self):
-        tests = [
-            {
-                "hex_script": "00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262",
-                "address": "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7",
-            },
-            {
-                "hex_script": "00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262",
-                "address": "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7",
-            },
-            {
-                "hex_script": "00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262",
-                "address": "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7",
-            },
-            {
-                "hex_script": "00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262",
-                "address": "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7",
-            },
-        ]
-        for test in tests:
-            raw = bytes.fromhex(test["hex_script"])
-            want = test["address"]
-            testnet = want[:2] == "tb"
-            version = BECH32_ALPHABET.index(want[3:4])
-            result = encode_bech32_checksum(raw, testnet=testnet)
-            self.assertEqual(result, want)
-            got_testnet, got_version, got_raw = decode_bech32(result)
-            self.assertEqual(got_testnet, testnet)
-            self.assertEqual(got_version, version)
-            self.assertEqual(got_raw, raw[2:])
 
     def test_merkle_parent(self):
         tx_hash0 = bytes.fromhex(
