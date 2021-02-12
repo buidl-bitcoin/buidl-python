@@ -106,13 +106,13 @@ def bc32decode(bc32: str) -> bytes:
 def cbor_encode(data):
     length = len(data)
     if length <= 23:
-        prefix = bytes([0x40 + l])
+        prefix = bytes([0x40 + length])
     elif length <= 255:
-        prefix = bytes([0x58, l])
+        prefix = bytes([0x58, length])
     elif length <= 65535:
-        prefix = b"\x59" + l.to_bytes(2, "big")
+        prefix = b"\x59" + length.to_bytes(2, "big")
     else:
-        prefix = b"\x60" + l.to_bytes(4, "big")
+        prefix = b"\x60" + length.to_bytes(4, "big")
     return prefix + data
 
 
@@ -121,16 +121,16 @@ def cbor_decode(data):
     b = s.read(1)[0]
     if b >= 0x40 and b < 0x58:
         length = b - 0x40
-        return s.read(l)
+        return s.read(length)
     if b == 0x58:
         length = s.read(1)[0]
-        return s.read(l)
+        return s.read(length)
     if b == 0x59:
         length = int.from_bytes(s.read(2), "big")
-        return s.read(l)
+        return s.read(length)
     if b == 0x60:
         length = int.from_bytes(s.read(4), "big")
-        return s.read(l)
+        return s.read(length)
     return None
 
 
