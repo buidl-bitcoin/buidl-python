@@ -102,6 +102,7 @@ def bc32decode(bc32: str) -> bytes:
         return None
     return bytes(convertbits(res[:-6], 5, 8, False))
 
+
 def cbor_encode(data):
     l = len(data)
     if l <= 23:
@@ -140,7 +141,6 @@ def bcur_encode(data):
     h = hashlib.sha256(cbor).digest()
     enc_hash = bc32encode(h)
     return enc, enc_hash
-
 
 
 def bcur_decode(data, checksum=None):

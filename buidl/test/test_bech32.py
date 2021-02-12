@@ -3,17 +3,17 @@ from unittest import TestCase
 from binascii import a2b_base64
 
 from buidl.bech32 import (
-    bcur_encode, bcur_decode,
+    bcur_encode,
+    bcur_decode,
     encode_bech32_checksum,
     encode_psbt_to_bcur,
     decode_qr_to_psbt,
     decode_bech32,
     BECH32_ALPHABET,
-    )
+)
 
 
 class Bech32Test(TestCase):
-
     def test_bech32(self):
         tests = [
             {
@@ -47,7 +47,6 @@ class Bech32Test(TestCase):
 
 
 class BCURTest(TestCase):
-
     def test_bcur(self):
 
         # Test case from specter-desktop: https://github.com/cryptoadvance/specter-desktop/blob/0a483316d0d2e83cb5a532a0cbbcd82a885587db/src/cryptoadvance/specter/util/bcur.py
