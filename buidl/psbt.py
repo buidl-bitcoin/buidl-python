@@ -684,8 +684,30 @@ class PSBT:
                     f"Cannot have both outputs be change or spend, must be 1-and-1. {outputs_desc}"
                 )
 
-        root_paths = set()
+        # comma seperating satoshis for better display
+        tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with a fee of {TX_FEE_SATS:,} sats ({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)"
+
+        to_return = {
+            # TX level:
+            "txid": self.tx_obj.id(),
+            "tx_summary_text": tx_summary_text,
+            "locktime": self.tx_obj.locktime,
+            "version": self.tx_obj.version,
+            "is_testnet": self.testnet,
+            "tx_fee_sats": TX_FEE_SATS,
+            "total_input_sats": TOTAL_INPUT_SATS,
+            "output_spend_sats": output_spend_sats,
+            "change_addr": change_addr,
+            "output_change_sats": output_change_sats,
+            "change_sats": TOTAL_INPUT_SATS - TX_FEE_SATS - output_spend_sats,
+            "spend_addr": spend_addr,
+            # Input/output level
+            "inputs_desc": inputs_desc,
+            "outputs_desc": outputs_desc,
+        }
+
         if root_fingerprint_for_signing:
+            root_paths = set()
             # Derive list of child private keys we'll use to sign the TX
             for cnt, psbt_in in enumerate(self.psbt_ins):
                 # Safety check
@@ -708,28 +730,6 @@ class PSBT:
                     err.append("  " + xfp)
                 raise SuspiciousTransaction("\n".join(err))
 
-        # comma seperating satoshis for better display
-        tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with a fee of {TX_FEE_SATS:,} sats ({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)"
-
-        to_return = {
-            # TX level:
-            "txid": self.tx_obj.id(),
-            "tx_summary_text": tx_summary_text,
-            "locktime": self.tx_obj.locktime,
-            "version": self.tx_obj.version,
-            "tx_fee_sats": TX_FEE_SATS,
-            "total_input_sats": TOTAL_INPUT_SATS,
-            "output_spend_sats": output_spend_sats,
-            "change_addr": change_addr,
-            "output_change_sats": output_change_sats,
-            "change_sats": TOTAL_INPUT_SATS - TX_FEE_SATS - output_spend_sats,
-            "spend_addr": spend_addr,
-            # Input/output level
-            "inputs_desc": inputs_desc,
-            "outputs_desc": outputs_desc,
-        }
-
-        if root_fingerprint_for_signing:
             to_return["root_paths"] = root_paths
 
         return to_return
