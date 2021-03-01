@@ -587,6 +587,7 @@ class PSBTTest(TestCase):
             "tx_summary_text": "PSBT sends 19,799 sats to tb1qrknlftaq7m2dwynx3kcz7unj6u68afkx0j9jegpwelatjej2jusq8ze0jf with a fee of 201 sats (0.2% of spend)",
             "locktime": 0,
             "version": 2,
+            "is_testnet" : True,
             "tx_fee_sats": 201,
             "total_input_sats": 100000,
             "change_addr": "tb1qjd2nhfln0xphue7wlg29nczjenwmx9m8n2xze5xe93us5fzcus3sltzqlv",
