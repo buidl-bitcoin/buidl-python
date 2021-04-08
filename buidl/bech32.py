@@ -1,4 +1,5 @@
 import hashlib
+import re
 
 from binascii import a2b_base64, b2a_base64
 from io import BytesIO
@@ -7,6 +8,12 @@ from buidl.helper import int_to_big_endian
 
 BECH32_ALPHABET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 GEN = [0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3]
+
+BECH32_CHARS_RE = re.compile("^[qpzry9x8gf2tvdw0s3jn54khce6mua7l]*$")
+
+
+def uses_only_bech32_chars(string):
+    return bool(BECH32_CHARS_RE.match(string.lower()))
 
 
 # next four functions are straight from BIP0173:
@@ -132,42 +139,6 @@ def cbor_decode(data):
         length = int.from_bytes(s.read(4), "big")
         return s.read(length)
     return None
-
-
-def bcur_encode(data):
-    """Returns bcur encoded string and hash digest"""
-    cbor = cbor_encode(data)
-    enc = bc32encode(cbor)
-    h = hashlib.sha256(cbor).digest()
-    enc_hash = bc32encode(h)
-    return enc, enc_hash
-
-
-def bcur_decode(data, checksum=None):
-    """Returns decoded data, verifies hash digest if provided"""
-    cbor = bc32decode(data)
-    if checksum is not None:
-        h = bc32decode(checksum)
-        assert h == hashlib.sha256(cbor).digest()
-    return cbor_decode(cbor)
-
-
-def encode_psbt_to_bcur(psbt_b64):
-    """
-    Take a base64 PSBT and prepare it for encoding as a QR code (using Blockchain Commons Uniform Resources)
-    """
-    # TODO: support animation
-    enc, enc_hash = bcur_encode(a2b_base64(psbt_b64))
-    return f"ur:bytes/{enc_hash}/{enc}"  # TODO: upper case?
-
-
-def decode_qr_to_psbt(bcur_string):
-    """
-    Take a Blockchain Commons Uniform Resource (from a QR code) and decode it to base64.
-    """
-    # TODO: support animation
-    enc = bcur_decode(bcur_string.split("/")[-1])
-    return b2a_base64(enc).strip().decode()
 
 
 def encode_bech32(nums):

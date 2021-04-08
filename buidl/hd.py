@@ -9,6 +9,7 @@ from buidl.helper import (
     hmac_sha512_kdf,
     int_to_big_endian,
     int_to_byte,
+    is_intable,
     raw_decode_base58,
     sha256,
 )
@@ -228,6 +229,11 @@ class HDPrivateKey:
         return self.pub.fingerprint()
 
     def xpub(self, version=None):
+        if version is None:
+            if self.testnet:
+                version = TESTNET_XPUB
+            else:
+                version = MAINNET_XPUB
         return self.pub.xpub(version=version)
 
     def ypub(self):
@@ -609,3 +615,32 @@ def calc_num_valid_seedpicker_checksums(num_first_words):
         20: 16,
         23: 8,
     }[num_first_words]
+
+
+def is_valid_bip32_path(path):
+    path = path.lower().strip().replace("'", "h").replace("//", "/")  # be forgiving
+
+    if path == "m":
+        # Not really a path, but since this is valid in the library (traverses to itself) we're counting it as valid
+        return True
+
+    if not path.startswith("m/"):
+        return False
+
+    sub_paths = path[2:].split("/")
+    if len(sub_paths) >= 256:
+        # https://bitcoin.stackexchange.com/a/92057
+        return False
+
+    for sub_path in sub_paths:
+        if sub_path.endswith("h"):
+            sub_path = sub_path[:-1]
+        if not is_intable(sub_path):
+            return False
+        if int(sub_path) <= 0:
+            return False
+        if int(sub_path) >= 2**31:
+            # https://bitcoin.stackexchange.com/a/92057
+            return False
+
+    return True

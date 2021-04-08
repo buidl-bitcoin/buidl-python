@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import re
 
 from base64 import b64decode, b64encode
 from buidl.pbkdf2 import PBKDF2
@@ -34,6 +35,9 @@ GOLOMB_P = 19
 GOLOMB_M = int(round(1.497137 * 2 ** GOLOMB_P))
 TWO_WEEKS = 60 * 60 * 24 * 14
 MAX_TARGET = 0xFFFF * 256 ** (0x1D - 3)
+
+
+HEX_CHARS_RE = re.compile('^[0-9a-f]*$')
 
 
 def bytes_to_str(b, encoding="ascii"):
@@ -590,3 +594,17 @@ def calc_multisig_id(quorum_m, root_xfp_hexes):
     """
     fingerprints_to_hash = "-".join(sorted(root_xfp_hexes))
     return hash256(f"{quorum_m}:{fingerprints_to_hash}".encode()).hex()
+
+
+
+def uses_only_hex_chars(string):
+    return bool(HEX_CHARS_RE.match(string.lower()))
+
+
+def is_intable(int_as_string):
+    # TODO: move me to a util/helper library somewhere
+    try:
+        int(int_as_string)
+        return True
+    except Exception:
+        return False
