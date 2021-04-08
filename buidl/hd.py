@@ -639,7 +639,7 @@ def is_valid_bip32_path(path):
             return False
         if int(sub_path) <= 0:
             return False
-        if int(sub_path) >= 2**31:
+        if int(sub_path) >= 2 ** 31:
             # https://bitcoin.stackexchange.com/a/92057
             return False
 

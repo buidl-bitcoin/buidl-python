@@ -37,7 +37,7 @@ TWO_WEEKS = 60 * 60 * 24 * 14
 MAX_TARGET = 0xFFFF * 256 ** (0x1D - 3)
 
 
-HEX_CHARS_RE = re.compile('^[0-9a-f]*$')
+HEX_CHARS_RE = re.compile("^[0-9a-f]*$")
 
 
 def bytes_to_str(b, encoding="ascii"):
@@ -594,7 +594,6 @@ def calc_multisig_id(quorum_m, root_xfp_hexes):
     """
     fingerprints_to_hash = "-".join(sorted(root_xfp_hexes))
     return hash256(f"{quorum_m}:{fingerprints_to_hash}".encode()).hex()
-
 
 
 def uses_only_hex_chars(string):

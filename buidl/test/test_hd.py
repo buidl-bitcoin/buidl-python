@@ -468,12 +468,24 @@ class HDTest(TestCase):
     def test_xpub_version(self):
         mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
         hd_obj = HDPrivateKey.from_mnemonic(mnemonic, testnet=True)
-        self.assertEqual(hd_obj.xprv(), 'tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd')
-        self.assertEqual(hd_obj.xpub(), 'tpubD6NzVbkrYhZ4XYa9MoLt4BiMZ4gkt2faZ4BcmKu2a9te4LDpQmvEz2L2yDERivHxFPnxXXhqDRkUNnQCpZggCyEZLBktV7VaSmwayqMJy1s')
+        self.assertEqual(
+            hd_obj.xprv(),
+            "tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd",
+        )
+        self.assertEqual(
+            hd_obj.xpub(),
+            "tpubD6NzVbkrYhZ4XYa9MoLt4BiMZ4gkt2faZ4BcmKu2a9te4LDpQmvEz2L2yDERivHxFPnxXXhqDRkUNnQCpZggCyEZLBktV7VaSmwayqMJy1s",
+        )
 
         hd_obj = HDPrivateKey.from_mnemonic(mnemonic, testnet=False)
-        self.assertEqual(hd_obj.xprv(), 'xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu')
-        self.assertEqual(hd_obj.xpub(), 'xpub661MyMwAqRbcFkPHucMnrGNzDwb6teAX1RbKQmqtEF8kK3Z7LZ59qafCjB9eCRLiTVG3uxBxgKvRgbubRhqSKXnGGb1aoaqLrpMBDrVxga8')
+        self.assertEqual(
+            hd_obj.xprv(),
+            "xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu",
+        )
+        self.assertEqual(
+            hd_obj.xpub(),
+            "xpub661MyMwAqRbcFkPHucMnrGNzDwb6teAX1RbKQmqtEF8kK3Z7LZ59qafCjB9eCRLiTVG3uxBxgKvRgbubRhqSKXnGGb1aoaqLrpMBDrVxga8",
+        )
 
 
 class BIP32PathsTest(TestCase):
@@ -486,7 +498,9 @@ class BIP32PathsTest(TestCase):
         self.assertTrue(is_valid_bip32_path("m/1/2h/3/4h/5"))
 
     def test_invalid_paths(self):
-        self.assertFalse(is_valid_bip32_path("m/"))  # "m" (without trailing slash) is valid
+        self.assertFalse(
+            is_valid_bip32_path("m/")
+        )  # "m" (without trailing slash) is valid
         self.assertFalse(is_valid_bip32_path("m/-1"))
         self.assertFalse(is_valid_bip32_path("m/1/a"))
         self.assertFalse(is_valid_bip32_path("m/foo"))
