@@ -1,13 +1,7 @@
 from unittest import TestCase
 
-from binascii import a2b_base64
-
 from buidl.bech32 import (
-    bcur_encode,
-    bcur_decode,
     encode_bech32_checksum,
-    encode_psbt_to_bcur,
-    decode_qr_to_psbt,
     decode_bech32,
     BECH32_ALPHABET,
 )

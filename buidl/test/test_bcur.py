@@ -10,7 +10,7 @@ from buidl.bcur import (
     parse_bcur,
 )
 
-from binascii import a2b_base64, b2a_base64
+from binascii import a2b_base64
 
 
 class SpecterDesktopTest(TestCase):

@@ -66,7 +66,7 @@ def decode_multi_qrgif_to_payload(qr_payloads, require_checksum=True):
     Returns decoded_text, checksum, and err_msg
     """
     # Initialize values
-    y, checksum, result = None, None, None
+    y, checksum = None, None
     encoded_payloads = []
     for cnt, qr_payload in enumerate(qr_payloads):
         x_res, y_res, checksum_res, encoded_payload, err_msg = parse_bcur(

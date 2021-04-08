@@ -1,7 +1,5 @@
-import hashlib
 import re
 
-from binascii import a2b_base64, b2a_base64
 from io import BytesIO
 
 from buidl.helper import int_to_big_endian
