@@ -11,6 +11,7 @@ from buidl.bcur import (
 )
 
 from binascii import a2b_base64
+from base64 import b64encode
 
 
 class SpecterDesktopTest(TestCase):
@@ -31,7 +32,7 @@ class SpecterDesktopTest(TestCase):
         assert enc_hash == testhash
         assert enc == "".join(testres)
 
-        encoded = encode_to_bcur_single(text=psbt_b64)
+        encoded = encode_to_bcur_single(text_b64=psbt_b64)
         prefix, encoded_hash, encoded_payload = encoded.split("/")
         self.assertEqual(prefix, "ur:bytes")
         self.assertEqual(enc_hash, encoded_hash)
@@ -45,10 +46,18 @@ class SpecterDesktopTest(TestCase):
 
 
 class BCURTest(TestCase):
+    def test_single_frame_qrgif(self):
+        chunks = encode_to_bcur_qrgif(text_b64=b64encode(b"foo"), animate=False)
+        self.assertEqual(len(chunks), 1)
+        self.assertEqual(
+            chunks[0],
+            "ur:bytes/1of1/j7snj9l0tttmp4c0d9d9mdz0frkac8s6fz4cn8erca3nxz0cnjuq7fv7lv/gdnx7mc0p7099",
+        )
+
     def test_bcur_qrgif_encoding_decoding(self):
         psbt_b64 = "cHNidP8BAM0CAAAABBvYNEzFq0NWyx7pJB5gZw3ROqK4+B4KhNRwU0VYOL3/AAAAAAD9////rl7rVIS5czYgbFQ2HIv937o+6kkmqaLYr8y9EX6jVJAAAAAAAP3///8Zul/oRT19raLmlidW322l1SUSGNMeqNEoCgu3lMAF5wAAAAAA/f///5eGSu1uoiPu9ccah8Ot6Ab7TqPFb0yVeIBkwlT0KaFJAQAAAAD9////AckVAAAAAAAAFgAU1nM6BM+Q0pRsu7Jphhlsmx4GiyEAAAAAAAEBK4UIAAAAAAAAIgAgxb6HvJsx6G8mjBf/ERAtVkJHNNu5n0t6JaZr54V3Og4BBYtRIQI9WW6VH1Y6IMVFfundzIgYNuYyfSoEkDRYchFzo9YWXCECySTPAYH4TtpPeJsNYhWCqYLVWmsIdSrg4xWXMolNkB0hAt8GGQR7xeYdBKbS9NK7ZdkRC7nzD3PhwGbunMXkcLSAIQPTSDFgJc39SEfqzNtH5h2rn6DFk3jkCb+u6CBuRS5ItFSuIgYCPVlulR9WOiDFRX7p3cyIGDbmMn0qBJA0WHIRc6PWFlwc99BAkDAAAIABAACAAAAAgAIAAIABAAAAAgAAACIGAskkzwGB+E7aT3ibDWIVgqmC1VprCHUq4OMVlzKJTZAdHDpStc0wAACAAQAAgAAAAIACAACAAQAAAAIAAAAiBgLfBhkEe8XmHQSm0vTSu2XZEQu58w9z4cBm7pzF5HC0gBwSmA7tMAAAgAEAAIAAAACAAgAAgAEAAAACAAAAIgYD00gxYCXN/UhH6szbR+Ydq5+gxZN45Am/ruggbkUuSLQcx9BkijAAAIABAACAAAAAgAIAAIABAAAAAgAAAAABASszAwAAAAAAACIAIE1pVeThYKqzZZmSDwOs1LWIkyF2CjS+UMG8yJ19SMShAQWLUSECNqbPQlTIKQoWjsq0rudxAY01fqhxVKW1/qntm67iWF4hA1XsEAHCxPHc4t6UC+rL3LfXdGFAKBqSgwAKpG0lHUYxIQODPW58QSEYD7eRgLeKBXOtV8KZgl8Y9J9pQss4tr8COiEDqeNBwy2IcHBhFUQ88WO/w9LaDKhRWim8waUAxlz7I7tUriIGAjamz0JUyCkKFo7KtK7ncQGNNX6ocVSltf6p7Zuu4lheHMfQZIowAACAAQAAgAAAAIACAACAAQAAAAAAAAAiBgNV7BABwsTx3OLelAvqy9y313RhQCgakoMACqRtJR1GMRw6UrXNMAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAIgYDgz1ufEEhGA+3kYC3igVzrVfCmYJfGPSfaULLOLa/AjocEpgO7TAAAIABAACAAAAAgAIAAIABAAAAAAAAACIGA6njQcMtiHBwYRVEPPFjv8PS2gyoUVopvMGlAMZc+yO7HPfQQJAwAACAAQAAgAAAAIACAACAAQAAAAAAAAAAAQEr0AcAAAAAAAAiACCATSF7GQBSpJJuaLPRuaedXm7MjI/MP3ED1BCsHUpCaQEFi1EhArPS8NUyYYYL5Sq4jdgwZnda5W/3H8J+RfC03yIAI9YSIQLdO5wqFFC8boM3c2RAUhF/JtfMxHVDWDRrxcQQbdXopyEDBICu8NLP+BlM9knsGFB8x0wICzv+QHKyvWo/tPFgYmghA5yew2Iv3/ZA1Ddfbkyf77lsYEEOYS7EAosQwatP448DVK4iBgKz0vDVMmGGC+UquI3YMGZ3WuVv9x/CfkXwtN8iACPWEhzH0GSKMAAAgAEAAIAAAACAAgAAgAAAAAAFAAAAIgYC3TucKhRQvG6DN3NkQFIRfybXzMR1Q1g0a8XEEG3V6Kcc99BAkDAAAIABAACAAAAAgAIAAIAAAAAABQAAACIGAwSArvDSz/gZTPZJ7BhQfMdMCAs7/kBysr1qP7TxYGJoHDpStc0wAACAAQAAgAAAAIACAACAAAAAAAUAAAAiBgOcnsNiL9/2QNQ3X25Mn++5bGBBDmEuxAKLEMGrT+OPAxwSmA7tMAAAgAEAAIAAAACAAgAAgAAAAAAFAAAAAAEBK+gDAAAAAAAAIgAgff1Q2aG/aQF5aw4DEsK8moe+3SSEbDxz2qwY2NjdhaMBBYtRIQI2zTfKoSYVwnZMWLmuFYZCWJ24pk5jT02Vh9VD9iPuHSECxBo8waomMUQQAyHe09n5BHikL2+69rfH43P3r8Ew4u0hA5VjMnig93BW3uRBCu2Wg5vC22pIxc9VjyCYqb5lbg4IIQOZdCJdnpmErEZ0nQdzC2OcnKKWze1Tg5IJz92uBIvfWVSuIgYCNs03yqEmFcJ2TFi5rhWGQliduKZOY09NlYfVQ/Yj7h0c99BAkDAAAIABAACAAAAAgAIAAIAAAAAAAwAAACIGAsQaPMGqJjFEEAMh3tPZ+QR4pC9vuva3x+Nz96/BMOLtHBKYDu0wAACAAQAAgAAAAIACAACAAAAAAAMAAAAiBgOVYzJ4oPdwVt7kQQrtloObwttqSMXPVY8gmKm+ZW4OCBzH0GSKMAAAgAEAAIAAAACAAgAAgAAAAAADAAAAIgYDmXQiXZ6ZhKxGdJ0HcwtjnJyils3tU4OSCc/drgSL31kcOlK1zTAAAIABAACAAAAAgAIAAIAAAAAAAwAAAAAA"
         chunks_calculated = encode_to_bcur_qrgif(
-            text=psbt_b64, max_size_per_chunk=300, animate=True
+            text_b64=psbt_b64, max_size_per_chunk=300, animate=True
         )
         checksum_expected = "qud9jpcv0af7refxxwu7dvhqshmct65hdzjkpu9q85hw7vkmvshqs2snsx"
         chunks_expected = [

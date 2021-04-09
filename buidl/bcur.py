@@ -31,7 +31,7 @@ def bcur_decode(data, checksum=None):
     return cbor_decode(cbor)
 
 
-def encode_to_bcur_single(text):
+def encode_to_bcur_single(text_b64):
     """
     Take some text (i.e. a base64 PSBT string) and prepare it for encoding as a single QR code (using Blockchain Commons Uniform Resources)
 
@@ -39,7 +39,7 @@ def encode_to_bcur_single(text):
 
     Resulting string does NOT contain 1of1
     """
-    enc, enc_hash = bcur_encode(a2b_base64(text))
+    enc, enc_hash = bcur_encode(a2b_base64(text_b64))
     return f"ur:bytes/{enc_hash}/{enc}"
 
 
@@ -174,7 +174,7 @@ def parse_bcur(string):
     return x_int, y_int, checksum, payload.strip(), ""
 
 
-def encode_to_bcur_qrgif(text, max_size_per_chunk=300, animate=True):
+def encode_to_bcur_qrgif(text_b64, max_size_per_chunk=300, animate=True):
     """
     This algorithm makes all the chunks of about equal length.
     This makes sure that the last chunk is not (too) different in size which is visually noticeable when animation occurs
@@ -184,7 +184,7 @@ def encode_to_bcur_qrgif(text, max_size_per_chunk=300, animate=True):
     """
 
     # Calculate values to chunk
-    enc, enc_hash = bcur_encode(a2b_base64(text))
+    enc, enc_hash = bcur_encode(a2b_base64(text_b64))
 
     if animate is False:
         number_of_chunks = 1
