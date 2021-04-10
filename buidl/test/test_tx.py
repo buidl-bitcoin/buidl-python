@@ -1,3 +1,4 @@
+from os.path import dirname, realpath, sep
 from unittest import TestCase
 
 from buidl.ecc import PrivateKey, Signature
@@ -7,7 +8,7 @@ from buidl.tx import Tx, TxIn, TxOut, TxFetcher
 
 
 class TxTest(TestCase):
-    cache_file = "tx.cache"
+    cache_file = dirname(realpath(__file__)) + sep + "tx.cache"
 
     @classmethod
     def setUpClass(cls):
