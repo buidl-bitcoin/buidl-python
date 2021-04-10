@@ -5,8 +5,8 @@ from buidl.bcur import (
     bcur_decode,
     encode_to_bcur_single,
     encode_to_bcur_qrgif,
-    decode_single_qr_to_payload,
-    decode_multi_qrgif_to_payload,
+    decode_single_qr_to_b64,
+    decode_qrgif_to_b64,
     parse_bcur,
 )
 
@@ -38,7 +38,7 @@ class SpecterDesktopTest(TestCase):
         self.assertEqual(enc_hash, encoded_hash)
         self.assertEqual(encoded_payload, enc)
 
-        x, y, checksum, decoded = decode_single_qr_to_payload(bcur_string=encoded)
+        x, y, checksum, decoded = decode_single_qr_to_b64(bcur_string=encoded)
         self.assertEqual(x, 1)
         self.assertEqual(y, 1)
         self.assertEqual(checksum.lower(), testhash)
@@ -79,7 +79,7 @@ class BCURTest(TestCase):
                 chunk,
             )
 
-        psbt_b64_recovered, checksum_recovered, err_msg = decode_multi_qrgif_to_payload(
+        psbt_b64_recovered, checksum_recovered, err_msg = decode_qrgif_to_b64(
             qr_payloads=chunks_calculated, require_checksum=True
         )
         self.assertEqual(err_msg, "")

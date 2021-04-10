@@ -31,88 +31,6 @@ def bcur_decode(data, checksum=None):
     return cbor_decode(cbor)
 
 
-def encode_to_bcur_single(text_b64):
-    """
-    Take some text (i.e. a base64 PSBT string) and prepare it for encoding as a single QR code (using Blockchain Commons Uniform Resources)
-
-    See encode_to_bcur_qrgif for animation
-
-    Resulting string does NOT contain 1of1
-    """
-    enc, enc_hash = bcur_encode(a2b_base64(text_b64))
-    return f"ur:bytes/{enc_hash}/{enc}"
-
-
-def decode_single_qr_to_payload(bcur_string):
-    """
-    Take a Blockchain Commons Uniform Resource (from a QR code) and decode it to base64.
-    """
-    # TODO: support animation
-    x, y, checksum, payload, err_msg = parse_bcur(string=bcur_string)
-    if err_msg:
-        raise Exception(err_msg)
-
-    enc = bcur_decode(payload)
-    decoded = b2a_base64(enc).strip().decode()
-
-    # Note that checksum is NOT validated (would require all QRs to combine all payloads and calculate shared checksum)
-    return x, y, checksum, decoded
-
-
-def decode_multi_qrgif_to_payload(qr_payloads, require_checksum=True):
-    """
-    Take a Blockchain Commons Uniform Resource (from a QR code) and decode it to base64.
-
-    Returns decoded_text, checksum, and err_msg
-    """
-    # Initialize values
-    y, checksum = None, None
-    encoded_payloads = []
-    for cnt, qr_payload in enumerate(qr_payloads):
-        x_res, y_res, checksum_res, encoded_payload, err_msg = parse_bcur(
-            string=qr_payload
-        )
-        if err_msg:
-            return None, None, f"Parse error: {err_msg}"
-
-        # Set values if unset, check unchanged if already set
-        if x_res != cnt + 1:
-            return None, None, f"X value error: expected {cnt+1} but got {x_res}"
-        if y is None:
-            y = y_res
-        else:
-            if y_res != y:
-                return (
-                    None,
-                    None,
-                    f"Inconsistent Y value error: expected {y} but got {y_res}",
-                )
-        if checksum is None:
-            checksum = checksum_res
-        else:
-            if checksum_res != checksum:
-                return (
-                    None,
-                    None,
-                    f"Inconsistent checksum across qr payloads: {checksum_res} != {checksum}",
-                )
-
-        # checks all pass
-        encoded_payloads.append(encoded_payload)
-
-    encoded_full_payload = "".join(encoded_payloads)
-
-    if require_checksum and not checksum:
-        return None, None, "QR GIF lacks checksum"
-
-    try:
-        decoded_full_payload = bcur_decode(data=encoded_full_payload, checksum=checksum)
-    except AssertionError:
-        return None, None, "Checksum doesn't match"
-
-    return b2a_base64(decoded_full_payload).strip().decode(), checksum, ""
-
-
 def parse_bcur(string):
     """
     Returns x, y, checksum, payload, err_msg
@@ -174,13 +92,43 @@ def parse_bcur(string):
     return x_int, y_int, checksum, payload.strip(), ""
 
 
+def encode_to_bcur_single(text_b64):
+    """
+    Take some base64 text (i.e. a PSBT string) and encode it for a single QR code using Blockchain Commons Uniform Resources.
+
+    Resulting string does NOT contain 1of1 (see encode_to_bcur_qrgif for that formatting)
+    """
+    enc, enc_hash = bcur_encode(a2b_base64(text_b64))
+    return f"ur:bytes/{enc_hash}/{enc}"
+
+
+def decode_single_qr_to_b64(bcur_string):
+    """
+    Take a single Blockchain Commons Uniform Resource (say from a QR code) and decode it back to base64.
+    """
+    x, y, checksum, payload, err_msg = parse_bcur(string=bcur_string)
+    if err_msg:
+        raise Exception(err_msg)
+
+    enc = bcur_decode(payload)
+    decoded = b2a_base64(enc).strip().decode()
+
+    # Note that checksum is NOT validated (would require all QRs to combine all payloads and calculate shared checksum)
+    return x, y, checksum, decoded
+
+
 def encode_to_bcur_qrgif(text_b64, max_size_per_chunk=300, animate=True):
     """
+    Take some base64 text (i.e. a PSBT string) and encode it into multiple QR codes using Blockchain Commons Uniform Resources.
+
+    If animate=False, then max_size_per_chunk is ignored.
+
+    Use decode_qrgif_to_b64 to return the original result.
+
     This algorithm makes all the chunks of about equal length.
     This makes sure that the last chunk is not (too) different in size which is visually noticeable when animation occurs
-    Inspired by https://github.com/cryptoadvance/specter-desktop/blob/da35e7d88072475746077432710c77f799017eb0/src/cryptoadvance/specter/templates/includes/qr-code.html
-
-    If animate=False, then max_size_per_chunk is ignored
+    Inspired by this JS implementation:
+    https://github.com/cryptoadvance/specter-desktop/blob/da35e7d88072475746077432710c77f799017eb0/src/cryptoadvance/specter/templates/includes/qr-code.html
     """
 
     # Calculate values to chunk
@@ -205,3 +153,57 @@ def encode_to_bcur_qrgif(text_b64, max_size_per_chunk=300, animate=True):
         )
 
     return resulting_chunks
+
+
+def decode_qrgif_to_b64(qr_payloads, require_checksum=True):
+    """
+    Take a Blockchain Commons Uniform Resource (from a QR code) and decode it to base64.
+
+    Returns decoded_text, checksum, and err_msg
+    """
+    # Initialize values
+    y, checksum = None, None
+    encoded_payloads = []
+    for cnt, qr_payload in enumerate(qr_payloads):
+        x_res, y_res, checksum_res, encoded_payload, err_msg = parse_bcur(
+            string=qr_payload
+        )
+        if err_msg:
+            return None, None, f"Parse error: {err_msg}"
+
+        # Set values if unset, check unchanged if already set
+        if x_res != cnt + 1:
+            return None, None, f"X value error: expected {cnt+1} but got {x_res}"
+        if y is None:
+            y = y_res
+        else:
+            if y_res != y:
+                return (
+                    None,
+                    None,
+                    f"Inconsistent Y value error: expected {y} but got {y_res}",
+                )
+        if checksum is None:
+            checksum = checksum_res
+        else:
+            if checksum_res != checksum:
+                return (
+                    None,
+                    None,
+                    f"Inconsistent checksum across qr payloads: {checksum_res} != {checksum}",
+                )
+
+        # checks all pass
+        encoded_payloads.append(encoded_payload)
+
+    encoded_full_payload = "".join(encoded_payloads)
+
+    if require_checksum and not checksum:
+        return None, None, "QR GIF lacks checksum"
+
+    try:
+        decoded_full_payload = bcur_decode(data=encoded_full_payload, checksum=checksum)
+    except AssertionError:
+        return None, None, "Checksum doesn't match"
+
+    return b2a_base64(decoded_full_payload).strip().decode(), checksum, ""
