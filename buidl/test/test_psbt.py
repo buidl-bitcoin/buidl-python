@@ -1,3 +1,4 @@
+from os.path import dirname, realpath, sep
 from unittest import TestCase
 
 from io import BytesIO
@@ -7,7 +8,7 @@ from buidl.hd import HDPrivateKey
 from buidl.helper import serialize_binary_path, encode_varstr, SIGHASH_ALL, read_varstr
 from buidl.psbt import PSBT, MixedNetwork, NamedHDPublicKey
 from buidl.script import RedeemScript, Script, WitnessScript
-from buidl.tx import Tx, TxIn, TxOut
+from buidl.tx import Tx, TxIn, TxOut, TxFetcher
 
 
 class NamedHDPublicKeyTest(TestCase):
@@ -36,6 +37,13 @@ class NamedHDPublicKeyTest(TestCase):
 
 
 class PSBTTest(TestCase):
+    cache_file = dirname(realpath(__file__)) + sep + "tx.cache"
+
+    @classmethod
+    def setUpClass(cls):
+        # fill with cache so we don't have to be online to run these tests
+        TxFetcher.load_cache(cls.cache_file)
+
     def test_create(self):
         tx_in_0 = TxIn(
             bytes.fromhex(
