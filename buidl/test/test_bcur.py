@@ -3,11 +3,12 @@ from unittest import TestCase
 from buidl.bcur import (
     bcur_encode,
     bcur_decode,
-    encode_to_bcur_single,
-    encode_to_bcur_qrgif,
-    decode_single_qr_to_b64,
-    decode_qrgif_to_b64,
-    parse_bcur,
+    BCURSingle,
+    BCURMulti,
+    _parse_bcur_helper,
+    INVALID_BCUR_STRING,
+    INVALID_ENCODING,
+    INVALID_CHECKSUM,
 )
 
 from binascii import a2b_base64
@@ -15,49 +16,62 @@ from base64 import b64encode
 
 
 class SpecterDesktopTest(TestCase):
-    def test_bcur(self):
+    def test_specter_desktop(self):
+        """
+        Test case from specter-desktop:
+        https://github.com/cryptoadvance/specter-desktop/blob/0a483316d0d2e83cb5a532a0cbbcd82a885587db/src/cryptoadvance/specter/util/bcur.py
+        """
 
-        # Test case from specter-desktop: https://github.com/cryptoadvance/specter-desktop/blob/0a483316d0d2e83cb5a532a0cbbcd82a885587db/src/cryptoadvance/specter/util/bcur.py
         psbt_b64 = "cHNidP8BAHEBAAAAAfPQ5Rpeu5nH0TImK4Sbu9lxIOGEynRadywPxaPyhnTwAAAAAAD/////AkoRAAAAAAAAFgAUFCYoQzGSRmYVAuZNuXF0OrPg9jWIEwAAAAAAABYAFOZMlwM1sZGLivwOcOh77amAlvD5AAAAAAABAR+tKAAAAAAAABYAFM4u9V5WG+Fe9l3MefmYEX4ULWAWIgYDA+jO+oOuN37ABK67BA/+SuuR/57c7OkyfyR7hR34FDsYccBxUlQAAIAAAACAAAAAgAAAAAAFAAAAACICApJMZBvzWiavLN7nievKQoylwPoffLkXZUIgGHF4HgwaGHHAcVJUAACAAAAAgAAAAIABAAAACwAAAAAA"
         raw = a2b_base64(psbt_b64)
         enc, enc_hash = bcur_encode(raw)
         dec = bcur_decode(enc, enc_hash)
-        assert dec == raw
+        self.assertEqual(dec, raw)
         testres = [
             "tyq3wurnvf607qgqwyqsqqqqq8eapeg6t6aen373xgnzhpymh0vhzg8psn98gknh9s8utgljse60qqqqqqqqpllllllsyjs3qqqqqqqqqqtqq9q5yc5yxvvjgenp2qhxfkuhzap6k0s0vdvgzvqqqqqqqqqpvqq5uexfwqe4kxgchzhupecws7ld4xqfdu8eqqqqqqqq",
             "qyq3ltfgqqqqqqqqqqtqq9xw9m64u4smu900vhwv08uesyt7zskkq93zqcps86xwl2p6udm7cqz2awcyplly46u3l70dem8fxfljg7u9rhupgwccw8q8z5j5qqqgqqqqqzqqqqqqsqqqqqqqq5qqqqqqygpq9yjvvsdlxk3x4ukdaeufa09y9r99crap7l9ezaj5ygqc",
             "w9upurq6rpcuqu2j2sqqpqqqqqqgqqqqqzqqzqqqqq9sqqqqqqqqmkdau4",
         ]
         testhash = "hlwjxjx550k4nnfdl5py2tn3vnh6g60slnw5dmld6ktrkkz200as49spg5"
-        assert enc_hash == testhash
-        assert enc == "".join(testres)
+        self.assertEqual(enc_hash, testhash)
+        self.assertEqual(enc, "".join(testres))
 
-        encoded = encode_to_bcur_single(text_b64=psbt_b64)
-        prefix, encoded_hash, encoded_payload = encoded.split("/")
-        self.assertEqual(prefix, "ur:bytes")
-        self.assertEqual(enc_hash, encoded_hash)
-        self.assertEqual(encoded_payload, enc)
+        # Test by instantiating a BCURSingle object
+        bcur_single_obj = BCURSingle(text_b64=psbt_b64)
+        self.assertEqual(bcur_single_obj.enc_hash, enc_hash)
+        self.assertEqual(bcur_single_obj.encoded, enc)
+        self.assertEqual(bcur_single_obj.text_b64, psbt_b64)
+        self.assertEqual(
+            bcur_single_obj.encode(use_checksum=True), f"ur:bytes/{enc_hash}/{enc}"
+        )
+        self.assertEqual(bcur_single_obj.encode(use_checksum=False), f"ur:bytes/{enc}")
 
-        x, y, checksum, decoded = decode_single_qr_to_b64(bcur_string=encoded)
-        self.assertEqual(x, 1)
-        self.assertEqual(y, 1)
-        self.assertEqual(checksum.lower(), testhash)
-        self.assertEqual(psbt_b64, decoded)
+        # Re-instantiate this object from the encoded version
+        bcur_single_obj_2 = BCURSingle.parse(to_parse=f"ur:bytes/{enc}")
+        self.assertEqual(bcur_single_obj.encode(), bcur_single_obj_2.encode())
+
+        # Make it into a multi:
+        expected_multi = []
+        for cnt, res in enumerate(testres):
+            expected_multi.append(f"ur:bytes/{cnt+1}of{len(testres)}/{testhash}/{res}")
+        bcur_multi_obj = BCURMulti.parse(to_parse=expected_multi)
+        self.assertEqual(bcur_multi_obj.text_b64, psbt_b64)
 
 
-class BCURTest(TestCase):
+class BCURMultiTest(TestCase):
     def test_single_frame_qrgif(self):
-        chunks = encode_to_bcur_qrgif(text_b64=b64encode(b"foo"), animate=False)
+        chunks = BCURMulti(text_b64=b64encode(b"foo")).encode(animate=False)
         self.assertEqual(len(chunks), 1)
         self.assertEqual(
             chunks[0],
             "ur:bytes/1of1/j7snj9l0tttmp4c0d9d9mdz0frkac8s6fz4cn8erca3nxz0cnjuq7fv7lv/gdnx7mc0p7099",
         )
 
-    def test_bcur_qrgif_encoding_decoding(self):
+    def test_bcur_multi_encoding_decoding(self):
         psbt_b64 = "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"
-        chunks_calculated = encode_to_bcur_qrgif(
-            text_b64=psbt_b64, max_size_per_chunk=300, animate=True
+
+        chunks_calculated = BCURMulti(text_b64=psbt_b64).encode(
+            max_size_per_chunk=300, animate=True
         )
         checksum_expected = "qud9jpcv0af7refxxwu7dvhqshmct65hdzjkpu9q85hw7vkmvshqs2snsx"
         chunks_expected = [
@@ -79,52 +93,109 @@ class BCURTest(TestCase):
                 chunk,
             )
 
-        psbt_b64_recovered, checksum_recovered, err_msg = decode_qrgif_to_b64(
-            qr_payloads=chunks_calculated, require_checksum=True
+        bcur_multi_obj = BCURMulti.parse(to_parse=chunks_calculated)
+        self.assertEqual(bcur_multi_obj.text_b64, psbt_b64)
+        self.assertEqual(bcur_multi_obj.encoded, "".join(chunks_expected))
+        self.assertEqual(bcur_multi_obj.enc_hash, checksum_expected)
+
+
+class ParseTest(TestCase):
+    def setUp(self):
+        self.GOOD_CHECKSUM = (
+            "qud9jpcv0af7refxxwu7dvhqshmct65hdzjkpu9q85hw7vkmvshqs2snsx"
         )
-        self.assertEqual(err_msg, "")
-        self.assertEqual(checksum_recovered, checksum_expected)
-        self.assertEqual(psbt_b64_recovered, psbt_b64)
+        self.GOOD_ENCODED = "tyrukurnvf607qgqe5pqqqqqqsdasdzvck45x4ktrm5jg8nqvuxazw4zhrupuz5y63c9x32c8z7l7qqqqqqqpl0llll6uhht2jztjuekypk9gdsu307alw37afyjd2dzmzhue0g30634fyqqqqqqqq8allll7xd6tl5y20ta4k3wd9382m0kmfw4y5fp35c74rgjszstk72vqp08qqqqqqqqlhlllluhse9w6m4zy0h0t3c6slp6m6qxld8283t0fj2h3qrycf20g2dpfyqsqqqqqr7lllllq8y3"
 
-    def test_bcur_parse_startswith(self):
-        x, y, checksum, payload, err_msg = parse_bcur("fail")
-        self.assertEqual(x, None)
-        self.assertEqual(y, None)
-        self.assertEqual(checksum, None)
-        self.assertEqual(payload, None)
-        self.assertEqual(err_msg, "Doesn't start with ur:bytes/")
-
-    def test_bcur_parse_extreme_minimal(self):
-        """ 1of1 without checksum """
-        x, y, checksum, payload, err_msg = parse_bcur("ur:bytes/fff")
+    def test_valid_bcur_parse_single_yeschecksum(self):
+        bcur_string = f"ur:bytes/{self.GOOD_CHECKSUM}/{self.GOOD_ENCODED}"
+        payload_parsed, checksum_parsed, x, y = _parse_bcur_helper(bcur_string)
         self.assertEqual(x, 1)
         self.assertEqual(y, 1)
-        self.assertEqual(checksum, None)
-        self.assertEqual(payload, "fff")
-        self.assertEqual(err_msg, "")
+        self.assertEqual(checksum_parsed, self.GOOD_CHECKSUM)
+        self.assertEqual(payload_parsed, self.GOOD_ENCODED)
 
-    def test_bcur_parse_minimal(self):
-        """ 1of1 without checksum """
-        bcur_string = "ur:bytes/checksumchecksumchecksumchecksumchecksumchecksumchecksumch/textheretextheretextheretextheretextheretextheretextheretextheretextheretextheretexthere"
-        x, y, checksum, payload, err_msg = parse_bcur(bcur_string)
+    def test_valid_bcur_parse_single_nochecksum(self):
+        bcur_string = f"ur:bytes/{self.GOOD_ENCODED}"
+        payload_parsed, checksum_parsed, x, y = _parse_bcur_helper(bcur_string)
         self.assertEqual(x, 1)
         self.assertEqual(y, 1)
-        self.assertEqual(
-            checksum, "checksumchecksumchecksumchecksumchecksumchecksumchecksumch"
-        )
-        self.assertEqual(
-            payload,
-            "textheretextheretextheretextheretextheretextheretextheretextheretextheretextheretexthere",
-        )
-        self.assertEqual(err_msg, "")
+        self.assertEqual(checksum_parsed, None)
+        self.assertEqual(payload_parsed, self.GOOD_ENCODED)
 
-    def test_bcur_regular(self):
-        checksum = "qud9jpcv0af7refxxwu7dvhqshmct65hdzjkpu9q85hw7vkmvshqs2snsx"
-        encoded = "tyrukurnvf607qgqe5pqqqqqqsdasdzvck45x4ktrm5jg8nqvuxazw4zhrupuz5y63c9x32c8z7l7qqqqqqqpl0llll6uhht2jztjuekypk9gdsu307alw37afyjd2dzmzhue0g30634fyqqqqqqqq8allll7xd6tl5y20ta4k3wd9382m0kmfw4y5fp35c74rgjszstk72vqp08qqqqqqqqlhlllluhse9w6m4zy0h0t3c6slp6m6qxld8283t0fj2h3qrycf20g2dpfyqsqqqqqr7lllllq8y3"
-        bcur_string = f"ur:bytes/2of8/{checksum}/{encoded}"
-        x, y, checksum_parsed, payload_parsed, err_msg = parse_bcur(bcur_string)
+    def test_valid_bcur_parse_multi(self):
+        bcur_string = f"ur:bytes/2of8/{self.GOOD_CHECKSUM}/{self.GOOD_ENCODED}"
+        payload_parsed, checksum_parsed, x, y = _parse_bcur_helper(bcur_string)
         self.assertEqual(x, 2)
         self.assertEqual(y, 8)
-        self.assertEqual(checksum, checksum_parsed)
-        self.assertEqual(encoded, payload_parsed)
-        self.assertEqual(err_msg, "")
+        self.assertEqual(checksum_parsed, self.GOOD_CHECKSUM)
+        self.assertEqual(payload_parsed, self.GOOD_ENCODED)
+
+    def test_invalid_bcur_parse(self):
+        with self.assertRaises(INVALID_BCUR_STRING):
+            _parse_bcur_helper("fail")
+
+        with self.assertRaises(INVALID_BCUR_STRING):
+            _parse_bcur_helper("ur:bytes/1/2/3")
+
+        with self.assertRaises(INVALID_ENCODING):
+            _parse_bcur_helper("ur:bytes/foo")
+
+        with self.assertRaises(INVALID_CHECKSUM):
+            _parse_bcur_helper("ur:bytes/gd56dxsyew2w5/foo")
+
+
+class BCURSingleTest(TestCase):
+    def test_simple_bcur(self):
+        """ 1of1 with and without checksum """
+
+        # Basic test
+        bcur_single_obj = BCURSingle(text_b64="aaaa")
+        self.assertEqual(
+            bcur_single_obj.enc_hash,
+            "ysypyck5etagxt08hzn6vcnwam3lgupp0uhcs7n8pg0wmen32p3qate5eg",
+        )
+        self.assertEqual(bcur_single_obj.encoded, "gd56dxsyew2w5")
+
+        # Render with and without checksum
+        bcur_single_checksum = "ur:bytes/ysypyck5etagxt08hzn6vcnwam3lgupp0uhcs7n8pg0wmen32p3qate5eg/gd56dxsyew2w5"
+        bcur_single_nochecksum = "ur:bytes/gd56dxsyew2w5"
+        self.assertEqual(
+            bcur_single_obj.encode(use_checksum=True), bcur_single_checksum
+        )
+        self.assertEqual(
+            bcur_single_obj.encode(use_checksum=False), bcur_single_nochecksum
+        )
+
+        # Reconstruct from bcur string with checksum
+        bcur_single_reconstructed_v1 = BCURSingle.parse(to_parse=bcur_single_checksum)
+        self.assertEqual(
+            bcur_single_reconstructed_v1.encode(use_checksum=True), bcur_single_checksum
+        )
+        self.assertEqual(
+            bcur_single_reconstructed_v1.encode(use_checksum=False),
+            bcur_single_nochecksum,
+        )
+
+        # Reconstruct from bcur string without checksum
+        bcur_single_reconstructed_v2 = BCURSingle.parse(to_parse=bcur_single_nochecksum)
+        self.assertEqual(
+            bcur_single_reconstructed_v2.encode(use_checksum=True), bcur_single_checksum
+        )
+        self.assertEqual(
+            bcur_single_reconstructed_v2.encode(use_checksum=False),
+            bcur_single_nochecksum,
+        )
+
+
+class BCURDecodeTest(TestCase):
+    def test_bcur_encode_decode(self):
+        # See that encode/decode works
+        b64_text = b64encode(b"foo")
+        raw = a2b_base64(b64_text)
+        enc, enc_hash = bcur_encode(raw)
+        dec = bcur_decode(enc, checksum=enc_hash)
+        self.assertEqual(dec, raw)
+
+        # Confirm bad hash raises an error
+        with self.assertRaises(INVALID_CHECKSUM):
+            bcur_decode(enc, checksum=enc_hash + "fail")

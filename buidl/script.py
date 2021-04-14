@@ -429,7 +429,7 @@ class WitnessScript(Script):
         # return the p2sh address of the RedeemScript (remember testnet)
         return redeem_script.address(testnet)
 
-    def is_p2wsh(self):
+    def is_p2wsh_multisig(self):
         return (
             OP_CODE_NAMES[self.commands[-1]] == "OP_CHECKMULTISIG"
             and type(self.commands[0]) == int
@@ -441,7 +441,8 @@ class WitnessScript(Script):
         Return the m-of-n of this multisig, as in 2-of-3 or 3-of-5
         """
 
-        assert self.is_p2wsh(), f"Not a multisig witness script: {self}"
+        if not self.is_p2wsh_multisig():
+            raise RuntimeError(f"Not a multisig witness script: {self}")
 
         quorum_m = OP_CODE_NAMES[self.commands[0]].split("OP_")[1]
         quorum_n = OP_CODE_NAMES[self.commands[-2]].split("OP_")[1]

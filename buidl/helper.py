@@ -601,9 +601,8 @@ def uses_only_hex_chars(string):
 
 
 def is_intable(int_as_string):
-    # TODO: move me to a util/helper library somewhere
     try:
         int(int_as_string)
         return True
-    except Exception:
+    except ValueError:
         return False

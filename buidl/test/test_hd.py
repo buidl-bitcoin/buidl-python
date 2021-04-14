@@ -498,9 +498,8 @@ class BIP32PathsTest(TestCase):
         self.assertTrue(is_valid_bip32_path("m/1/2h/3/4h/5"))
 
     def test_invalid_paths(self):
-        self.assertFalse(
-            is_valid_bip32_path("m/")
-        )  # "m" (without trailing slash) is valid
+        # just "m" (without trailing slash) is valid:
+        self.assertFalse(is_valid_bip32_path("m/"))
         self.assertFalse(is_valid_bip32_path("m/-1"))
         self.assertFalse(is_valid_bip32_path("m/1/a"))
         self.assertFalse(is_valid_bip32_path("m/foo"))
