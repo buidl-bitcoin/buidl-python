@@ -18,7 +18,7 @@ class BCURStringFormatError(RuntimeError):
 
 
 def bcur_encode(data):
-    """Returns bcur encoded string and hash digest"""
+    """Returns bcur encoded string and checksum"""
     cbor = cbor_encode(data)
     enc = bc32encode(cbor)
     h = hashlib.sha256(cbor).digest()
@@ -27,7 +27,7 @@ def bcur_encode(data):
 
 
 def bcur_decode(data, checksum=None):
-    """Returns decoded data, verifies hash digest if provided"""
+    """Returns decoded data, verifies checksum if provided"""
     cbor = bc32decode(data)
     if checksum is not None:
         h = bc32decode(checksum)
@@ -107,18 +107,17 @@ def _parse_bcur_helper(bcur_string):
 
 
 class BCURSingle:
-    def __init__(self, text_b64, encoded=None, digest=None):
+    def __init__(self, text_b64, encoded=None, checksum=None):
         binary_b64 = a2b_base64(text_b64)
         enc, enc_hash = bcur_encode(data=binary_b64)
-        if encoded and enc != encoded:
+        if encoded and encoded != enc:
             raise ValueError(f"Calculated encoding {enc} != {encoded}")
 
-        if digest and enc_hash != digest:
-            # For y>1, we want to ignore the digest on instantiation (digest applies to BCURMulti, not BCURSingle)
-            raise ValueError(f"Calculated digest {enc_hash} != {digest}")
+        if checksum and checksum != enc_hash:
+            raise ValueError(f"Calculated checksum {enc_hash} != {checksum}")
 
-        self.encoded = enc
         self.text_b64 = text_b64
+        self.encoded = enc
         self.enc_hash = enc_hash
 
     def __repr__(self):
@@ -135,34 +134,39 @@ class BCURSingle:
     def parse(cls, to_parse):
         """Parses (decodes) a BCURSingle from a single BCUR string"""
 
-        payload, checksum, _, _ = _parse_bcur_helper(bcur_string=to_parse)
+        payload, checksum, x, y = _parse_bcur_helper(bcur_string=to_parse)
 
-        enc = bcur_decode(
-            data=payload, checksum=checksum
-        )  # will throw an error if digest is incorrect
-        text_b64 = b2a_base64(enc).strip().decode()
-        return cls(text_b64=text_b64, encoded=payload, digest=checksum)
+        if x != 1 or y != 1:
+            raise BCURStringFormatError(
+                f"BCURSingle must have x=1 and y=1, instead got x={x} and y={y}"
+            )
+
+        # will throw an error if checksum is incorrect
+        enc = bcur_decode(data=payload, checksum=checksum)
+        return cls(
+            text_b64=b2a_base64(enc).strip().decode(),
+            encoded=payload,
+            checksum=checksum,
+        )
 
 
 class BCURMulti:
-    def __init__(self, text_b64, encoded=None, digest=None):
-        self.checksum = digest
+    def __init__(self, text_b64, encoded=None, checksum=None):
         binary_b64 = a2b_base64(text_b64)
         enc, enc_hash = bcur_encode(data=binary_b64)
-        if encoded and enc != encoded:
+        if encoded and encoded != enc:
             raise ValueError(f"Calculated encoding {enc} != {encoded}")
 
-        if digest and enc_hash != digest:
-            # For y>1, we want to ignore the digest on instantiation (digest applies to BCURMulti, not BCURSingle)
-            raise ValueError(f"Calculated digest {enc_hash} != {digest}")
+        if checksum and checksum != enc_hash:
+            raise ValueError(f"Calculated checksum {enc_hash} != {checksum}")
 
+        self.checksum = checksum
         self.encoded = enc
         self.text_b64 = text_b64
         self.enc_hash = enc_hash
 
     def __repr__(self):
-        # TODO: divide into chunks?
-        return f"BCUR: {self.text_b64}"
+        return f"bcur: {self.checksum}\n{self.text_b64}\n"
 
     def encode(self, max_size_per_chunk=300, animate=True):
         """
@@ -170,7 +174,7 @@ class BCURMulti:
 
         If animate=False, then max_size_per_chunk is ignored and this returns a 1of1 with checksum.
 
-        Use parse to return the original result.
+        Use parse() to return a BCURMulti object from this encoded result.
 
         This algorithm makes all the chunks of about equal length.
         This makes sure that the last chunk is not (too) different in size which is visually noticeable when animation occurs
@@ -206,7 +210,7 @@ class BCURMulti:
             )
 
         payloads = []
-        multi_checksum, multi_y = "", 0
+        global_checksum, global_y = "", 0
         for cnt, bcur_string in enumerate(to_parse):
             entry_payload, entry_checksum, entry_x, entry_y = _parse_bcur_helper(
                 bcur_string=bcur_string
@@ -218,23 +222,21 @@ class BCURMulti:
 
             # Initialize checksum and y (as in x-of-y) on first loop
             if cnt == 0:
-                multi_checksum = entry_checksum
-                multi_y = entry_y
+                global_checksum = entry_checksum
+                global_y = entry_y
 
-            elif entry_checksum != multi_checksum:
+            elif entry_checksum != global_checksum:
                 raise ValueError(
-                    f"Entry {bcur_string} has checksum {entry_checksum} but we're expecting {multi_checksum}"
+                    f"Entry {bcur_string} has checksum {entry_checksum} but we're expecting {global_checksum}"
                 )
-            elif entry_y != multi_y:
+            elif entry_y != global_y:
                 raise ValueError(
-                    f"Entry {bcur_string} wants {entry_y} parts but we're expecting {multi_y} parts"
+                    f"Entry {bcur_string} wants {entry_y} parts but we're expecting {global_y} parts"
                 )
             # All checks pass
             payloads.append(entry_payload)
 
-        enc = bcur_decode(
-            data="".join(payloads), checksum=multi_checksum
-        )  # will throw an error if digest is incorrect
-        text_b64 = b2a_base64(enc).strip().decode()
+        # will throw an error if checksum is incorrect
+        enc = bcur_decode(data="".join(payloads), checksum=global_checksum)
 
-        return cls(text_b64=text_b64, digest=multi_checksum)
+        return cls(text_b64=b2a_base64(enc).strip().decode(), checksum=global_checksum)
