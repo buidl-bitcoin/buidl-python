@@ -442,7 +442,7 @@ class WitnessScript(Script):
         """
 
         if not self.is_p2wsh_multisig():
-            raise RuntimeError(f"Not a multisig witness script: {self}")
+            raise ValueError(f"Not a multisig witness script: {self}")
 
         quorum_m = OP_CODE_NAMES[self.commands[0]].split("OP_")[1]
         quorum_n = OP_CODE_NAMES[self.commands[-2]].split("OP_")[1]
