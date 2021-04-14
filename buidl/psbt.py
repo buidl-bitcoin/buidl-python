@@ -54,6 +54,10 @@ class MixedNetwork(Exception):
     pass
 
 
+class SuspiciousTransaction(Exception):
+    pass
+
+
 class NamedPublicKey(S256Point):
     def __repr__(self):
         return "Point:\n{}\nPath:\n{}:{}\n".format(
@@ -191,10 +195,6 @@ class NamedHDPublicKey(HDPublicKey):
             current = current.child(child_index)
             remainder = remainder[4:]
         return current.point == named_pubkey
-
-
-class SuspiciousTransaction(Exception):
-    pass
 
 
 class PSBT:
@@ -562,7 +562,7 @@ class PSBT:
 
         self.validate()
 
-        TX_FEE_SATS = self.tx_obj.fee()
+        tx_fee_sats = self.tx_obj.fee()
 
         # Gather TX info and validate
         inputs_desc = []
@@ -649,9 +649,8 @@ class PSBT:
                 output_msig_id = calc_multisig_id(
                     quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
                 )
-                if (
-                    output_msig_id != inputs_desc[0]["msig_id"]
-                ):  # ALL inputs have the same msig_digest
+                if output_msig_id != inputs_desc[0]["msig_id"]:
+                    # ALL inputs have the same msig_digest
                     raise SuspiciousTransaction(
                         f"Output #{cnt} is claiming to be change but has different multisig wallet(s)! Do a sweep transaction (1-output) if you want this wallet to cosign."
                     )
@@ -659,8 +658,6 @@ class PSBT:
                 output_change_sats = output_desc["sats"]
 
                 output_desc["witness_script"] = str(psbt_out.witness_script)
-                # FIXME:
-                # output_desc["bip32_derivs"] = psbt_out.named_pubs
 
             else:
                 output_desc["is_change"] = False
@@ -685,7 +682,7 @@ class PSBT:
                 )
 
         # comma seperating satoshis for better display
-        tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with a fee of {TX_FEE_SATS:,} sats ({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)"
+        tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with a fee of {tx_fee_sats:,} sats ({round(tx_fee_sats / TOTAL_INPUT_SATS * 100, 2)}% of spend)"
 
         to_return = {
             # TX level:
@@ -694,12 +691,12 @@ class PSBT:
             "locktime": self.tx_obj.locktime,
             "version": self.tx_obj.version,
             "is_testnet": self.testnet,
-            "tx_fee_sats": TX_FEE_SATS,
+            "tx_fee_sats": tx_fee_sats,
             "total_input_sats": TOTAL_INPUT_SATS,
             "output_spend_sats": output_spend_sats,
             "change_addr": change_addr,
             "output_change_sats": output_change_sats,
-            "change_sats": TOTAL_INPUT_SATS - TX_FEE_SATS - output_spend_sats,
+            "change_sats": TOTAL_INPUT_SATS - tx_fee_sats - output_spend_sats,
             "spend_addr": spend_addr,
             # Input/output level
             "inputs_desc": inputs_desc,
