@@ -13,22 +13,7 @@ from math import ceil
 import hashlib
 
 
-# BCUR Exceptions
-
-
-class INCONSISTENT_BCUR_STRING(RuntimeError):
-    pass
-
-
-class INVALID_CHECKSUM(RuntimeError):
-    pass
-
-
-class INVALID_ENCODING(RuntimeError):
-    pass
-
-
-class INVALID_BCUR_STRING(RuntimeError):
+class BCURStringFormatError(RuntimeError):
     pass
 
 
@@ -48,7 +33,7 @@ def bcur_decode(data, checksum=None):
         h = bc32decode(checksum)
         calculated_digest = hashlib.sha256(cbor).digest()
         if h != calculated_digest:
-            raise INVALID_CHECKSUM(f"Calculated digest {calculated_digest} != {h}")
+            raise ValueError(f"Calculated digest {calculated_digest} != {h}")
     return cbor_decode(cbor)
 
 
@@ -65,14 +50,14 @@ def _parse_bcur_helper(bcur_string):
     """
 
     if type(bcur_string) is not str:
-        raise INVALID_BCUR_STRING(
+        raise BCURStringFormatError(
             f"{bcur_string} is of type {type(bcur_string)}, not a string"
         )
 
     string = bcur_string.lower().strip()
 
     if not string.startswith("ur:bytes/"):
-        raise INVALID_BCUR_STRING(f"String {string} doesn't start with ur:bytes/")
+        raise BCURStringFormatError(f"String {string} doesn't start with ur:bytes/")
 
     bcur_parts = string.split("/")
     if len(bcur_parts) == 2:
@@ -89,10 +74,10 @@ def _parse_bcur_helper(bcur_string):
 
         xofy_parts = xofy.split("of")
         if len(xofy_parts) != 2:
-            raise INVALID_BCUR_STRING(f"x-of-y section malformed: {xofy_parts}")
+            raise BCURStringFormatError(f"x-of-y section malformed: {xofy_parts}")
 
         if not is_intable(xofy_parts[0]) or not is_intable(xofy_parts[1]):
-            raise INVALID_BCUR_STRING(
+            raise BCURStringFormatError(
                 f"x and y (in x-of-y) must both be integers: {xofy_parts}"
             )
 
@@ -100,21 +85,23 @@ def _parse_bcur_helper(bcur_string):
         y_int = int(xofy_parts[1])
 
         if x_int > y_int:
-            raise INVALID_BCUR_STRING("x must be >= y (in x-of-y): {xofy_parts}")
+            raise BCURStringFormatError("x must be >= y (in x-of-y): {xofy_parts}")
 
     else:
-        raise INVALID_BCUR_STRING(f"{string} doesn't have 2-4 slashes")
+        raise BCURStringFormatError(f"{string} doesn't have 2-4 slashes")
 
     if checksum:
         if len(checksum) != 58:
-            raise INVALID_CHECKSUM("checksum must be 58 chars")
+            raise BCURStringFormatError("Checksum must be 58 chars")
         if not uses_only_bech32_chars(checksum):
-            raise INVALID_CHECKSUM(
+            raise BCURStringFormatError(
                 f"checksum can only contain bech32 characters: {checksum}"
             )
 
     if not uses_only_bech32_chars(payload):
-        raise INVALID_ENCODING(f"payload can only contain bech32 characters: {payload}")
+        raise BCURStringFormatError(
+            f"Payload can only contain bech32 characters: {payload}"
+        )
 
     return payload, checksum, x_int, y_int
 
@@ -124,11 +111,11 @@ class BCURSingle:
         binary_b64 = a2b_base64(text_b64)
         enc, enc_hash = bcur_encode(data=binary_b64)
         if encoded and enc != encoded:
-            raise INVALID_ENCODING(f"Calculated encoding {enc} != {encoded}")
+            raise ValueError(f"Calculated encoding {enc} != {encoded}")
 
         if digest and enc_hash != digest:
             # For y>1, we want to ignore the digest on instantiation (digest applies to BCURMulti, not BCURSingle)
-            raise INVALID_CHECKSUM(f"Calculated digest {enc_hash} != {digest}")
+            raise ValueError(f"Calculated digest {enc_hash} != {digest}")
 
         self.encoded = enc
         self.text_b64 = text_b64
@@ -163,11 +150,11 @@ class BCURMulti:
         binary_b64 = a2b_base64(text_b64)
         enc, enc_hash = bcur_encode(data=binary_b64)
         if encoded and enc != encoded:
-            raise INVALID_ENCODING(f"Calculated encoding {enc} != {encoded}")
+            raise ValueError(f"Calculated encoding {enc} != {encoded}")
 
         if digest and enc_hash != digest:
             # For y>1, we want to ignore the digest on instantiation (digest applies to BCURMulti, not BCURSingle)
-            raise INVALID_CHECKSUM(f"Calculated digest {enc_hash} != {digest}")
+            raise ValueError(f"Calculated digest {enc_hash} != {digest}")
 
         self.encoded = enc
         self.text_b64 = text_b64
@@ -214,7 +201,7 @@ class BCURMulti:
     def parse(cls, to_parse):
         """Parses a BCURMulti from a list of BCUR strings"""
         if type(to_parse) not in (list, tuple):
-            raise INVALID_BCUR_STRING(
+            raise BCURStringFormatError(
                 f"{to_parse} is of type {type(to_parse)}, not a list/tuple"
             )
 
@@ -225,7 +212,7 @@ class BCURMulti:
                 bcur_string=bcur_string
             )
             if cnt + 1 != entry_x:
-                raise INCONSISTENT_BCUR_STRING(
+                raise ValueError(
                     f"BCUR strings not in order: got {entry_x} and was expecting {cnt+1}"
                 )
 
@@ -235,12 +222,12 @@ class BCURMulti:
                 multi_y = entry_y
 
             elif entry_checksum != multi_checksum:
-                raise INCONSISTENT_BCUR_STRING(
+                raise ValueError(
                     f"Entry {bcur_string} has checksum {entry_checksum} but we're expecting {multi_checksum}"
                 )
             elif entry_y != multi_y:
-                raise INCONSISTENT_BCUR_STRING(
-                    f"Entry {bcur_string} has y {entry_y} but we're expecting {multi_y}"
+                raise ValueError(
+                    f"Entry {bcur_string} wants {entry_y} parts but we're expecting {multi_y} parts"
                 )
             # All checks pass
             payloads.append(entry_payload)

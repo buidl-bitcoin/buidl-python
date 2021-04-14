@@ -6,9 +6,7 @@ from buidl.bcur import (
     BCURSingle,
     BCURMulti,
     _parse_bcur_helper,
-    INVALID_BCUR_STRING,
-    INVALID_ENCODING,
-    INVALID_CHECKSUM,
+    BCURStringFormatError,
 )
 
 from binascii import a2b_base64
@@ -131,16 +129,16 @@ class ParseTest(TestCase):
         self.assertEqual(payload_parsed, self.GOOD_ENCODED)
 
     def test_invalid_bcur_parse(self):
-        with self.assertRaises(INVALID_BCUR_STRING):
+        with self.assertRaises(BCURStringFormatError):
             _parse_bcur_helper("fail")
 
-        with self.assertRaises(INVALID_BCUR_STRING):
+        with self.assertRaises(BCURStringFormatError):
             _parse_bcur_helper("ur:bytes/1/2/3")
 
-        with self.assertRaises(INVALID_ENCODING):
+        with self.assertRaises(BCURStringFormatError):
             _parse_bcur_helper("ur:bytes/foo")
 
-        with self.assertRaises(INVALID_CHECKSUM):
+        with self.assertRaises(BCURStringFormatError):
             _parse_bcur_helper("ur:bytes/gd56dxsyew2w5/foo")
 
 
@@ -197,5 +195,5 @@ class BCURDecodeTest(TestCase):
         self.assertEqual(dec, raw)
 
         # Confirm bad hash raises an error
-        with self.assertRaises(INVALID_CHECKSUM):
+        with self.assertRaises(ValueError):
             bcur_decode(enc, checksum=enc_hash + "fail")
