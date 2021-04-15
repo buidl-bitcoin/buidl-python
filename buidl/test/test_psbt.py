@@ -4,7 +4,7 @@ from unittest import TestCase
 from io import BytesIO
 
 from buidl.ecc import PrivateKey
-from buidl.hd import HDPrivateKey
+from buidl.hd import HDPrivateKey, HDPublicKey, parse_wshsortedmulti
 from buidl.helper import serialize_binary_path, encode_varstr, SIGHASH_ALL, read_varstr
 from buidl.psbt import PSBT, MixedNetwork, NamedHDPublicKey
 from buidl.script import RedeemScript, Script, WitnessScript
@@ -586,68 +586,137 @@ class PSBTTest(TestCase):
             psbt_obj = PSBT.parse_base64(testnet_psbt_b64, testnet=testnet)
             self.assertEqual(psbt_obj.testnet, testnet)
 
-    def test_psbt_describe(self):
-        testnet_psbt_b64 = "cHNidP8BAIkCAAAAAUYAY5RbY81ZhfuXkkRiwfljZDjD8cIGUHBmk/12qz5GAQAAAAD9////AoA4AQAAAAAAIgAgk1U7p/N5g35nzvoUWeBSzN2zF2eajCzQ2Sx5CiRY5CNXTQAAAAAAACIAIB2n9K+g9tTXEmaNsC9yctc0fqbGfIssoC7P+rlmSpcgAAAAAAABASughgEAAAAAACIAIHUJko5YlyOgiN3KsrFLuFJtVfeTLgPGjqZYGhs4nReDAQWtUSEC1YKN9BHfcfd2R7IfAlBK7qjwT2xH8ULojx0GM9xO0YYhAwqoDCSuUc0NvJjK5TElShKNkJg4kMYIs+/sXHAR5jGoIQMZgHao+1eGHjwWLn5hUzrmJ/ChRp+3ZHfgrDWivVRsCiEDpsKKb7ofiMx37vD64ThCvgRV++c9AtRASF15OpQa27UhA8Pni0wHemy313UWoUfiA3lQoVhw86x2wf7zo+8qAL89Va4iBgLVgo30Ed9x93ZHsh8CUEruqPBPbEfxQuiPHQYz3E7RhhD30ECQAQAAAAAAAAAAAAAAIgYDCqgMJK5RzQ28mMrlMSVKEo2QmDiQxgiz7+xccBHmMagc99BAkDAAAIABAACAAAAAgAIAAIAAAAAAAAAAACIGAxmAdqj7V4YePBYufmFTOuYn8KFGn7dkd+CsNaK9VGwKHBKYDu0wAACAAQAAgAAAAIACAACAAAAAAAAAAAAiBgOmwopvuh+IzHfu8PrhOEK+BFX75z0C1EBIXXk6lBrbtRw6UrXNMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAIgYDw+eLTAd6bLfXdRahR+IDeVChWHDzrHbB/vOj7yoAvz0cx9BkijAAAIABAACAAAAAgAIAAIAAAAAAAAAAAAABAa1RIQI2ps9CVMgpChaOyrSu53EBjTV+qHFUpbX+qe2bruJYXiEDVewQAcLE8dzi3pQL6svct9d0YUAoGpKDAAqkbSUdRjEhA4M9bnxBIRgPt5GAt4oFc61XwpmCXxj0n2lCyzi2vwI6IQOp40HDLYhwcGEVRDzxY7/D0toMqFFaKbzBpQDGXPsjuyEDsqwRgDBDwNuITc3f3P8CWZMk1edHsm5CNfV7gBn64EFVriICAjamz0JUyCkKFo7KtK7ncQGNNX6ocVSltf6p7Zuu4lheHMfQZIowAACAAQAAgAAAAIACAACAAQAAAAAAAAAiAgNV7BABwsTx3OLelAvqy9y313RhQCgakoMACqRtJR1GMRw6UrXNMAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAIgIDgz1ufEEhGA+3kYC3igVzrVfCmYJfGPSfaULLOLa/AjocEpgO7TAAAIABAACAAAAAgAIAAIABAAAAAAAAACICA6njQcMtiHBwYRVEPPFjv8PS2gyoUVopvMGlAMZc+yO7HPfQQJAwAACAAQAAgAAAAIACAACAAQAAAAAAAAAiAgOyrBGAMEPA24hNzd/c/wJZkyTV50eybkI19XuAGfrgQRD30ECQAQAAAAEAAAAAAAAAAAA="
+    def test_psbt_describe_1of4(self):
+        output_record = "wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"
+        wsh_sortedmulti_result = parse_wshsortedmulti(output_record)
+        wsh_sortedmulti_want = {
+            "quorum_m": 1,
+            "quorum_n": 4,
+            "key_records": [
+                {
+                    "xfp": "c7d0648a",
+                    "path": "m/48h/1h/0h/2h",
+                    "xpub_parent": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr",
+                    "index": 0,
+                    "xpub_child": "tpubDHXhgZEb9KfoFAuPQ5X6nayFrgifHEb3EUAbbs3EvwboxjttP4ekmPPz4NPRDE7p3q87DQH2TbNyxUmYGf2GNiSTfXj4Q5CfVgrpZuDEsak",
+                },
+                {
+                    "xfp": "12980eed",
+                    "path": "m/48h/1h/0h/2h",
+                    "xpub_parent": "tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae",
+                    "index": 0,
+                    "xpub_child": "tpubDGveumaKzgjigcr9Csv3n5bgwMA41rNiENgxwakQwxheD691uQ69UnVD3ZR7D64fS3gmUoxHuh8xoAJ93zi83AJGbL1cEJwqkbUPFphPaYs",
+                },
+                {
+                    "xfp": "3a52b5cd",
+                    "path": "m/48h/1h/0h/2h",
+                    "xpub_parent": "tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s",
+                    "index": 0,
+                    "xpub_child": "tpubDHEnEGFC357XqivEUbzD15biuf36dRMtgxZXud9MBQnJrWDWgMFfx4rjUma4rS47ncaqg3zz1TR6kCDjPNXC6rDn3XMTatKUFbu1cTbY6UX",
+                },
+                {
+                    "xfp": "f7d04090",
+                    "path": "m/48h/1h/0h/2h",
+                    "xpub_parent": "tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp",
+                    "index": 0,
+                    "xpub_child": "tpubDG6BBVZUnpyL78b8u9StfjLCv6BdTDHQDqPKTeEpAAVAjcMHsjusoUP2ayZi5ZRvZpqo6Cp9E3oQMvq9dMe5KGYJht72rnaxaqfSU3KjnjJ",
+                },
+            ],
+            "is_testnet": True,
+        }
+        self.assertEqual(wsh_sortedmulti_result, wsh_sortedmulti_want)
+
+        xfp_hdpubkey_map = {}
+        for key_record in wsh_sortedmulti_result["key_records"]:
+            xfp_hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
+                key_record["xpub_parent"]
+            )
+
+        testnet_psbt_b64 = "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"
         psbt_obj = PSBT.parse_base64(testnet_psbt_b64, testnet=True)
 
         want = {
-            "txid": "34b8dbde8f0204be4cf6da72d2eb9068e688366688537cda806ae8c78074c493",
-            "tx_summary_text": "PSBT sends 19,799 sats to tb1qrknlftaq7m2dwynx3kcz7unj6u68afkx0j9jegpwelatjej2jusq8ze0jf with a fee of 201 sats (0.2% of spend)",
+            "txid": "523f56e8ba1c3d9223d57745cccc83ed7d49d0c0ddae48ba93d1e4d0276fd25e",
+            "tx_summary_text": "PSBT sends 5,577 sats to tb1q6een5px0jrffgm9mkf5cvxtvnv0qdzepu40mqy with a fee of 423 sats (7.05% of spend)",
             "locktime": 0,
             "version": 2,
             "is_testnet": True,
-            "tx_fee_sats": 201,
-            "total_input_sats": 100000,
-            "change_addr": "tb1qjd2nhfln0xphue7wlg29nczjenwmx9m8n2xze5xe93us5fzcus3sltzqlv",
-            "output_change_sats": 80000,
-            "output_spend_sats": 19799,
-            "change_sats": 80000,
-            "spend_addr": "tb1qrknlftaq7m2dwynx3kcz7unj6u68afkx0j9jegpwelatjej2jusq8ze0jf",
+            "tx_fee_sats": 423,
+            "total_input_sats": 6000,
+            "output_spend_sats": 5577,
+            "change_addr": "",
+            "output_change_sats": 0,
+            "change_sats": 0,
+            "spend_addr": "tb1q6een5px0jrffgm9mkf5cvxtvnv0qdzepu40mqy",
             "inputs_desc": [
                 {
-                    "quorum": "1-of-5",
-                    "root_xfp_hexes": [
-                        "f7d04090",
-                        "f7d04090",
-                        "12980eed",
-                        "3a52b5cd",
-                        "c7d0648a",
-                    ],
-                    "prev_txhash": "463eab76fd9366705006c2f1c3386463f9c162449297fb8559cd635b94630046",
+                    "quorum": "1-of-4",
+                    "root_xfp_hexes": ["c7d0648a", "12980eed", "3a52b5cd", "f7d04090"],
+                    "prev_txhash": "ffbd3858455370d4840a1ef8b8a23ad10d67601e24e91ecb5643abc54c34d81b",
+                    "prev_idx": 0,
+                    "n_sequence": 4294967293,
+                    "sats": 2181,
+                    "addr": "tb1qcklg00ymx85x7f5vzll3zypd2epywdxmhx05k7395e470pth8g8qvh62kw",
+                    "witness_script": "OP_1 023d596e951f563a20c5457ee9ddcc881836e6327d2a04903458721173a3d6165c 02c924cf0181f84eda4f789b0d621582a982d55a6b08752ae0e3159732894d901d 02df0619047bc5e61d04a6d2f4d2bb65d9110bb9f30f73e1c066ee9cc5e470b480 03d348316025cdfd4847eaccdb47e61dab9fa0c59378e409bfaee8206e452e48b4 OP_4 OP_CHECKMULTISIG ",
+                },
+                {
+                    "quorum": "1-of-4",
+                    "root_xfp_hexes": ["c7d0648a", "12980eed", "3a52b5cd", "f7d04090"],
+                    "prev_txhash": "9054a37e11bdccafd8a2a92649ea3ebadffd8b1c36546c203673b98454eb5eae",
+                    "prev_idx": 0,
+                    "n_sequence": 4294967293,
+                    "sats": 819,
+                    "addr": "tb1qf454te8pvz4txevejg8s8tx5kkyfxgtkpg6tu5xphnyf6l2gcjss5zw0jx",
+                    "witness_script": "OP_1 0236a6cf4254c8290a168ecab4aee771018d357ea87154a5b5fea9ed9baee2585e 0355ec1001c2c4f1dce2de940beacbdcb7d7746140281a9283000aa46d251d4631 03833d6e7c4121180fb79180b78a0573ad57c299825f18f49f6942cb38b6bf023a 03a9e341c32d8870706115443cf163bfc3d2da0ca8515a29bcc1a500c65cfb23bb OP_4 OP_CHECKMULTISIG ",
+                },
+                {
+                    "quorum": "1-of-4",
+                    "root_xfp_hexes": ["c7d0648a", "12980eed", "3a52b5cd", "f7d04090"],
+                    "prev_txhash": "e705c094b70b0a28d1a81ed3181225d5a56ddf562796e6a2ad7d3d45e85fba19",
+                    "prev_idx": 0,
+                    "n_sequence": 4294967293,
+                    "sats": 2000,
+                    "addr": "tb1qspxjz7ceqpf2fynwdzearwd8n40xanyv3lxr7ugr6sg2c822gf5sa28g6u",
+                    "witness_script": "OP_1 02b3d2f0d53261860be52ab88dd83066775ae56ff71fc27e45f0b4df220023d612 02dd3b9c2a1450bc6e833773644052117f26d7ccc4754358346bc5c4106dd5e8a7 030480aef0d2cff8194cf649ec18507cc74c080b3bfe4072b2bd6a3fb4f1606268 039c9ec3622fdff640d4375f6e4c9fefb96c60410e612ec4028b10c1ab4fe38f03 OP_4 OP_CHECKMULTISIG ",
+                },
+                {
+                    "quorum": "1-of-4",
+                    "root_xfp_hexes": ["c7d0648a", "12980eed", "3a52b5cd", "f7d04090"],
+                    "prev_txhash": "49a129f454c2648078954c6fc5a34efb06e8adc3871ac7f5ee23a26eed4a8697",
                     "prev_idx": 1,
                     "n_sequence": 4294967293,
-                    "sats": 100000,
-                    "addr": "tb1qw5ye9rjcju36pzxae2etzjac2fk4taun9cpudr4xtqdpkwyaz7pspwpqvg",
-                    "witness_script": "OP_1 02d5828df411df71f77647b21f02504aeea8f04f6c47f142e88f1d0633dc4ed186 030aa80c24ae51cd0dbc98cae531254a128d90983890c608b3efec5c7011e631a8 03198076a8fb57861e3c162e7e61533ae627f0a1469fb76477e0ac35a2bd546c0a 03a6c28a6fba1f88cc77eef0fae13842be0455fbe73d02d440485d793a941adbb5 03c3e78b4c077a6cb7d77516a147e2037950a15870f3ac76c1fef3a3ef2a00bf3d OP_5 OP_CHECKMULTISIG ",
-                    "msig_id": "04a8038f4788cb7217f1cd29e520f5266e3cafc88c87729297f0e50c833231c4",
-                }
+                    "sats": 1000,
+                    "addr": "tb1q0h74pkdpha5sz7ttpcp39s4un2rmahfys3krcu764svd3kxask3s7y0jsp",
+                    "witness_script": "OP_1 0236cd37caa12615c2764c58b9ae158642589db8a64e634f4d9587d543f623ee1d 02c41a3cc1aa263144100321ded3d9f90478a42f6fbaf6b7c7e373f7afc130e2ed 0395633278a0f77056dee4410aed96839bc2db6a48c5cf558f2098a9be656e0e08 039974225d9e9984ac46749d07730b639c9ca296cded53839209cfddae048bdf59 OP_4 OP_CHECKMULTISIG ",
+                },
             ],
             "outputs_desc": [
                 {
-                    "sats": 80000,
-                    "addr": "tb1qjd2nhfln0xphue7wlg29nczjenwmx9m8n2xze5xe93us5fzcus3sltzqlv",
-                    "addr_type": "P2WSH",
-                    "is_change": True,
-                    "witness_script": "OP_1 0236a6cf4254c8290a168ecab4aee771018d357ea87154a5b5fea9ed9baee2585e 0355ec1001c2c4f1dce2de940beacbdcb7d7746140281a9283000aa46d251d4631 03833d6e7c4121180fb79180b78a0573ad57c299825f18f49f6942cb38b6bf023a 03a9e341c32d8870706115443cf163bfc3d2da0ca8515a29bcc1a500c65cfb23bb 03b2ac11803043c0db884dcddfdcff02599324d5e747b26e4235f57b8019fae041 OP_5 OP_CHECKMULTISIG ",
-                },
-                {
-                    "sats": 19799,
-                    "addr": "tb1qrknlftaq7m2dwynx3kcz7unj6u68afkx0j9jegpwelatjej2jusq8ze0jf",
-                    "addr_type": "P2WSH",
+                    "sats": 5577,
+                    "addr": "tb1q6een5px0jrffgm9mkf5cvxtvnv0qdzepu40mqy",
+                    "addr_type": "P2WPKH",
                     "is_change": False,
-                },
+                }
             ],
         }
+
+        psbt_described = psbt_obj.describe_basic_multisig_tx(
+            xfp_hdpubkey_map=xfp_hdpubkey_map, xfp_for_signing=None
+        )
         self.assertEqual(
-            psbt_obj.describe_basic_multisig_tx(root_fingerprint_for_signing=None), want
+            psbt_described,
+            want,
         )
 
         # root paths for this input given the following xfp to sign for
         root_xfp_hex = "12980eed"
-        want["root_paths"] = set({"m/48'/1'/0'/2'/0/0"})
-        self.assertEqual(
-            psbt_obj.describe_basic_multisig_tx(
-                root_fingerprint_for_signing=root_xfp_hex
-            ),
-            want,
+        want["root_paths"] = {
+            "m/48'/1'/0'/2'/0/5",
+            "m/48'/1'/0'/2'/1/2",
+            "m/48'/1'/0'/2'/0/3",
+            "m/48'/1'/0'/2'/1/0",
+        }
+        psbt_described_with_xfp = psbt_obj.describe_basic_multisig_tx(
+            xfp_hdpubkey_map=xfp_hdpubkey_map, xfp_for_signing=root_xfp_hex
         )
+        self.assertEqual(psbt_described_with_xfp, want)

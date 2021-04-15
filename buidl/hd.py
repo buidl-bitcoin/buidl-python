@@ -1,3 +1,5 @@
+import re
+
 from io import BytesIO
 
 from buidl.ecc import N, PrivateKey, S256Point
@@ -159,6 +161,10 @@ class HDPrivateKey:
         """Returns the HDPrivateKey at the path indicated.
         Path should be in the form of m/x/y/z where x' means
         hardened"""
+
+        # accept path in uppercase and/or using h instead of '
+        path = path.lower().replace("h", "'")
+
         # keep track of the current node starting with self
         current = self
         # split up the path by the '/' splitter, ignore the first
@@ -470,6 +476,10 @@ class HDPublicKey:
     def traverse(self, path):
         """Returns the HDPublicKey at the path indicated.
         Path should be in the form of m/x/y/z."""
+
+        # accept path in uppercase and/or using h instead of '
+        path = path.lower().replace("h", "'")
+
         # start current node at self
         current = self
         # get components of the path split at '/', ignoring the first
@@ -637,10 +647,152 @@ def is_valid_bip32_path(path):
             sub_path = sub_path[:-1]
         if not is_intable(sub_path):
             return False
-        if int(sub_path) <= 0:
+        if int(sub_path) < 0:
             return False
         if int(sub_path) >= 2 ** 31:
             # https://bitcoin.stackexchange.com/a/92057
             return False
 
     return True
+
+
+def trim_to_unhardened_path(bip32_path):
+    """
+    Take a path and chop off every hardened derivation until only underhardened derivation is left.
+    Airgap signers should pass around (child) xpubs that are verifiable (contain only unhardened paths).
+    This conveninece method will align paths for use.
+
+    TODO: is this method actually useful? Perhaps not.
+    """
+    if not is_valid_bip32_path(bip32_path):
+        raise ValueError(f"Invalid bip32 path: {bip32_path}")
+
+    # be forgiving
+    path = bip32_path.lower().strip().replace("'", "h").replace("//", "/")
+
+    to_return = []
+    for entry in reversed(path.split("/")):
+        if entry == "m":
+            continue
+        if entry.endswith("h"):
+            break
+        to_return.append(entry)
+
+    return "m/" + "/".join(reversed(to_return))
+
+
+def ltrim_path(bip32_path, depth):
+    """
+    Left trim off a path by a given depth
+    """
+    if not is_valid_bip32_path(bip32_path):
+        raise ValueError(f"Invalid bip32 path: {bip32_path}")
+
+    # be forgiving
+    path = bip32_path.lower().strip().replace("'", "h").replace("//", "/")
+
+    if path.count("/") < depth:
+        raise ValueError(
+            f"Cannot left trim off a depth of {depth} from a path this short: {bip32_path}"
+        )
+
+    to_return = path.split("/")[depth + 1 :]
+    return "m/" + "/".join(to_return)
+
+
+def parse_key_record(key_record_str):
+    """
+    A key record will look something like this:
+    [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*'
+    """
+    key_record_re = re.match(
+        r"\[([0-9a-f]{8})\*?(.*?)\]([0-9A-Za-z]+).*([0-9]+?)",  # noqa: W605
+        key_record_str,
+    )
+    if key_record_re is None:
+        raise ValueError(f"Invalid key record: {key_record_str}")
+
+    xfp, path, xpub, index_str = key_record_re.groups()
+
+    # Note that we don't validate xfp because the regex already tells us it's good
+
+    if not is_intable(index_str):
+        raise ValueError(f"Invalid index {index_str} in key record: {key_record_str}")
+
+    index_int = int(index_str)
+
+    path = "m" + path
+    if not is_valid_bip32_path(path):
+        raise ValueError(f"Invalid BIP32 path {path} in key record: {key_record_str}")
+
+    xpub_prefix = xpub[:4]
+    if xpub_prefix == "tpub":
+        is_testnet = True
+    elif xpub_prefix == "xpub":
+        is_testnet = False
+    else:
+        raise ValueError(f"Invalid xpub prefix {xpub_prefix} in {xpub}")
+
+    try:
+        parent_pubkey_obj = HDPublicKey.parse(s=xpub)
+        xpub_child = parent_pubkey_obj.child(index=index_int).xpub()
+    except ValueError:
+        raise ValueError(f"Invalid xpub {xpub} in key record: {key_record_str}")
+
+    return {
+        "xfp": xfp,
+        "path": path,
+        "xpub_parent": xpub,
+        "index": index_int,
+        "xpub_child": xpub_child,
+        "is_testnet": is_testnet,
+    }
+
+
+def parse_wshsortedmulti(output_record):
+    """
+    TODO: generalize this to all output records and not just wsh sortedmulti?
+    """
+    # Fix strange slashes that some software (Specter-Desktop) may use
+    output_record = output_record.strip().replace(r"\/", "/")
+
+    # Regex match the string
+    # TODO: figure out why this won't match as part of a longer string?
+    re_output_results = re.match(
+        r"wsh\(sortedmulti\(([0-9]*),(.*)\)\)\#([qpzry9x8gf2tvdw0s3jn54khce6mua7l]{8})",
+        output_record,
+    )  # noqa: W605
+    if re_output_results is None:
+        raise ValueError(f"Not a valid wsh sortedmulti: {output_record}")
+
+    quorum_m_str, key_records_str, checksum = re_output_results.groups()
+
+    if not is_intable(quorum_m_str):
+        raise ValueError(f"m in m-of-n must be an int: {quorum_m_str}")
+    quorum_m_int = int(quorum_m_str)
+
+    key_records = []
+    for key_record_str in key_records_str.split(","):
+        # A key record will look something like this:
+        # [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*'
+        key_records.append(parse_key_record(key_record_str))
+
+    quorum_n_int = len(key_records)
+
+    if quorum_m_int > quorum_n_int:
+        raise ValueError(
+            f"Malformed threshold {quorum_m_int}-of-{quorum_n_int} (m must be less than n) in {output_record}"
+        )
+
+    # Remove testnet from key records (can just return it once at the parent output record level)
+    # Confirm all key records are on the same network
+    output_is_testnet = key_records[0]["is_testnet"]
+    if not all(x.pop("is_testnet") for x in key_records):
+        raise ValueError(f"Multiple (conflicting) networks in pubkeys: {key_records}")
+
+    return {
+        "quorum_m": quorum_m_int,
+        "quorum_n": quorum_n_int,
+        "key_records": key_records,
+        "is_testnet": output_is_testnet,
+    }

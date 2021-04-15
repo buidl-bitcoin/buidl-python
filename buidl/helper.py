@@ -583,19 +583,6 @@ def decode_gcs(key, gcs):
     return items
 
 
-def calc_multisig_id(quorum_m, root_xfp_hexes):
-    """
-    Easy identifier of an m-of-n collection of multisig root fingerprint hexes, along with the minimum quorum needed.
-
-    TODO: is there a standard to use here?
-
-    Inspired by:
-    https://github.com/trezor/trezor-firmware/blob/e23bb10ec49710cc2b2b993db9c907d3c7becf2c/core/src/apps/wallet/sign_tx/multisig.py#L37
-    """
-    fingerprints_to_hash = "-".join(sorted(root_xfp_hexes))
-    return hash256(f"{quorum_m}:{fingerprints_to_hash}".encode()).hex()
-
-
 def uses_only_hex_chars(string):
     return bool(HEX_CHARS_RE.match(string.lower()))
 

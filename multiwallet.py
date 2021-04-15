@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import re
 import readline
 import sys
 from cmd import Cmd
@@ -14,6 +13,7 @@ from buidl.hd import (
     calc_valid_seedpicker_checksums,
     HDPrivateKey,
     HDPublicKey,
+    parse_wshsortedmulti,
 )
 from buidl.helper import sha256, hash256
 from buidl.libsec_status import is_libsec_enabled
@@ -205,67 +205,15 @@ class WordCompleter:
 #####################################################################
 
 
-def _re_pubkey_info_from_descriptor_fragment(fragment):
-    xfp, path, xpub, idx = re.match(
-        "\[([0-9a-f]+)\*?(.*?)\]([0-9A-Za-z]+).*([0-9]+?)",  # noqa: W605
-        fragment,
-    ).groups()
-    return {
-        "xfp": xfp,
-        "path": path.replace("\\/", "/").lstrip("/"),
-        "xpub": xpub,
-        "idx": int(idx),
-    }
-
-
-def _get_pubkeys_info_from_descriptor(descriptor):
-    re_results = re.findall("wsh\(sortedmulti\((.*)\)\)", descriptor)  # noqa: W605
-    parts = re_results[0].split(",")
-    quorum_m = int(parts.pop(0))
-    quorum_n = len(parts)  # remaining entries are pubkeys with fingerprint/path
-    assert 0 < quorum_m <= quorum_n
-
-    pubkey_dicts = []
-    for fragment in parts:
-        pubkey_info = _re_pubkey_info_from_descriptor_fragment(fragment=fragment)
-        parent_pubkey_obj = HDPublicKey.parse(pubkey_info["xpub"])
-        pubkey_info["parent_pubkey_obj"] = parent_pubkey_obj
-        pubkey_info["child_pubkey_obj"] = parent_pubkey_obj.child(
-            index=pubkey_info["idx"]
-        )
-        pubkey_dicts.append(pubkey_info)
-
-    # safety check
-    all_pubkeys = [x["xpub"] for x in pubkey_dicts]
-    assert (
-        len(set([x[:4] for x in all_pubkeys])) == 1
-    ), "ERROR: multiple conflicting networks in pubkeys: {}".format(all_pubkeys)
-
-    xpub_prefix = all_pubkeys[0][:4]
-    if xpub_prefix == "tpub":
-        is_testnet = True
-    elif xpub_prefix == "xpub":
-        is_testnet = False
-    else:
-        raise Exception(f"Invalid xpub prefix: {xpub_prefix}")
-
-    return {
-        "is_testnet": is_testnet,
-        "quorum_m": quorum_m,
-        "quorum_n": quorum_n,
-        "pubkey_dicts": pubkey_dicts,
-    }
-
-
-def _get_output_descriptor():
-    output_descriptor = input(
-        blue_fg("Paste in your output descriptor (from Specter-Desktop): ")
+def _get_output_record():
+    output_record = input(
+        blue_fg("Paste in your output record (collection of output descriptors): ")
     ).strip()
     try:
-        return _get_pubkeys_info_from_descriptor(descriptor=output_descriptor)
+        return parse_wshsortedmulti(output_record=output_record)
     except Exception as e:
         print_red(f"Could not parse output descriptor: {e}")
-        return _get_output_descriptor()
+        return _get_output_record()
 
 
 #####################################################################
@@ -507,7 +455,9 @@ class MyPrompt(Cmd):
             SLIP132_VERSION_BYTES = "02aa7ed3"
 
         hd_priv = HDPrivateKey.from_mnemonic(
-            mnemonic=f"{first_words} {last_word}", password=password.encode()
+            mnemonic=f"{first_words} {last_word}",
+            password=password.encode(),
+            testnet=is_testnet,
         )
         print(yellow_fg("SECRET INFO") + red_fg(" (guard this VERY carefully)"))
         print_green(f"Last word: {last_word}")
@@ -531,7 +481,7 @@ class MyPrompt(Cmd):
 
     def do_receive(self, arg):
         """Verify receive addresses for a multisig wallet using output descriptors (from Specter-Desktop)"""
-        pubkeys_info = _get_output_descriptor()
+        pubkeys_info = _get_output_record()
         limit = _get_int(
             prompt="Limit of addresses to display",
             # This is slow without libsecp256k1:
@@ -551,8 +501,11 @@ class MyPrompt(Cmd):
         print_yellow(to_print + ":")
         for cnt in range(limit):
             sec_hexes_to_use = []
-            for pubkey_info in pubkeys_info["pubkey_dicts"]:
-                leaf_xpub = pubkey_info["child_pubkey_obj"].child(index=cnt + offset)
+            for key_record in pubkeys_info["key_records"]:
+                hdpubkey = HDPublicKey.parse(key_record["xpub_parent"])
+                leaf_xpub = hdpubkey.child(key_record["index"]).child(
+                    index=cnt + offset
+                )
                 sec_hexes_to_use.append(leaf_xpub.sec().hex())
 
             commands = [OP_CODE_NAMES_LOOKUP["OP_{}".format(pubkeys_info["quorum_m"])]]
