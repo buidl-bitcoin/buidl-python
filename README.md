@@ -32,7 +32,7 @@ $ multiwallet.py
 Welcome to multiwallet...
 ```
 
-For more information on installing multiwallet, see [multiwallet.md](docs/multiwallet.md).
+For more information on installing multiwallet, see [multiwallet.md](docs/multiwallet.md) or check out [this demo](https://twitter.com/mflaxman/status/1321503036724989952).
 
 ## Tests
 

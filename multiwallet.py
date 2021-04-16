@@ -20,7 +20,7 @@ from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import WORD_LIST, WORD_LOOKUP
 from buidl.psbt import MixedNetwork, PSBT
 from buidl.script import P2WSHScriptPubKey, WitnessScript
-from buidl.op import OP_CODE_NAMES, OP_CODE_NAMES_LOOKUP
+from buidl.op import OP_CODE_NAMES_LOOKUP
 
 readline.parse_and_bind("tab: complete")  # TODO: can this be moved inside a method?
 
@@ -332,6 +332,7 @@ def _get_bip39_seed(is_testnet):
 
 
 def _get_units():
+    # TODO: re-incorporate this into TX summary
     units = input(blue_fg("Units to diplay [BTC/sats]: ")).strip().lower()
     if units in ("", "btc", "btcs", "bitcoin", "bitcoins"):
         return "btc"
@@ -481,7 +482,7 @@ class MyPrompt(Cmd):
 
     def do_receive(self, arg):
         """Verify receive addresses for a multisig wallet using output descriptors (from Specter-Desktop)"""
-        pubkeys_info = _get_output_record()
+        output_record = _get_output_record()
         limit = _get_int(
             prompt="Limit of addresses to display",
             # This is slow without libsecp256k1:
@@ -494,198 +495,72 @@ class MyPrompt(Cmd):
             minimum=0,
         )
 
-        quorum_display = f"{pubkeys_info['quorum_m']}-of-{pubkeys_info['quorum_n']}"
+        quorum_display = f"{output_record['quorum_m']}-of-{output_record['quorum_n']}"
         to_print = f"{quorum_display} Multisig Receive Addresses"
         if not is_libsec_enabled:
             to_print += " (this is ~100x faster if you install libsec)"
         print_yellow(to_print + ":")
         for cnt in range(limit):
             sec_hexes_to_use = []
-            for key_record in pubkeys_info["key_records"]:
+            for key_record in output_record["key_records"]:
                 hdpubkey = HDPublicKey.parse(key_record["xpub_parent"])
                 leaf_xpub = hdpubkey.child(key_record["index"]).child(
                     index=cnt + offset
                 )
                 sec_hexes_to_use.append(leaf_xpub.sec().hex())
 
-            commands = [OP_CODE_NAMES_LOOKUP["OP_{}".format(pubkeys_info["quorum_m"])]]
+            commands = [OP_CODE_NAMES_LOOKUP["OP_{}".format(output_record["quorum_m"])]]
             commands.extend(
                 [bytes.fromhex(x) for x in sorted(sec_hexes_to_use)]  # BIP67
             )
             commands.append(
-                OP_CODE_NAMES_LOOKUP["OP_{}".format(pubkeys_info["quorum_n"])]
+                OP_CODE_NAMES_LOOKUP["OP_{}".format(output_record["quorum_n"])]
             )
             commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
             witness_script = WitnessScript(commands)
             redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
             print_green(
-                f"#{cnt + offset}: {redeem_script.address(testnet=pubkeys_info['is_testnet'])}"
+                f"#{cnt + offset}: {redeem_script.address(testnet=output_record['is_testnet'])}"
             )
 
     def do_send(self, arg):
         """Sign a multisig PSBT using 1 of your BIP39 seed phrases. Can also be used to just inspect a TX and not sign it."""
-
-        psbt_obj = _get_psbt_obj()
-        TX_FEE_SATS = psbt_obj.tx_obj.fee()
-
-        # Validate multisig transaction
-        # TODO: abstract some of this into buidl library?
-        # Below is confusing because we perform both validation and coordinate signing.
-
         # This tool only supports a TX with the following constraints:
         #   We sign ALL inputs and they have the same multisig wallet (quorum + pubkeys)
         #   There can only be 1 output (sweep transaction) or 2 outputs (spend + change).
         #   If there is change, we validate it has the same multisig wallet as the inputs we sign.
 
-        # Gather TX info and validate
-        inputs_desc = []
-        for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
-            psbt_in.validate()  # redundant but explicit
+        # Unfortunately, there is no way to validate change without the hdpubkey_map
+        # TODO: make version where users can enter this later (after manually approving the transaction)?
+        output_record = _get_output_record()
+        psbt_obj = _get_psbt_obj()
 
-            if type(psbt_in.witness_script) != WitnessScript:
-                return _abort(
-                    f"Input #{cnt} does not contain a witness script, this tool can only sign p2wsh transactions."
-                )
-
-            # Determine quroum_m (and that it hasn't changed between inputs)
-            try:
-                quorum_m = OP_CODE_NAMES[psbt_in.witness_script.commands[0]].split(
-                    "OP_"
-                )[1]
-            except Exception:
-                return _abort(
-                    f"Witness script for input #{cnt} is not p2wsh:\n{psbt_in})"
-                )
-
-            # for calculating msig fingerprint
-            root_xfp_hexes = []
-            for _, details in psbt_in.named_pubs.items():
-                root_xfp_hexes.append(details.root_fingerprint.hex())
-
-            input_desc = {
-                "quorum": f"{quorum_m}-of-{len(root_xfp_hexes)}",
-                "root_xfp_hexes": root_xfp_hexes,
-                "prev_txhash": psbt_in.tx_in.prev_tx.hex(),
-                "prev_idx": psbt_in.tx_in.prev_index,
-                "n_sequence": psbt_in.tx_in.sequence,
-                "sats": psbt_in.tx_in.value(),
-                # TODO: would be possible for transaction to be p2sh-wrapped p2wsh (can we tell?)
-                "addr": psbt_in.witness_script.address(testnet=psbt_obj.testnet),
-                # "p2sh_addr": psbt_in.witness_script.p2sh_address(testnet=psbt_obj.testnet),
-                "witness_script": str(psbt_in.witness_script),
-                "msig_digest": _calculate_msig_digest(
-                    quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
-                ),
-            }
-            inputs_desc.append(input_desc)
-
-        if not all(
-            x["msig_digest"] == inputs_desc[0]["msig_digest"] for x in inputs_desc
-        ):
-            return _abort(
-                "Multiple different multisig quorums in inputs. Construct a transaction with one input to continue."
+        hdpubkey_map = {}
+        for key_record in output_record["key_records"]:
+            hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
+                key_record["xpub_parent"]
             )
 
-        TOTAL_INPUT_SATS = sum([x["sats"] for x in inputs_desc])
-
-        # This too only supports TXs with 1-2 outputs (sweep TX OR spend+change TX):
-        if len(psbt_obj.psbt_outs) > 2:
-            return _abort(
-                f"This tool does not support batching, your transaction has {len(psbt_obj.psbt_outs)} outputs. Please construct a transaction with <= 2 outputs."
-            )
-
-        spend_addr, output_spend_sats = "", 0
-        outputs_desc = []
-        for cnt, psbt_out in enumerate(psbt_obj.psbt_outs):
-            psbt_out.validate()  # redundant but explicit
-
-            output_desc = {
-                "sats": psbt_out.tx_out.amount,
-                "addr_type": psbt_out.tx_out.script_pubkey.__class__.__name__.rstrip(
-                    "ScriptPubKey"
-                ),
-            }
-
-            output_desc["addr"] = psbt_out.tx_out.script_pubkey.address(
-                testnet=psbt_obj.testnet
-            )
-
-            if psbt_out.named_pubs:
-                # Validate below that this is correct and abort otherwise
-                output_desc["is_change"] = True
-
-                root_xfp_hexes = []  # for calculating msig fingerprint
-                for _, details in psbt_out.named_pubs.items():
-                    root_xfp_hexes.append(details.root_fingerprint.hex())
-
-                # Determine quroum_m (and that it hasn't changed between inputs)
-                try:
-                    quorum_m = OP_CODE_NAMES[psbt_out.witness_script.commands[0]].split(
-                        "OP_"
-                    )[1]
-                except Exception:
-                    return _abort(
-                        f"Witness script for input #{cnt} is not p2wsh:\n{psbt_in})"
-                    )
-
-                output_msig_digest = _calculate_msig_digest(
-                    quorum_m=quorum_m, root_xfp_hexes=root_xfp_hexes
-                )
-                if (
-                    output_msig_digest != inputs_desc[0]["msig_digest"]
-                ):  # ALL inputs have the same msig_digest
-                    return _abort(
-                        f"Output #{cnt} is claiming to be change but has different multisig wallet(s)! Do a sweep transaction (1-output) if you want this wallet to cosign."
-                    )
-            else:
-                output_desc["is_change"] = False
-                spend_addr = output_desc["addr"]
-                output_spend_sats = output_desc["sats"]
-
-            outputs_desc.append(output_desc)
-
-        # Sanity check
-        if len(outputs_desc) != len(psbt_obj.psbt_outs):
-            return _abort(
-                f"{len(outputs_desc)} outputs in summary doesn't match {len(psbt_obj.psbt_outs)} outputs in PSBT"
-            )
-
-        # Confirm if 2 outputs we only have 1 change and 1 spend (can't be 2 changes or 2 spends)
-        if len(outputs_desc) == 2:
-            if all(
-                x["is_change"] == outputs_desc[0]["is_change"] for x in outputs_desc
-            ):
-                return _abort(
-                    f"Cannot have both outputs be change or spend, must be 1-and-1. {outputs_desc}"
-                )
-
-        UNITS = _get_units()  # TODO: move this to an internal setting somewhere
-        TX_SUMMARY = " ".join(
-            [
-                "PSBT sends",
-                _format_satoshis(output_spend_sats, in_btc=UNITS == "btc"),
-                "to",
-                spend_addr,
-                "with a fee of",
-                _format_satoshis(TX_FEE_SATS, in_btc=UNITS == "btc"),
-                f"({round(TX_FEE_SATS / TOTAL_INPUT_SATS * 100, 2)}% of spend)",
-            ]
+        psbt_described = psbt_obj.describe_basic_multisig_tx(
+            hdpubkey_map=hdpubkey_map, xfp_for_signing=None
         )
-        print_yellow(TX_SUMMARY)
+
+        # Gather TX info and validate
+        print_yellow(psbt_described["tx_summary_text"])
 
         if _get_bool(prompt="In Depth Transaction View?", default=False):
             to_print = []
             to_print.append("DETAILED VIEW")
             to_print.append(f"TXID: {psbt_obj.tx_obj.id()}")
             to_print.append("-" * 80)
-            to_print.append(f"{len(inputs_desc)} Input(s):")
-            for cnt, input_desc in enumerate(inputs_desc):
+            to_print.append(f"{len(psbt_described['inputs_desc'])} Input(s):")
+            for cnt, input_desc in enumerate(psbt_described["inputs_desc"]):
                 to_print.append(f"  input #{cnt}")
                 for k in input_desc:
                     to_print.append(f"    {k}: {input_desc[k]}")
             to_print.append("-" * 80)
-            to_print.append(f"{len(outputs_desc)} Output(s):")
-            for cnt, output_desc in enumerate(outputs_desc):
+            to_print.append(f"{len(psbt_described['outputs_desc'])} Output(s):")
+            for cnt, output_desc in enumerate(psbt_described["outputs_desc"]):
                 to_print.append(f"  output #{cnt}")
                 for k in output_desc:
                     to_print.append(f"    {k}: {output_desc[k]}")
@@ -700,24 +575,18 @@ class MyPrompt(Cmd):
 
         # Derive list of child private keys we'll use to sign the TX
         root_paths = set()
-        for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
-            # Safety check
-            if inputs_desc[cnt]["prev_txhash"] != psbt_in.tx_in.prev_tx.hex():
-                _abort("Script error")
-            if inputs_desc[cnt]["prev_idx"] != psbt_in.tx_in.prev_index:
-                _abort("Script error")
-
-            for _, details in psbt_in.named_pubs.items():
-                if details.root_fingerprint.hex() == xfp_hex:
-                    root_paths.add(details.root_path)
+        for cnt, input_desc in enumerate(psbt_described["inputs_desc"]):
+            for bip32_deriv in input_desc["bip32_derivs"]:
+                if bip32_deriv["master_fingerprint"] == xfp_hex:
+                    root_paths.add(bip32_deriv["path"])
 
         if not root_paths:
             # We confirmed above that all inputs have identical encumberance so we choose the first one as representative
             err = [
                 "Did you enter a seed for another wallet?",
-                f"The seed supplied (fingerprint {xfp_hex}) does not correspond to the transaction inputs, which are {inputs_desc[0]['quorum']} of the following:",
+                f"The seed supplied (fingerprint {xfp_hex}) does not correspond to the transaction inputs, which are {psbt_described['inputs_desc'][0]['quorum']} of the following:",
             ]
-            for xfp in sorted(inputs_desc[0]["root_xfp_hexes"]):
+            for xfp in sorted(psbt_described["inputs_desc"][0]["root_xfp_hexes"]):
                 err.append("  " + xfp)
             return _abort("\n".join(err))
 

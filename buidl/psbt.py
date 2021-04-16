@@ -617,6 +617,7 @@ class PSBT:
                         f"Previous input(s) set a max quorum of threshold of {tx_quorum_n}, but this transaction is {input_quorum_n}"
                     )
 
+            bip32_derivs = []
             for _, named_pub in psbt_in.named_pubs.items():
                 # Match to corresponding xpub to validate that this xpub is a participant in this input
                 xfp = named_pub.root_fingerprint.hex()
@@ -637,9 +638,22 @@ class PSBT:
                 if xfp_for_signing and xfp_for_signing == xfp:
                     root_paths_for_signing.add(named_pub.root_path)
 
+                # this is very similar to what bitcoin-core's decodepsbt returns
+                bip32_derivs.append(
+                    {
+                        "pubkey": named_pub.sec().hex(),
+                        "master_fingerprint": xfp,
+                        "path": named_pub.root_path,
+                        "xpub": hdpub.xpub(),
+                    }
+                )
+
+            # BIP67 sort order
+            bip32_derivs = sorted(bip32_derivs, key=lambda k: k["pubkey"])
+
             input_desc = {
                 "quorum": f"{tx_quorum_m}-of-{tx_quorum_n}",
-                "root_xfp_hexes": list(hdpubkey_map.keys()),
+                "bip32_derivs": bip32_derivs,
                 "prev_txhash": psbt_in.tx_in.prev_tx.hex(),
                 "prev_idx": psbt_in.tx_in.prev_index,
                 "n_sequence": psbt_in.tx_in.sequence,
@@ -697,6 +711,7 @@ class PSBT:
                         "You may be able to get this wallet to cosign a sweep transaction (1-output) instead."
                     )
 
+                bip32_derivs = []
                 for _, named_pub in psbt_out.named_pubs.items():
                     # Match to corresponding xpub to validate that this xpub is a participant in this change output
                     xfp = named_pub.root_fingerprint.hex()
@@ -715,6 +730,19 @@ class PSBT:
                             f"xpub {hdpub} with path {named_pub.root_path} does not appear to be part of output # {cnt}"
                             "You may be able to get this wallet to cosign a sweep transaction (1-output) instead."
                         )
+
+                    # this is very similar to what bitcoin-core's decodepsbt returns
+                    bip32_derivs.append(
+                        {
+                            "pubkey": named_pub.sec().hex(),
+                            "master_fingerprint": xfp,
+                            "path": named_pub.root_path,
+                            "xpub": hdpub.xpub(),
+                        }
+                    )
+
+                # BIP67 sort order
+                bip32_derivs = sorted(bip32_derivs, key=lambda k: k["pubkey"])
 
                 change_addr = output_desc["addr"]
                 output_change_sats = output_desc["sats"]
