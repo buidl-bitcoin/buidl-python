@@ -7,6 +7,10 @@ from buidl.hd import (
     HDPrivateKey,
     InvalidBIP39Length,
     InvalidChecksumWordsError,
+    is_valid_bip32_path,
+    ltrim_path,
+    parse_key_record,
+    parse_wshsortedmulti,
 )
 from buidl.helper import encode_base58_checksum
 from buidl.mnemonic import WORD_LIST
@@ -463,3 +467,113 @@ class HDTest(TestCase):
             with self.assertRaises(InvalidBIP39Length):
                 # Next is just a way to call the generator
                 next(calc_valid_seedpicker_checksums(first_words="able " * length))
+
+    def test_xpub_version(self):
+        mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        hd_obj = HDPrivateKey.from_mnemonic(mnemonic, testnet=True)
+        self.assertEqual(
+            hd_obj.xprv(),
+            "tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd",
+        )
+        self.assertEqual(
+            hd_obj.xpub(),
+            "tpubD6NzVbkrYhZ4XYa9MoLt4BiMZ4gkt2faZ4BcmKu2a9te4LDpQmvEz2L2yDERivHxFPnxXXhqDRkUNnQCpZggCyEZLBktV7VaSmwayqMJy1s",
+        )
+
+        hd_obj = HDPrivateKey.from_mnemonic(mnemonic, testnet=False)
+        self.assertEqual(
+            hd_obj.xprv(),
+            "xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu",
+        )
+        self.assertEqual(
+            hd_obj.xpub(),
+            "xpub661MyMwAqRbcFkPHucMnrGNzDwb6teAX1RbKQmqtEF8kK3Z7LZ59qafCjB9eCRLiTVG3uxBxgKvRgbubRhqSKXnGGb1aoaqLrpMBDrVxga8",
+        )
+
+
+class BIP32PathsTest(TestCase):
+    def test_valid_paths(self):
+        self.assertTrue(is_valid_bip32_path("m"))
+        self.assertTrue(is_valid_bip32_path("m/0"))
+        self.assertTrue(is_valid_bip32_path("m/45"))
+        self.assertTrue(is_valid_bip32_path("m/45h"))
+        self.assertTrue(is_valid_bip32_path("m/45'"))
+        self.assertTrue(is_valid_bip32_path("m/1/2/3/4/5"))
+        self.assertTrue(is_valid_bip32_path("m/1/2h/3/4h/5"))
+        self.assertTrue(is_valid_bip32_path("m/48'/1'/0'/1'"))
+        self.assertTrue(is_valid_bip32_path("m/48h/1h/0h/2h"))
+
+    def test_invalid_paths(self):
+        # just "m" (without trailing slash) is valid:
+        self.assertFalse(is_valid_bip32_path("m/"))
+        self.assertFalse(is_valid_bip32_path("m/-1"))
+        self.assertFalse(is_valid_bip32_path("m/1/a"))
+        self.assertFalse(is_valid_bip32_path("m/foo"))
+        self.assertFalse(is_valid_bip32_path(f"m/{2**32}"))
+
+    def test_ltrim_path(self):
+        self.assertEqual(ltrim_path("m", 0), "m/")
+        self.assertEqual(ltrim_path("m/1", 0), "m/1")
+        self.assertEqual(ltrim_path("m/1", 1), "m/")
+        self.assertEqual(ltrim_path("m/1/2/3", 1), "m/2/3")
+        self.assertEqual(ltrim_path("m/1/2/3h", 2), "m/3h")
+        with self.assertRaises(ValueError):
+            ltrim_path("m/1", 2)
+
+        with self.assertRaises(ValueError):
+            ltrim_path("m/", 1)
+
+
+class OutputRecordTest(TestCase):
+    def test_valid_key_record(self):
+        key_record = "[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*"
+        results = parse_key_record(key_record)
+        want = {
+            "xfp": "c7d0648a",
+            "path": "m/48h/1h/0h/2h",
+            "xpub_parent": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr",
+            "xpub_child": "tpubDHXhgZEb9KfoFAuPQ5X6nayFrgifHEb3EUAbbs3EvwboxjttP4ekmPPz4NPRDE7p3q87DQH2TbNyxUmYGf2GNiSTfXj4Q5CfVgrpZuDEsak",
+            "index": 0,
+            "is_testnet": True,
+        }
+        self.assertEqual(results, want)
+
+    def test_valid_p2wsh_sortedmulti(self):
+        output_record = """wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"""
+        results = parse_wshsortedmulti(output_record)
+        expected = {
+            "quorum_m": 1,
+            "quorum_n": 4,
+            "key_records": [
+                {
+                    "xfp": "c7d0648a",
+                    "path": "m/48h/1h/0h/2h",
+                    "xpub_parent": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr",
+                    "index": 0,
+                    "xpub_child": "tpubDHXhgZEb9KfoFAuPQ5X6nayFrgifHEb3EUAbbs3EvwboxjttP4ekmPPz4NPRDE7p3q87DQH2TbNyxUmYGf2GNiSTfXj4Q5CfVgrpZuDEsak",
+                },
+                {
+                    "xfp": "12980eed",
+                    "path": "m/48h/1h/0h/2h",
+                    "xpub_parent": "tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae",
+                    "index": 0,
+                    "xpub_child": "tpubDGveumaKzgjigcr9Csv3n5bgwMA41rNiENgxwakQwxheD691uQ69UnVD3ZR7D64fS3gmUoxHuh8xoAJ93zi83AJGbL1cEJwqkbUPFphPaYs",
+                },
+                {
+                    "xfp": "3a52b5cd",
+                    "path": "m/48h/1h/0h/2h",
+                    "xpub_parent": "tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s",
+                    "index": 0,
+                    "xpub_child": "tpubDHEnEGFC357XqivEUbzD15biuf36dRMtgxZXud9MBQnJrWDWgMFfx4rjUma4rS47ncaqg3zz1TR6kCDjPNXC6rDn3XMTatKUFbu1cTbY6UX",
+                },
+                {
+                    "xfp": "f7d04090",
+                    "path": "m/48h/1h/0h/2h",
+                    "xpub_parent": "tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp",
+                    "index": 0,
+                    "xpub_child": "tpubDG6BBVZUnpyL78b8u9StfjLCv6BdTDHQDqPKTeEpAAVAjcMHsjusoUP2ayZi5ZRvZpqo6Cp9E3oQMvq9dMe5KGYJht72rnaxaqfSU3KjnjJ",
+                },
+            ],
+            "is_testnet": True,
+        }
+        self.assertEqual(results, expected)

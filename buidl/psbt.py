@@ -1,7 +1,7 @@
 from io import BytesIO
 
 from buidl.ecc import S256Point, Signature
-from buidl.hd import HDPublicKey
+from buidl.hd import HDPublicKey, ltrim_path
 from buidl.helper import (
     base64_decode,
     base64_encode,
@@ -50,6 +50,10 @@ PSBT_OUT_BIP32_DERIVATION = b"\x02"
 
 
 class MixedNetwork(Exception):
+    pass
+
+
+class SuspiciousTransaction(Exception):
     pass
 
 
@@ -540,6 +544,260 @@ class PSBT:
         for psbt_out in self.psbt_outs:
             result += psbt_out.serialize()
         return result
+
+    def describe_basic_multisig_tx(self, hdpubkey_map, xfp_for_signing=None):
+        """
+        Describe a typical multisig transaction in a human-readable way for manual verification before signing.
+
+        This tool supports transactions with the following constraints:
+        * ALL inputs have the exact same multisig wallet (quorum + xpubs)
+        * There can only be 1 output (sweep transaction) or 2 outputs (spend + change). If 2 outputs, we validate the change (it has the same quorum/xpubs as the inputs we sign).
+
+        Due to the nature of how PSBT works, you must supply a hdpubkey_map for ALL n xpubs:
+          {
+            'xfphex1': HDPublicKey1,
+            'xfphex2': HDPublicKey2,
+          }
+        These HDPublicKey's will be traversed according to the paths given in the PSBT.
+
+        Advanced/atypical transactions will raise a SuspiciousTransaction error, as these cannot be trivially summarized.
+        An error does not mean there is a problem with the transaction, just that it is too complex for simple summary.
+
+        If `xfp_for_signing` (a hex string) is included, then the root_paths needed to derive child private keys (for signing) from that seed will be returned for future use.
+
+        TODO: add support for batching? Would change already complex logic re change validation.
+        """
+
+        self.validate()
+
+        tx_fee_sats = self.tx_obj.fee()
+
+        root_paths_for_signing = set()
+
+        # These will be used for all inputs and change outputs
+        tx_quorum_m, tx_quorum_n = None, None
+
+        # Gather TX info and validate
+        inputs_desc = []
+        for cnt, psbt_in in enumerate(self.psbt_ins):
+            psbt_in.validate()
+
+            if type(psbt_in.witness_script) != WitnessScript:
+                # TODO: add support for legacy TXs?
+                raise SuspiciousTransaction(
+                    f"Input #{cnt} does not contain a witness script. "
+                    "This tool can only sign p2wsh transactions."
+                )
+
+            # Be sure all xpubs are properly acocunted for
+            if len(hdpubkey_map) != len(psbt_in.named_pubs):
+                # TODO: doesn't handle case where the sampe xfp is >1 signers (surprisngly complex)
+                raise SuspiciousTransaction(
+                    f"{len(hdpubkey_map)} xpubs supplied != {len(psbt_in.named_pubs)} named_pubs in PSBT input."
+                )
+
+            input_quorum_m, input_quorum_n = psbt_in.witness_script.get_quorum()
+            if tx_quorum_m is None:
+                tx_quorum_m = input_quorum_m
+            else:
+                if tx_quorum_m != input_quorum_m:
+                    raise SuspiciousTransaction(
+                        f"Previous input(s) set a quorum threshold of {tx_quorum_m}, but this transaction is {input_quorum_m}"
+                    )
+
+            if tx_quorum_n is None:
+                tx_quorum_n = input_quorum_n
+                if input_quorum_n != len(hdpubkey_map):
+                    raise SuspiciousTransaction(
+                        f"Transaction has {len(hdpubkey_map)} pubkeys but we are expecting {input_quorum_n}"
+                    )
+            else:
+                if tx_quorum_n != input_quorum_n:
+                    raise SuspiciousTransaction(
+                        f"Previous input(s) set a max quorum of threshold of {tx_quorum_n}, but this transaction is {input_quorum_n}"
+                    )
+
+            bip32_derivs = []
+            for _, named_pub in psbt_in.named_pubs.items():
+                # Match to corresponding xpub to validate that this xpub is a participant in this input
+                xfp = named_pub.root_fingerprint.hex()
+
+                try:
+                    hdpub = hdpubkey_map[xfp]
+                except KeyError:
+                    raise SuspiciousTransaction(
+                        f"Root fingerprint {xfp} for input #{cnt} not in the hdpubkey_map you supplied"
+                    )
+
+                trimmed_path = ltrim_path(named_pub.root_path, depth=hdpub.depth)
+                if hdpub.traverse(trimmed_path).sec() != named_pub.sec():
+                    raise SuspiciousTransaction(
+                        f"xpub {hdpub} with path {named_pub.root_path} does not appear to be part of input # {cnt}"
+                    )
+
+                if xfp_for_signing and xfp_for_signing == xfp:
+                    root_paths_for_signing.add(named_pub.root_path)
+
+                # this is very similar to what bitcoin-core's decodepsbt returns
+                bip32_derivs.append(
+                    {
+                        "pubkey": named_pub.sec().hex(),
+                        "master_fingerprint": xfp,
+                        "path": named_pub.root_path,
+                        "xpub": hdpub.xpub(),
+                    }
+                )
+
+            # BIP67 sort order
+            bip32_derivs = sorted(bip32_derivs, key=lambda k: k["pubkey"])
+
+            input_desc = {
+                "quorum": f"{tx_quorum_m}-of-{tx_quorum_n}",
+                "bip32_derivs": bip32_derivs,
+                "prev_txhash": psbt_in.tx_in.prev_tx.hex(),
+                "prev_idx": psbt_in.tx_in.prev_index,
+                "n_sequence": psbt_in.tx_in.sequence,
+                "sats": psbt_in.tx_in.value(),
+                "addr": psbt_in.witness_script.address(testnet=self.testnet),
+                # if adding support for p2sh in the future, the address would be: psbt_in.witness_script.p2sh_address(testnet=self.testnet),
+                "witness_script": str(psbt_in.witness_script),
+            }
+            inputs_desc.append(input_desc)
+
+        TOTAL_INPUT_SATS = sum([x["sats"] for x in inputs_desc])
+
+        # This too only supports TXs with 1-2 outputs (sweep TX OR spend+change TX):
+        if len(self.psbt_outs) > 2:
+            raise SuspiciousTransaction(
+                f"This tool does not support batching, your transaction has {len(self.psbt_outs)} outputs. "
+                "Please construct a transaction with <= 2 outputs."
+            )
+
+        spend_addr, output_spend_sats = "", 0
+        change_addr, output_change_sats = "", 0
+        outputs_desc = []
+        for cnt, psbt_out in enumerate(self.psbt_outs):
+            psbt_out.validate()
+
+            output_desc = {
+                "sats": psbt_out.tx_out.amount,
+                "addr": psbt_out.tx_out.script_pubkey.address(testnet=self.testnet),
+                "addr_type": psbt_out.tx_out.script_pubkey.__class__.__name__.rstrip(
+                    "ScriptPubKey"
+                ),
+            }
+
+            if psbt_out.named_pubs:
+                # Confirm below that this is correct (throw error otherwise)
+                output_desc["is_change"] = True
+
+                # FIXME: Confirm this works with a change test case
+
+                output_quorum_m, output_quorum_n = psbt_out.witness_script.get_quorum()
+                if tx_quorum_m != output_quorum_m:
+                    raise SuspiciousTransaction(
+                        f"Previous output(s) set a max quorum of threshold of {tx_quorum_m}, but this transaction is {output_quorum_m}"
+                    )
+                if tx_quorum_n != output_quorum_n:
+                    raise SuspiciousTransaction(
+                        f"Previous input(s) set a max cosigners of {tx_quorum_n}, but this transaction is {output_quorum_n}"
+                    )
+
+                # Be sure all xpubs are properly acocunted for
+                if output_quorum_n != len(psbt_out.named_pubs):
+                    # TODO: doesn't handle case where the same xfp is >1 signers (surprisngly complex)
+                    raise SuspiciousTransaction(
+                        f"{len(hdpubkey_map)} xpubs supplied != {len(psbt_out.named_pubs)} named_pubs in PSBT change output."
+                        "You may be able to get this wallet to cosign a sweep transaction (1-output) instead."
+                    )
+
+                bip32_derivs = []
+                for _, named_pub in psbt_out.named_pubs.items():
+                    # Match to corresponding xpub to validate that this xpub is a participant in this change output
+                    xfp = named_pub.root_fingerprint.hex()
+
+                    try:
+                        hdpub = hdpubkey_map[xfp]
+                    except KeyError:
+                        raise SuspiciousTransaction(
+                            f"Root fingerprint {xfp} for output #{cnt} not in the hdpubkey_map you supplied"
+                            "Do a sweep transaction (1-output) if you want this wallet to cosign."
+                        )
+
+                    trimmed_path = ltrim_path(named_pub.root_path, depth=hdpub.depth)
+                    if hdpub.traverse(trimmed_path).sec() != named_pub.sec():
+                        raise SuspiciousTransaction(
+                            f"xpub {hdpub} with path {named_pub.root_path} does not appear to be part of output # {cnt}"
+                            "You may be able to get this wallet to cosign a sweep transaction (1-output) instead."
+                        )
+
+                    # this is very similar to what bitcoin-core's decodepsbt returns
+                    bip32_derivs.append(
+                        {
+                            "pubkey": named_pub.sec().hex(),
+                            "master_fingerprint": xfp,
+                            "path": named_pub.root_path,
+                            "xpub": hdpub.xpub(),
+                        }
+                    )
+
+                # BIP67 sort order
+                bip32_derivs = sorted(bip32_derivs, key=lambda k: k["pubkey"])
+
+                change_addr = output_desc["addr"]
+                output_change_sats = output_desc["sats"]
+
+                output_desc["witness_script"] = str(psbt_out.witness_script)
+
+            else:
+                output_desc["is_change"] = False
+                spend_addr = output_desc["addr"]
+                output_spend_sats = output_desc["sats"]
+
+            outputs_desc.append(output_desc)
+
+        # Confirm if 2 outputs we only have 1 change and 1 spend (can't be 2 changes or 2 spends)
+        if len(outputs_desc) == 2:
+            if all(x["is_change"] for x in outputs_desc):
+                raise SuspiciousTransaction(
+                    f"Cannot have both outputs in 2-output transaction be change nor spend, must be 1-and-1.\n {outputs_desc}"
+                )
+
+        # comma seperating satoshis for better display
+        tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with a fee of {tx_fee_sats:,} sats ({round(tx_fee_sats / TOTAL_INPUT_SATS * 100, 2)}% of spend)"
+
+        to_return = {
+            # TX level:
+            "txid": self.tx_obj.id(),
+            "tx_summary_text": tx_summary_text,
+            "locktime": self.tx_obj.locktime,
+            "version": self.tx_obj.version,
+            "is_testnet": self.testnet,
+            "tx_fee_sats": tx_fee_sats,
+            "total_input_sats": TOTAL_INPUT_SATS,
+            "output_spend_sats": output_spend_sats,
+            "change_addr": change_addr,
+            "output_change_sats": output_change_sats,
+            "change_sats": TOTAL_INPUT_SATS - tx_fee_sats - output_spend_sats,
+            "spend_addr": spend_addr,
+            # Input/output level
+            "inputs_desc": inputs_desc,
+            "outputs_desc": outputs_desc,
+        }
+
+        if xfp_for_signing:
+            if not root_paths_for_signing:
+                # We confirmed above that all inputs have identical encumberance so we choose the first one as representative
+                err = [
+                    "Did you enter a root fingerprint for another seed?",
+                    f"The xfp supplied ({xfp_for_signing}) does not correspond to the transaction inputs, which are {input_quorum_m} of the following:",
+                    ", ".join(sorted(list(hdpubkey_map.keys()))),
+                ]
+                raise SuspiciousTransaction("\n".join(err))
+
+            to_return["root_paths"] = root_paths_for_signing
+
+        return to_return
 
 
 class PSBTIn:

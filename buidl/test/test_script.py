@@ -81,3 +81,13 @@ class WitnessScriptTest(TestCase):
         witness_script = WitnessScript.convert(bytes.fromhex(witness_script_hex))
         want = "2MvVx9ccWqyYVNa5Xz9pfCEVk99zVBZh9ms"
         self.assertEqual(witness_script.p2sh_address(testnet=True), want)
+
+    def test_p2wsh_with_quorum(self):
+
+        p2wsh_script_hex = "ad51210236a6cf4254c8290a168ecab4aee771018d357ea87154a5b5fea9ed9baee2585e210355ec1001c2c4f1dce2de940beacbdcb7d7746140281a9283000aa46d251d46312103833d6e7c4121180fb79180b78a0573ad57c299825f18f49f6942cb38b6bf023a2103a9e341c32d8870706115443cf163bfc3d2da0ca8515a29bcc1a500c65cfb23bb2103b2ac11803043c0db884dcddfdcff02599324d5e747b26e4235f57b8019fae04155ae"
+        witness_script = WitnessScript.parse(BytesIO(bytes.fromhex((p2wsh_script_hex))))
+
+        want = "OP_1 0236a6cf4254c8290a168ecab4aee771018d357ea87154a5b5fea9ed9baee2585e 0355ec1001c2c4f1dce2de940beacbdcb7d7746140281a9283000aa46d251d4631 03833d6e7c4121180fb79180b78a0573ad57c299825f18f49f6942cb38b6bf023a 03a9e341c32d8870706115443cf163bfc3d2da0ca8515a29bcc1a500c65cfb23bb 03b2ac11803043c0db884dcddfdcff02599324d5e747b26e4235f57b8019fae041 OP_5 OP_CHECKMULTISIG "
+        self.assertEqual(str(witness_script), want)
+        self.assertTrue(witness_script.is_p2wsh_multisig())
+        self.assertEqual(witness_script.get_quorum(), (1, 5))  # 1-of-5

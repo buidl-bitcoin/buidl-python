@@ -1,8 +1,8 @@
 from io import BytesIO
 
+from buidl.bech32 import encode_bech32_checksum
 from buidl.helper import (
     encode_base58_checksum,
-    encode_bech32_checksum,
     encode_varstr,
     hash160,
     little_endian_to_int,
@@ -428,3 +428,23 @@ class WitnessScript(Script):
         redeem_script = self.script_pubkey().redeem_script()
         # return the p2sh address of the RedeemScript (remember testnet)
         return redeem_script.address(testnet)
+
+    def is_p2wsh_multisig(self):
+        return (
+            OP_CODE_NAMES[self.commands[-1]] == "OP_CHECKMULTISIG"
+            and type(self.commands[0]) == int
+            and type(self.commands[-2]) == int
+        )
+
+    def get_quorum(self):
+        """
+        Return the m-of-n of this multisig, as in 2-of-3 or 3-of-5
+        """
+
+        if not self.is_p2wsh_multisig():
+            raise ValueError(f"Not a multisig witness script: {self}")
+
+        quorum_m = OP_CODE_NAMES[self.commands[0]].split("OP_")[1]
+        quorum_n = OP_CODE_NAMES[self.commands[-2]].split("OP_")[1]
+
+        return int(quorum_m), int(quorum_n)

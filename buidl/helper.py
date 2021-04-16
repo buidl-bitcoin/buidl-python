@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import re
 
 from base64 import b64decode, b64encode
 from buidl.pbkdf2 import PBKDF2
@@ -29,13 +30,14 @@ SIGHASH_ALL = 1
 SIGHASH_NONE = 2
 SIGHASH_SINGLE = 3
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-BECH32_ALPHABET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
-GEN = [0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3]
 PBKDF2_ROUNDS = 2048
 GOLOMB_P = 19
 GOLOMB_M = int(round(1.497137 * 2 ** GOLOMB_P))
 TWO_WEEKS = 60 * 60 * 24 * 14
 MAX_TARGET = 0xFFFF * 256 ** (0x1D - 3)
+
+
+HEX_CHARS_RE = re.compile("^[0-9a-f]*$")
 
 
 def bytes_to_str(b, encoding="ascii"):
@@ -153,99 +155,6 @@ def raw_decode_base58(s):
 
 def decode_base58(s):
     return raw_decode_base58(s)[1:]
-
-
-# next four functions are straight from BIP0173:
-# https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki
-def bech32_polymod(values):
-    chk = 1
-    for v in values:
-        b = chk >> 25
-        chk = (chk & 0x1FFFFFF) << 5 ^ v
-        for i in range(5):
-            chk ^= GEN[i] if ((b >> i) & 1) else 0
-    return chk
-
-
-def bech32_hrp_expand(s):
-    b = s.encode("ascii")
-    return [x >> 5 for x in b] + [0] + [x & 31 for x in b]
-
-
-def bech32_verify_checksum(hrp, data):
-    return bech32_polymod(bech32_hrp_expand(hrp) + data) == 1
-
-
-def bech32_create_checksum(hrp, data):
-    values = bech32_hrp_expand(hrp) + data
-    polymod = bech32_polymod(values + [0, 0, 0, 0, 0, 0]) ^ 1
-    return [(polymod >> 5 * (5 - i)) & 31 for i in range(6)]
-
-
-def group_32(s):
-    """Convert from 8-bit bytes to 5-bit array of integers"""
-    result = []
-    unused_bits = 0
-    current = 0
-    for c in s:
-        unused_bits += 8
-        current = (current << 8) + c
-        while unused_bits > 5:
-            unused_bits -= 5
-            result.append(current >> unused_bits)
-            mask = (1 << unused_bits) - 1
-            current &= mask
-    result.append(current << (5 - unused_bits))
-    return result
-
-
-def encode_bech32(nums):
-    """Convert from 5-bit array of integers to bech32 format"""
-    result = ""
-    for n in nums:
-        result += BECH32_ALPHABET[n]
-    return result
-
-
-def encode_bech32_checksum(s, testnet=False):
-    """Convert a segwit ScriptPubKey to a bech32 address"""
-    if testnet:
-        prefix = "tb"
-    else:
-        prefix = "bc"
-    version = s[0]
-    if version > 0:
-        version -= 0x50
-    length = s[1]
-    data = [version] + group_32(s[2 : 2 + length])
-    checksum = bech32_create_checksum(prefix, data)
-    bech32 = encode_bech32(data + checksum)
-    return prefix + "1" + bech32
-
-
-def decode_bech32(s):
-    """Returns whether it's testnet, segwit version and the hash from the bech32 address"""
-    hrp, raw_data = s.split("1")
-    if hrp == "tb":
-        testnet = True
-    elif hrp == "bc":
-        testnet = False
-    else:
-        raise ValueError("unknown human readable part: {}".format(hrp))
-    data = [BECH32_ALPHABET.index(c) for c in raw_data]
-    if not bech32_verify_checksum(hrp, data):
-        raise ValueError("bad address: {}".format(s))
-    version = data[0]
-    number = 0
-    for digit in data[1:-6]:
-        number = (number << 5) + digit
-    num_bytes = (len(data) - 7) * 5 // 8
-    bits_to_ignore = (len(data) - 7) * 5 % 8
-    number >>= bits_to_ignore
-    hash = int_to_big_endian(number, num_bytes)
-    if num_bytes < 2 or num_bytes > 40:
-        raise ValueError("bytes out of range: {}".format(num_bytes))
-    return [testnet, version, hash]
 
 
 def read_varint(s):
@@ -672,3 +581,15 @@ def decode_gcs(key, gcs):
         current += delta
         items.append(current)
     return items
+
+
+def uses_only_hex_chars(string):
+    return bool(HEX_CHARS_RE.match(string.lower()))
+
+
+def is_intable(int_as_string):
+    try:
+        int(int_as_string)
+        return True
+    except ValueError:
+        return False
