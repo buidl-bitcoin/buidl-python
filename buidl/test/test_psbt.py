@@ -626,9 +626,9 @@ class PSBTTest(TestCase):
         }
         self.assertEqual(wsh_sortedmulti_result, wsh_sortedmulti_want)
 
-        xfp_hdpubkey_map = {}
+        hdpubkey_map = {}
         for key_record in wsh_sortedmulti_result["key_records"]:
-            xfp_hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
+            hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
                 key_record["xpub_parent"]
             )
 
@@ -701,7 +701,7 @@ class PSBTTest(TestCase):
         }
 
         psbt_described = psbt_obj.describe_basic_multisig_tx(
-            xfp_hdpubkey_map=xfp_hdpubkey_map, xfp_for_signing=None
+            hdpubkey_map=hdpubkey_map, xfp_for_signing=None
         )
         self.assertEqual(
             psbt_described,
@@ -711,12 +711,12 @@ class PSBTTest(TestCase):
         # root paths for this input given the following xfp to sign for
         root_xfp_hex = "12980eed"
         want["root_paths"] = {
-            "m/48'/1'/0'/2'/0/5",
-            "m/48'/1'/0'/2'/1/2",
             "m/48'/1'/0'/2'/0/3",
+            "m/48'/1'/0'/2'/0/5",
             "m/48'/1'/0'/2'/1/0",
+            "m/48'/1'/0'/2'/1/2",
         }
         psbt_described_with_xfp = psbt_obj.describe_basic_multisig_tx(
-            xfp_hdpubkey_map=xfp_hdpubkey_map, xfp_for_signing=root_xfp_hex
+            hdpubkey_map=hdpubkey_map, xfp_for_signing=root_xfp_hex
         )
         self.assertEqual(psbt_described_with_xfp, want)

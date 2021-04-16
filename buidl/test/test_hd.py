@@ -8,7 +8,6 @@ from buidl.hd import (
     InvalidBIP39Length,
     InvalidChecksumWordsError,
     is_valid_bip32_path,
-    trim_to_unhardened_path,
     ltrim_path,
     parse_key_record,
     parse_wshsortedmulti,
@@ -511,17 +510,6 @@ class BIP32PathsTest(TestCase):
         self.assertFalse(is_valid_bip32_path("m/1/a"))
         self.assertFalse(is_valid_bip32_path("m/foo"))
         self.assertFalse(is_valid_bip32_path(f"m/{2**32}"))
-
-    def test_trim_to_unhardened_unchanged(self):
-        # unchanged_bip32_paths = ("m/")
-        unchanged_bip32_paths = ("m/0", "m/1/2", "m/1/2/3/4/5")
-        for bip32path in unchanged_bip32_paths:
-            self.assertEqual(trim_to_unhardened_path(bip32path), bip32path)
-
-    def test_trim_to_unhardened(self):
-        self.assertEqual(trim_to_unhardened_path("m/45h/1"), "m/1")
-        self.assertEqual(trim_to_unhardened_path("m/45h/1h/1/0"), "m/1/0")
-        self.assertEqual(trim_to_unhardened_path("m/1h/2/3h/4/5"), "m/4/5")
 
     def test_ltrim_path(self):
         self.assertEqual(ltrim_path("m", 0), "m/")

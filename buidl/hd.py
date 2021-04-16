@@ -656,31 +656,6 @@ def is_valid_bip32_path(path):
     return True
 
 
-def trim_to_unhardened_path(bip32_path):
-    """
-    Take a path and chop off every hardened derivation until only underhardened derivation is left.
-    Airgap signers should pass around (child) xpubs that are verifiable (contain only unhardened paths).
-    This conveninece method will align paths for use.
-
-    TODO: is this method actually useful? Perhaps not.
-    """
-    if not is_valid_bip32_path(bip32_path):
-        raise ValueError(f"Invalid bip32 path: {bip32_path}")
-
-    # be forgiving
-    path = bip32_path.lower().strip().replace("'", "h").replace("//", "/")
-
-    to_return = []
-    for entry in reversed(path.split("/")):
-        if entry == "m":
-            continue
-        if entry.endswith("h"):
-            break
-        to_return.append(entry)
-
-    return "m/" + "/".join(reversed(to_return))
-
-
 def ltrim_path(bip32_path, depth):
     """
     Left trim off a path by a given depth
@@ -705,9 +680,9 @@ def parse_key_record(key_record_str):
     A key record will look something like this:
     [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*'
     """
+
     key_record_re = re.match(
-        r"\[([0-9a-f]{8})\*?(.*?)\]([0-9A-Za-z]+).*([0-9]+?)",  # noqa: W605
-        key_record_str,
+        r"\[([0-9a-f]{8})\*?(.*?)\]([0-9A-Za-z]+).*([0-9]+?)", key_record_str
     )
     if key_record_re is None:
         raise ValueError(f"Invalid key record: {key_record_str}")
@@ -757,11 +732,10 @@ def parse_wshsortedmulti(output_record):
     output_record = output_record.strip().replace(r"\/", "/")
 
     # Regex match the string
-    # TODO: figure out why this won't match as part of a longer string?
     re_output_results = re.match(
-        r"wsh\(sortedmulti\(([0-9]*),(.*)\)\)\#([qpzry9x8gf2tvdw0s3jn54khce6mua7l]{8})",
+        r".*wsh\(sortedmulti\(([0-9]*),(.*)\)\)\#([qpzry9x8gf2tvdw0s3jn54khce6mua7l]{8}).*",
         output_record,
-    )  # noqa: W605
+    )
     if re_output_results is None:
         raise ValueError(f"Not a valid wsh sortedmulti: {output_record}")
 
