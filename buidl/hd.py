@@ -16,6 +16,8 @@ from buidl.helper import (
     sha256,
 )
 from buidl.mnemonic import secure_mnemonic, WORD_LOOKUP, WORD_LIST
+from buidl.op import OP_CODE_NAMES_LOOKUP
+from buidl.script import P2WSHScriptPubKey, WitnessScript
 
 
 MAINNET_XPRV = bytes.fromhex("0488ade4")
@@ -770,3 +772,37 @@ def parse_wshsortedmulti(output_record):
         "key_records": key_records,
         "is_testnet": output_is_testnet,
     }
+
+
+def generate_wshsortedmulti_address(
+    quorum_m, key_records, is_testnet, is_change=False, offset=0, limit=5
+):
+    """
+    Generator to return (nearly) infinite valid addresses.
+
+    If is_change=True, then we display change addresses.
+    If is_change=False we display receive addresses.
+    If you set a limit, it will eventually return.
+
+    As a generator, you must iterate through it with your own loop or using next()
+    """
+    cnt = 0
+    while cnt < limit:
+        sec_hexes_to_use = []
+        for key_record in key_records:
+            hdpubkey = HDPublicKey.parse(key_record["xpub_parent"])
+            if is_change is True:
+                account = key_record["index"] + 1
+            else:
+                account = key_record["index"]
+            leaf_xpub = hdpubkey.child(account).child(cnt + offset)
+            sec_hexes_to_use.append(leaf_xpub.sec().hex())
+
+        commands = [OP_CODE_NAMES_LOOKUP["OP_{}".format(quorum_m)]]
+        commands.extend([bytes.fromhex(x) for x in sorted(sec_hexes_to_use)])  # BIP67
+        commands.append(OP_CODE_NAMES_LOOKUP["OP_{}".format(len(key_records))])
+        commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
+        witness_script = WitnessScript(commands)
+        redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
+        yield redeem_script.address(testnet=is_testnet)
+        cnt += 1

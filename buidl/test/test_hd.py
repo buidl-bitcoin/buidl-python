@@ -3,6 +3,7 @@ from unittest import TestCase
 from buidl.hd import (
     calc_num_valid_seedpicker_checksums,
     calc_valid_seedpicker_checksums,
+    generate_wshsortedmulti_address,
     HDPublicKey,
     HDPrivateKey,
     InvalidBIP39Length,
@@ -577,3 +578,27 @@ class OutputRecordTest(TestCase):
             "is_testnet": True,
         }
         self.assertEqual(results, expected)
+
+        kwargs = {
+            "quorum_m": expected["quorum_m"],
+            "key_records": expected["key_records"],
+            "is_testnet": expected["is_testnet"],
+            "limit": 3,
+        }
+
+        expected_change_addrs = [
+            "tb1qf454te8pvz4txevejg8s8tx5kkyfxgtkpg6tu5xphnyf6l2gcjss5zw0jx",
+            "tb1q0lh5an3hep9s57c5xkpyv0yldy825kzzwt888u0qfnu3nqkndrqqjuajuj",
+            "tb1qcklg00ymx85x7f5vzll3zypd2epywdxmhx05k7395e470pth8g8qvh62kw",
+        ]
+        expected_receive_addrs = [
+            "tb1qlrjv2ek09g9aplga83j9mfvelnt6qymen9gd49kpezdz2g5pgwnsfmrucp",
+            "tb1qn2xhgxqxqcs8cl36f7efgg7jvreus4x6959hnc6mfmygnz435dksa39ygr",
+            "tb1q2lzh628dmylpf9gr869lgyq9fcc9xqat7unpumnmmn5nph6447cs40k7mw",
+        ]
+
+        change_addrs = list(generate_wshsortedmulti_address(**kwargs, is_change=True))
+        self.assertEqual(change_addrs, expected_change_addrs)
+
+        receive_addrs = list(generate_wshsortedmulti_address(**kwargs, is_change=False))
+        self.assertEqual(receive_addrs, expected_receive_addrs)
