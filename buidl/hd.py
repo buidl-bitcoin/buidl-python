@@ -17,19 +17,30 @@ from buidl.helper import (
 )
 from buidl.mnemonic import secure_mnemonic, WORD_LOOKUP, WORD_LIST
 
+# https://github.com/satoshilabs/slips/blob/master/slip-0132.md
+# Make default xpub/xpriv, but allow for other version bytes
+MAINNET_XPRV = bytes.fromhex("0488ade4")  # xprv
+MAINNET_XPUB = bytes.fromhex("0488b21e")  # xpub
+TESTNET_XPRV = bytes.fromhex("04358394")  # tprv
+TESTNET_XPUB = bytes.fromhex("043587cf")  # tpub
 
-MAINNET_XPRV = bytes.fromhex("0488ade4")
-MAINNET_XPUB = bytes.fromhex("0488b21e")
-MAINNET_YPRV = bytes.fromhex("049d7878")
-MAINNET_YPUB = bytes.fromhex("049d7cb2")
-MAINNET_ZPRV = bytes.fromhex("04b2430c")
-MAINNET_ZPUB = bytes.fromhex("04b24746")
-TESTNET_XPRV = bytes.fromhex("04358394")
-TESTNET_XPUB = bytes.fromhex("043587cf")
-TESTNET_YPRV = bytes.fromhex("044a4e28")
-TESTNET_YPUB = bytes.fromhex("044a5262")
-TESTNET_ZPRV = bytes.fromhex("045f18bc")
-TESTNET_ZPUB = bytes.fromhex("045f1cf6")
+# P2PKH or P2SH, P2WPKH in P2SH, P2WPKH, Multi-signature P2WSH in P2SH, Multi-signature P2WSH
+ALL_MAINNET_XPRVS = {
+    bytes.fromhex(x)
+    for x in ["0488ade4", "049d7878", "04b2430c", "0295b005", "02aa7a99"]
+}
+ALL_MAINNET_XPUBS = {
+    bytes.fromhex(x)
+    for x in ["0488b21e", "049d7cb2", "04b24746", "0295b43f", "02aa7ed3"]
+}
+ALL_TESTNET_XPRVS = {
+    bytes.fromhex(x)
+    for x in ["04358394", "044a4e28", "045f18bc", "024285b5", "02575048"]
+}
+ALL_TESTNET_XPUBS = {
+    bytes.fromhex(x)
+    for x in ["043587cf", "044a5262", "045f1cf6", "024289ef", "02575483"]
+}
 
 
 class InvalidBIP39Length(Exception):
@@ -206,47 +217,23 @@ class HDPrivateKey:
         # return the whole thing base58-encoded
         return encode_base58_checksum(raw)
 
-    def xprv(self):
-        # from BIP0032:
+    @property
+    def default_version_byte(self):
         if self.testnet:
-            version = TESTNET_XPRV
-        else:
-            version = MAINNET_XPRV
+            return TESTNET_XPRV
+        return MAINNET_XPRV
+
+    def xprv(self, version=None):
+        if version is None:
+            version = self.default_version_byte
         return self._prv(version)
 
-    def yprv(self):
-        # from BIP0049:
-        if self.testnet:
-            version = TESTNET_YPRV
-        else:
-            version = MAINNET_YPRV
-        return self._prv(version)
-
-    def zprv(self):
-        # from BIP0084:
-        if self.testnet:
-            version = TESTNET_ZPRV
-        else:
-            version = MAINNET_ZPRV
-        return self._prv(version)
+    def xpub(self, version=None):
+        return self.pub.xpub(version=version)
 
     # passthrough methods
     def fingerprint(self):
         return self.pub.fingerprint()
-
-    def xpub(self, version=None):
-        if version is None:
-            if self.testnet:
-                version = TESTNET_XPUB
-            else:
-                version = MAINNET_XPUB
-        return self.pub.xpub(version=version)
-
-    def ypub(self):
-        return self.pub.ypub()
-
-    def zpub(self):
-        return self.pub.zpub()
 
     @classmethod
     def parse(cls, s):
@@ -268,12 +255,12 @@ class HDPrivateKey:
         version = s.read(4)
         # check that the version is one of the TESTNET or MAINNET
         #  private keys, if not raise a ValueError
-        if version in (TESTNET_XPRV, TESTNET_YPRV, TESTNET_ZPRV):
+        if version in ALL_TESTNET_XPRVS:
             testnet = True
-        elif version in (MAINNET_XPRV, MAINNET_YPRV, MAINNET_ZPRV):
+        elif version in ALL_MAINNET_XPRVS:
             testnet = False
         else:
-            raise ValueError("not an xprv, yprv or zprv: {}".format(version))
+            raise ValueError(f"not a valid [t-z]prv: {version}")
         # the next byte is depth
         depth = byte_to_int(s.read(1))
         # next 4 bytes are the parent_fingerprint
@@ -526,30 +513,16 @@ class HDPublicKey:
         # base58-encode the whole thing
         return encode_base58_checksum(raw)
 
+    @property
+    def default_version_byte(self):
+        if self.testnet:
+            return TESTNET_XPUB
+        return MAINNET_XPUB
+
     def xpub(self, version=None):
+        if version is None:
+            version = self.default_version_byte
 
-        # Allow for SLIP132 encoding (or other version bytes)
-        if version is not None:
-            return self._pub(version=version)
-
-        if self.testnet:
-            version = TESTNET_XPUB
-        else:
-            version = MAINNET_XPUB
-        return self._pub(version)
-
-    def ypub(self):
-        if self.testnet:
-            version = TESTNET_YPUB
-        else:
-            version = MAINNET_YPUB
-        return self._pub(version)
-
-    def zpub(self):
-        if self.testnet:
-            version = TESTNET_ZPUB
-        else:
-            version = MAINNET_ZPUB
         return self._pub(version)
 
     @classmethod
@@ -572,12 +545,12 @@ class HDPublicKey:
         version = s.read(4)
         # check that the version is one of the TESTNET or MAINNET
         #  public keys, if not raise a ValueError
-        if version in (TESTNET_XPUB, TESTNET_YPUB, TESTNET_ZPUB):
+        if version in ALL_TESTNET_XPUBS:
             testnet = True
-        elif version in (MAINNET_XPUB, MAINNET_YPUB, MAINNET_ZPUB):
+        elif version in ALL_MAINNET_XPUBS:
             testnet = False
         else:
-            raise ValueError("not an xpub, ypub or zpub: {} {}".format(s, version))
+            raise ValueError("not a valid [t-z]pub version: {version}")
         # the next byte is depth
         depth = byte_to_int(s.read(1))
         # next 4 bytes are the parent_fingerprint

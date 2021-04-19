@@ -393,9 +393,9 @@ class HDTest(TestCase):
             mnemonic, password, path=path, testnet=False
         )
         want = "zprvAdG4iTXWBoARxkkzNpNh8r6Qag3irQB8PzEMkAFeTRXxHpbF9z4QgEvBRmfvqWvGp42t42nvgGpNgYSJA9iefm1yYNZKEm7z6qUWCroSQnE"
-        self.assertEqual(account.zprv(), want)
+        self.assertEqual(account.xprv(version=bytes.fromhex("04b2430c")), want)
         want = "zpub6rFR7y4Q2AijBEqTUquhVz398htDFrtymD9xYYfG1m4wAcvPhXNfE3EfH1r1ADqtfSdVCToUG868RvUUkgDKf31mGDtKsAYz2oz2AGutZYs"
-        self.assertEqual(account.zpub(), want)
+        self.assertEqual(account.xpub(version=bytes.fromhex("04b24746")), want)
         first_key = account.child(0).child(0)
         want = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
         self.assertEqual(first_key.bech32_address(), want)
@@ -404,23 +404,23 @@ class HDTest(TestCase):
         mnemonic, priv = HDPrivateKey.generate(extra_entropy=1 << 128)
         for word in mnemonic.split():
             self.assertTrue(word in WORD_LIST)
-        zprv = priv.zprv()
+        zprv = priv.xprv(version=bytes.fromhex("04b2430c"))
         self.assertTrue(zprv.startswith("zprv"))
-        zpub = priv.pub.zpub()
+        zpub = priv.pub.xpub(version=bytes.fromhex("04b24746"))
         self.assertTrue(zpub.startswith("zpub"))
         derived = HDPrivateKey.parse(zprv)
-        self.assertEqual(zprv, derived.zprv())
+        self.assertEqual(zprv, derived.xprv(bytes.fromhex("04b2430c")))
         mnemonic, priv = HDPrivateKey.generate(testnet=True)
-        zprv = priv.zprv()
+        zprv = priv.xprv(bytes.fromhex("045f18bc"))
         self.assertTrue(zprv.startswith("vprv"))
-        zpub = priv.pub.zpub()
+        zpub = priv.pub.xpub(bytes.fromhex("045f1cf6"))
         self.assertTrue(zpub.startswith("vpub"))
-        xpub = priv.pub.xpub()
+        xpub = priv.pub.xpub(bytes.fromhex("043587cf"))
         self.assertTrue(xpub.startswith("tpub"))
         derived = HDPrivateKey.parse(zprv)
-        self.assertEqual(zprv, derived.zprv())
+        self.assertEqual(zprv, derived.xprv(bytes.fromhex("045f18bc")))
         derived_pub = HDPublicKey.parse(zpub)
-        self.assertEqual(zpub, derived_pub.zpub())
+        self.assertEqual(zpub, derived_pub.xpub(bytes.fromhex("045f1cf6")))
         with self.assertRaises(ValueError):
             bad_zprv = encode_base58_checksum(b"\x00" * 78)
             HDPrivateKey.parse(bad_zprv)
@@ -429,6 +429,26 @@ class HDTest(TestCase):
             HDPublicKey.parse(bad_zpub)
         with self.assertRaises(ValueError):
             derived_pub.child(1 << 31)
+
+    def test_vpub(self):
+        # From https://seedpicker.net/calculator/last-word.html?network=testnet
+        mnemonic = "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo buddy"
+        path = "m/48'/1'/0'/2'"
+
+        self.assertEqual(
+            "669dce62", HDPrivateKey.from_mnemonic(mnemonic).fingerprint().hex()
+        )
+        vpub = (
+            HDPrivateKey.from_mnemonic(mnemonic)
+            .traverse(path)
+            .xpub(bytes.fromhex("02575483"))
+        )
+        want = "Vpub5mru9pEB9wFgRsCsYi4hcTvaqZ5p2xs2upUsN5Fig6nUrug2xkfPmbt2PfUS5QhDgCLctdkuQLmVnpN1j8a6RS9Mk53mbxi3Mx4HB6vCTWc"
+        self.assertEqual(vpub, want)
+
+        # Be sure that we can parse a vpub:
+        hdpubkey_obj = HDPublicKey.parse(want)
+        self.assertEqual(hdpubkey_obj.depth, 4)
 
     def test_from_mnemonic_errors(self):
         with self.assertRaises(InvalidBIP39Length):
