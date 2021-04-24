@@ -14,13 +14,11 @@ from buidl.hd import (
     HDPrivateKey,
     HDPublicKey,
     parse_wshsortedmulti,
+    generate_wshsortedmulti_address,
 )
-from buidl.helper import sha256, hash256
 from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import WORD_LIST, WORD_LOOKUP
 from buidl.psbt import MixedNetwork, PSBT
-from buidl.script import P2WSHScriptPubKey, WitnessScript
-from buidl.op import OP_CODE_NAMES_LOOKUP
 
 readline.parse_and_bind("tab: complete")  # TODO: can this be moved inside a method?
 
@@ -342,20 +340,6 @@ def _get_units():
     return units
 
 
-def _format_satoshis(sats, in_btc=False):
-    if in_btc:
-        btc = sats / 10 ** 8
-        return f"{btc:,.8f} BTC"
-    return f"{sats:,} sats"
-
-
-# TODO: is there a standard to use here?
-# Inspired by https://github.com/trezor/trezor-firmware/blob/e23bb10ec49710cc2b2b993db9c907d3c7becf2c/core/src/apps/wallet/sign_tx/multisig.py#L37
-def _calculate_msig_digest(quorum_m, root_xfp_hexes):
-    fingerprints_to_hash = "-".join(sorted(root_xfp_hexes))
-    return hash256(f"{quorum_m}:{fingerprints_to_hash}".encode()).hex()
-
-
 #####################################################################
 # Command Line App Code Starts Here
 #####################################################################
@@ -495,33 +479,29 @@ class MyPrompt(Cmd):
             minimum=0,
         )
 
-        quorum_display = f"{output_record['quorum_m']}-of-{output_record['quorum_n']}"
-        to_print = f"{quorum_display} Multisig Receive Addresses"
-        if not is_libsec_enabled:
-            to_print += " (this is ~100x faster if you install libsec)"
-        print_yellow(to_print + ":")
-        for cnt in range(limit):
-            sec_hexes_to_use = []
-            for key_record in output_record["key_records"]:
-                hdpubkey = HDPublicKey.parse(key_record["xpub_parent"])
-                leaf_xpub = hdpubkey.child(key_record["index"]).child(
-                    index=cnt + offset
-                )
-                sec_hexes_to_use.append(leaf_xpub.sec().hex())
+        # Only advanced users should consider seeing change addresses
+        is_change = False
+        if self.ADVANCED_MODE:
+            is_change = not _get_bool(
+                prompt="Display receive addresses? `N` to display change addresses instead.",
+                default=True,
+            )
 
-            commands = [OP_CODE_NAMES_LOOKUP["OP_{}".format(output_record["quorum_m"])]]
-            commands.extend(
-                [bytes.fromhex(x) for x in sorted(sec_hexes_to_use)]  # BIP67
-            )
-            commands.append(
-                OP_CODE_NAMES_LOOKUP["OP_{}".format(output_record["quorum_n"])]
-            )
-            commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
-            witness_script = WitnessScript(commands)
-            redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
-            print_green(
-                f"#{cnt + offset}: {redeem_script.address(testnet=output_record['is_testnet'])}"
-            )
+        to_print = f"{output_record['quorum_m']}-of-{output_record['quorum_n']} Multisig {'Change' if is_change else 'Receive'} Addresses"
+        if not is_libsec_enabled():
+            to_print += "\n(this is ~100x faster if you install libsec)"
+        print_yellow(to_print + ":")
+        generator = generate_wshsortedmulti_address(
+            quorum_m=output_record["quorum_m"],
+            key_records=output_record["key_records"],
+            is_testnet=output_record["is_testnet"],
+            is_change=is_change,
+            offset=offset,
+            limit=limit,
+        )
+        cnt = 0
+        for cnt, address in enumerate(generator):
+            print_green(f"#{cnt + offset}: {address}")
 
     def do_send(self, arg):
         """Sign a multisig PSBT using 1 of your BIP39 seed phrases. Can also be used to just inspect a TX and not sign it."""
@@ -530,7 +510,7 @@ class MyPrompt(Cmd):
         #   There can only be 1 output (sweep transaction) or 2 outputs (spend + change).
         #   If there is change, we validate it has the same multisig wallet as the inputs we sign.
 
-        # Unfortunately, there is no way to validate change without the hdpubkey_map
+        # Unfortunately, there is no way to validate change without having the hdpubkey_map
         # TODO: make version where users can enter this later (after manually approving the transaction)?
         output_record = _get_output_record()
         psbt_obj = _get_psbt_obj()
