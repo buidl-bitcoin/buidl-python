@@ -62,6 +62,8 @@ class HDPrivateKey:
         parent_fingerprint=b"\x00\x00\x00\x00",
         child_number=0,
         testnet=False,
+        priv_version=None,
+        pub_version=None,
     ):
         # the main secret, should be a PrivateKey object
         self.private_key = private_key
@@ -75,6 +77,15 @@ class HDPrivateKey:
         # what order child this is
         self.child_number = child_number
         self.testnet = testnet
+
+        if priv_version is None:
+            # Set priv_version based on whether or not we are testnet
+            if testnet is True:
+                priv_version = TESTNET_XPRV
+            else:
+                priv_version = MAINNET_XPRV
+        self.priv_version = priv_version
+
         # keep a copy of the corresponding public key
         self.pub = HDPublicKey(
             point=private_key.point,
@@ -83,6 +94,7 @@ class HDPrivateKey:
             parent_fingerprint=parent_fingerprint,
             child_number=child_number,
             testnet=testnet,
+            pub_version=pub_version,  # HDPublicKey handles the case where pub_version is None
         )
 
     def wif(self):
@@ -116,7 +128,7 @@ class HDPrivateKey:
         return self.xprv()
 
     @classmethod
-    def from_seed(cls, seed, testnet=False):
+    def from_seed(cls, seed, testnet=False, priv_version=None, pub_version=None):
         # get hmac_sha512 with b'Bitcoin seed' and seed
         h = hmac_sha512(b"Bitcoin seed", seed)
         # create the private key using the first 32 bytes in big endian
@@ -128,6 +140,8 @@ class HDPrivateKey:
             private_key=private_key,
             chain_code=chain_code,
             testnet=testnet,
+            priv_version=priv_version,
+            pub_version=pub_version,
         )
 
     def child(self, index):
@@ -168,6 +182,8 @@ class HDPrivateKey:
             parent_fingerprint=parent_fingerprint,
             child_number=child_number,
             testnet=self.testnet,
+            priv_version=self.priv_version,
+            pub_version=self.pub.pub_version,
         )
 
     def traverse(self, path):
@@ -196,10 +212,10 @@ class HDPrivateKey:
         # return the current child
         return current
 
-    def raw_serialize(self, version):
+    def raw_serialize(self, priv_version):
         # version + depth + parent_fingerprint + child number + chain code + private key
-        # start with version, which should be a constant depending on testnet
-        raw = version
+        # start with priv_version, which should be a constant
+        raw = priv_version
         # add depth, which is 1 byte using int_to_byte
         raw += int_to_byte(self.depth)
         # add the parent_fingerprint
@@ -212,23 +228,12 @@ class HDPrivateKey:
         raw += int_to_big_endian(self.private_key.secret, 33)
         return raw
 
-    def _prv(self, version):
-        """Returns the base58-encoded x/y/z prv.
-        Expects a 4-byte version."""
-        raw = self.raw_serialize(version)
-        # return the whole thing base58-encoded
-        return encode_base58_checksum(raw)
-
-    @property
-    def default_version_byte(self):
-        if self.testnet:
-            return TESTNET_XPRV
-        return MAINNET_XPRV
-
     def xprv(self, version=None):
+        """Returns the base58-encoded x/y/z prv."""
         if version is None:
-            version = self.default_version_byte
-        return self._prv(version)
+            version = self.priv_version
+        raw = self.raw_serialize(version)
+        return encode_base58_checksum(raw)
 
     def xpub(self, version=None):
         return self.pub.xpub(version=version)
@@ -253,16 +258,16 @@ class HDPrivateKey:
     @classmethod
     def raw_parse(cls, s):
         """Returns a HDPrivateKey from a stream"""
-        # first 4 bytes are the version
-        version = s.read(4)
-        # check that the version is one of the TESTNET or MAINNET
+        # first 4 bytes are the priv_version
+        priv_version = s.read(4)
+        # check that the priv_version is one of the TESTNET or MAINNET
         #  private keys, if not raise a ValueError
-        if version in ALL_TESTNET_XPRVS:
+        if priv_version in ALL_TESTNET_XPRVS:
             testnet = True
-        elif version in ALL_MAINNET_XPRVS:
+        elif priv_version in ALL_MAINNET_XPRVS:
             testnet = False
         else:
-            raise ValueError(f"not a valid [t-z]prv: {version}")
+            raise ValueError(f"not a valid [t-z]prv: {priv_version}")
         # the next byte is depth
         depth = byte_to_int(s.read(1))
         # next 4 bytes are the parent_fingerprint
@@ -284,6 +289,8 @@ class HDPrivateKey:
             parent_fingerprint=parent_fingerprint,
             child_number=child_number,
             testnet=testnet,
+            priv_version=priv_version,
+            pub_version=priv_version,
         )
 
     def _get_address(self, purpose, account=0, external=True, address=0):
@@ -337,12 +344,33 @@ class HDPrivateKey:
         return self._get_address("84'", account, False, address)
 
     @classmethod
-    def generate(cls, password=b"", extra_entropy=0, testnet=False):
+    def generate(
+        cls,
+        password=b"",
+        extra_entropy=0,
+        testnet=False,
+        priv_version=None,
+        pub_version=None,
+    ):
         mnemonic = secure_mnemonic(extra_entropy=extra_entropy)
-        return mnemonic, cls.from_mnemonic(mnemonic, password=password, testnet=testnet)
+        return mnemonic, cls.from_mnemonic(
+            mnemonic,
+            password=password,
+            testnet=testnet,
+            priv_version=priv_version,
+            pub_version=pub_version,
+        )
 
     @classmethod
-    def from_mnemonic(cls, mnemonic, password=b"", path="m", testnet=False):
+    def from_mnemonic(
+        cls,
+        mnemonic,
+        password=b"",
+        path="m",
+        testnet=False,
+        priv_version=None,
+        pub_version=None,
+    ):
         """Returns a HDPrivateKey object from the mnemonic."""
         # split the mnemonic into words with .split()
         words = mnemonic.split()
@@ -384,12 +412,21 @@ class HDPrivateKey:
         # the seed is the hmac_sha512_kdf with normalized mnemonic and salt
         seed = hmac_sha512_kdf(normalized_mnemonic, salt)
         # return the HDPrivateKey at the path specified
-        return cls.from_seed(seed, testnet=testnet).traverse(path)
+        return cls.from_seed(
+            seed, testnet=testnet, priv_version=priv_version, pub_version=pub_version
+        ).traverse(path)
 
 
 class HDPublicKey:
     def __init__(
-        self, point, chain_code, depth, parent_fingerprint, child_number, testnet=False
+        self,
+        point,
+        chain_code,
+        depth,
+        parent_fingerprint,
+        child_number,
+        testnet=False,
+        pub_version=None,
     ):
         self.point = point
         self.chain_code = chain_code
@@ -397,6 +434,13 @@ class HDPublicKey:
         self.parent_fingerprint = parent_fingerprint
         self.child_number = child_number
         self.testnet = testnet
+        if pub_version is None:
+            # Set pub_version based on whether or not we are testnet
+            if testnet is True:
+                pub_version = TESTNET_XPUB
+            else:
+                pub_version = MAINNET_XPUB
+        self.pub_version = pub_version
         self._raw = None
 
     def __repr__(self):
@@ -460,6 +504,7 @@ class HDPublicKey:
             parent_fingerprint=parent_fingerprint,
             child_number=child_number,
             testnet=self.testnet,
+            pub_version=self.pub_version,
         )
 
     def traverse(self, path):
@@ -484,17 +529,18 @@ class HDPublicKey:
         return current
 
     def raw_serialize(self):
+        # start with pub_version, which should be a constant depending on testnet
         if self._raw is None:
             if self.testnet:
-                version = TESTNET_XPUB
+                pub_version = TESTNET_XPUB
             else:
-                version = MAINNET_XPUB
-            self._raw = self._serialize(version)
+                pub_version = MAINNET_XPUB
+            self._raw = self._serialize(pub_version)
         return self._raw
 
-    def _serialize(self, version):
-        # start with the version
-        raw = version
+    def _serialize(self, pub_version):
+        # start with the pub_version
+        raw = pub_version
         # add the depth using int_to_byte
         raw += int_to_byte(self.depth)
         # add the parent_fingerprint
@@ -507,25 +553,14 @@ class HDPublicKey:
         raw += self.point.sec()
         return raw
 
-    def _pub(self, version):
-        """Returns the base58-encoded x/y/z pub.
-        Expects a 4-byte version."""
+    def xpub(self, version=None):
+        """Returns the base58-encoded x/y/z pub."""
+        if version is None:
+            version = self.pub_version
         # get the serialization
         raw = self._serialize(version)
         # base58-encode the whole thing
         return encode_base58_checksum(raw)
-
-    @property
-    def default_version_byte(self):
-        if self.testnet:
-            return TESTNET_XPUB
-        return MAINNET_XPUB
-
-    def xpub(self, version=None):
-        if version is None:
-            version = self.default_version_byte
-
-        return self._pub(version)
 
     @classmethod
     def parse(cls, s):
@@ -543,16 +578,16 @@ class HDPublicKey:
     @classmethod
     def raw_parse(cls, s):
         """Returns a HDPublicKey from a stream"""
-        # first 4 bytes are the version
-        version = s.read(4)
-        # check that the version is one of the TESTNET or MAINNET
+        # first 4 bytes are the pub_version
+        pub_version = s.read(4)
+        # check that the pub_version is one of the TESTNET or MAINNET
         #  public keys, if not raise a ValueError
-        if version in ALL_TESTNET_XPUBS:
+        if pub_version in ALL_TESTNET_XPUBS:
             testnet = True
-        elif version in ALL_MAINNET_XPUBS:
+        elif pub_version in ALL_MAINNET_XPUBS:
             testnet = False
         else:
-            raise ValueError("not a valid [t-z]pub version: {version}")
+            raise ValueError("not a valid [t-z]pub pub_version: {pub_version}")
         # the next byte is depth
         depth = byte_to_int(s.read(1))
         # next 4 bytes are the parent_fingerprint
@@ -571,6 +606,7 @@ class HDPublicKey:
             parent_fingerprint=parent_fingerprint,
             child_number=child_number,
             testnet=testnet,
+            pub_version=pub_version,
         )
 
 
@@ -648,6 +684,50 @@ def ltrim_path(bip32_path, depth):
 
     to_return = path.split("/")[depth + 1 :]
     return "m/" + "/".join(to_return)
+
+
+def combine_bip32_paths(first_path, second_path):
+    for bip32_path in (first_path, second_path):
+        if not is_valid_bip32_path(bip32_path):
+            raise ValueError(f"Invalid bip32 path: {bip32_path}")
+
+    # be forgiving
+    first_path = first_path.lower().strip().replace("'", "h").replace("//", "/")
+    second_path = second_path.lower().strip().replace("'", "h").replace("//", "/")
+
+    if first_path == "m":
+        return second_path
+
+    if second_path == "m":
+        return first_path
+
+    # Trim of leading "m/" from second path:
+    return f"{first_path}/{second_path[2:]}"
+
+
+def blind_xpub(starting_xpub, starting_path, secret_path):
+    """
+    Blind a starting_xpub with a given (and unverifiable) path, using a secret path.
+
+    Return the complete (combined) bip32 path, and
+    """
+
+    starting_xpub_obj = HDPublicKey.parse(starting_xpub)
+    # Note that we cannot verify the starting path, so it is essential that at least this safety check is accurate
+    if starting_xpub_obj.depth != starting_path.count("/"):
+        raise ValueError(
+            f"starting_xpub_obj.depth {starting_xpub_obj.depth} != starting_path depth {starting_path.count('/')}"
+        )
+
+    # This will automatically use the version byte that was parsed in the previous step
+    blinded_child_xpub = starting_xpub_obj.traverse(secret_path).xpub()
+    blinded_full_path = combine_bip32_paths(
+        first_path=starting_path, second_path=secret_path
+    )
+    return {
+        "blinded_child_xpub": blinded_child_xpub,
+        "blinded_full_path": blinded_full_path,
+    }
 
 
 def parse_key_record(key_record_str):
