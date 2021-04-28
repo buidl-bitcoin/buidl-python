@@ -712,15 +712,21 @@ def blind_xpub(starting_xpub, starting_path, secret_path):
     Return the complete (combined) bip32 path, and
     """
 
-    # This will automatically use the version byte that was parsed in the previous step:
-    blinded_child_xpub = HDPublicKey.parse(starting_xpub).traverse(secret_path).xpub()
-    # Note that we cannot verify the starting path, so it is essential that this is accurate
-    complete_blinded_path = combine_bip32_paths(
+    starting_xpub_obj = HDPublicKey.parse(starting_xpub)
+    # Note that we cannot verify the starting path, so it is essential that at least this safety check is accurate
+    if starting_xpub_obj.depth != starting_path.count("/"):
+        raise ValueError(
+            f"starting_xpub_obj.depth {starting_xpub_obj.depth} != starting_path depth {starting_path.count('/')}"
+        )
+
+    # This will automatically use the version byte that was parsed in the previous step
+    blinded_child_xpub = starting_xpub_obj.traverse(secret_path).xpub()
+    blinded_full_path = combine_bip32_paths(
         first_path=starting_path, second_path=secret_path
     )
     return {
         "blinded_child_xpub": blinded_child_xpub,
-        "complete_blinded_path": complete_blinded_path,
+        "blinded_full_path": blinded_full_path,
     }
 
 
