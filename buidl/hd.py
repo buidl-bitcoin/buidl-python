@@ -15,9 +15,15 @@ from buidl.helper import (
     raw_decode_base58,
     sha256,
 )
-from buidl.mnemonic import secure_mnemonic, WORD_LOOKUP, WORD_LIST
+from buidl.mnemonic import (
+    BIP39,
+    InvalidChecksumWordsError,
+    secure_mnemonic,
+    mnemonic_to_bytes,
+)
 from buidl.op import OP_CODE_NAMES_LOOKUP
 from buidl.script import P2WSHScriptPubKey, WitnessScript
+from buidl.shamir import ShareSet
 
 # https://github.com/satoshilabs/slips/blob/master/slip-0132.md
 # Make default xpub/xpriv, but allow for other version bytes
@@ -43,14 +49,6 @@ ALL_TESTNET_XPUBS = {
     bytes.fromhex(x)
     for x in ["043587cf", "044a5262", "045f1cf6", "024289ef", "02575483"]
 }
-
-
-class InvalidBIP39Length(Exception):
-    pass
-
-
-class InvalidChecksumWordsError(Exception):
-    pass
 
 
 class HDPrivateKey:
@@ -344,47 +342,26 @@ class HDPrivateKey:
     @classmethod
     def from_mnemonic(cls, mnemonic, password=b"", path="m", testnet=False):
         """Returns a HDPrivateKey object from the mnemonic."""
-        # split the mnemonic into words with .split()
-        words = mnemonic.split()
-        # check that there are 12, 15, 18, 21 or 24 words
-        # if not, raise a ValueError
-        if len(words) not in (12, 15, 18, 21, 24):
-            raise InvalidBIP39Length(
-                f"{len(words)} words (you need 12, 15, 18, 21, or 24 words)"
-            )
-        # calculate the number
-        number = 0
-        # each word is 11 bits
-        for word in words:
-            # get the number that the word represents using WORD_LOOKUP
-            index = WORD_LOOKUP[word]
-            # left-shift the number by 11 bits and bitwise-or the index
-            number = (number << 11) | index
-        # checksum is the last n bits where n = (# of words / 3)
-        checksum_bits_length = len(words) // 3
-        # grab the checksum bits
-        checksum = number & ((1 << checksum_bits_length) - 1)
-        # get the actual number by right-shifting by the checksum bits length
-        data_num = number >> checksum_bits_length
-        # convert the number to big-endian
-        data = int_to_big_endian(data_num, checksum_bits_length * 4)
-        # the one byte we get is from sha256 of the data, shifted by
-        #  8 - the number of bits we need for the checksum
-        computed_checksum = sha256(data)[0] >> (8 - checksum_bits_length)
-        # check that the checksum is correct or raise ValueError
-        if checksum != computed_checksum:
-            raise InvalidChecksumWordsError(words)
+        # this will check that the mnemonic is valid
+        mnemonic_to_bytes(mnemonic)
         # normalize in case we got a mnemonic that's just the first 4 letters
-        normalized_words = []
-        for word in words:
-            normalized_words.append(WORD_LIST[WORD_LOOKUP[word]])
-        normalized_mnemonic = " ".join(normalized_words)
+        normalized = " ".join([BIP39.normalize(word) for word in mnemonic.split()])
         # salt is b'mnemonic' + password
         salt = b"mnemonic" + password
         # the seed is the hmac_sha512_kdf with normalized mnemonic and salt
-        seed = hmac_sha512_kdf(normalized_mnemonic, salt)
+        seed = hmac_sha512_kdf(normalized, salt)
         # return the HDPrivateKey at the path specified
         return cls.from_seed(seed, testnet=testnet).traverse(path)
+
+    @classmethod
+    def from_shares(
+        cls, share_mnemonics, passphrase=b"", password=b"", path="m", testnet=False
+    ):
+        """Returns a HDPrivateKey object from SLIP39 mnemonics.
+        Note passphrase is for the shares and
+        password is for the mnemonic."""
+        mnemonic = ShareSet.recover_mnemonic(share_mnemonics, passphrase)
+        return cls.from_mnemonic(mnemonic, password, path, testnet)
 
 
 class HDPublicKey:
@@ -580,7 +557,7 @@ def calc_valid_seedpicker_checksums(first_words):
 
     For normal useage, just grab the first one only
     """
-    for word in WORD_LIST:
+    for word in BIP39:
         try:
             HDPrivateKey.from_mnemonic(first_words + " " + word)
             yield (word)
