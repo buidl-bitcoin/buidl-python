@@ -17,7 +17,7 @@ from buidl.hd import (
     generate_wshsortedmulti_address,
 )
 from buidl.libsec_status import is_libsec_enabled
-from buidl.mnemonic import WORD_LIST, WORD_LOOKUP
+from buidl.mnemonic import BIP39
 from buidl.psbt import MixedNetwork, PSBT
 
 readline.parse_and_bind("tab: complete")  # TODO: can this be moved inside a method?
@@ -221,7 +221,7 @@ def _get_output_record():
 
 def _get_bip39_firstwords():
     old_completer = readline.get_completer()
-    completer = WordCompleter(wordlist=WORD_LIST)
+    completer = WordCompleter(wordlist=BIP39)
 
     readline.set_completer(completer.complete)
     fw = input(blue_fg("Enter the first 23 words of your BIP39 seed phrase: ")).strip()
@@ -234,7 +234,7 @@ def _get_bip39_firstwords():
         )
         return _get_bip39_firstwords()
     for cnt, word in enumerate(fw.split()):
-        if word not in WORD_LOOKUP:
+        if word not in BIP39:
             print_red(f"Word #{cnt+1} ({word} is not a valid BIP39 word")
             return _get_bip39_firstwords()
 
@@ -298,7 +298,7 @@ def _abort(msg):
 
 def _get_bip39_seed(is_testnet):
     old_completer = readline.get_completer()
-    completer = WordCompleter(wordlist=WORD_LIST)
+    completer = WordCompleter(wordlist=BIP39)
 
     readline.set_completer(completer.complete)
     seed_phrase = input(blue_fg("Enter your full BIP39 seed phrase: ")).strip()
@@ -311,7 +311,7 @@ def _get_bip39_seed(is_testnet):
         # Other length seed phrases also work but this is not documented as it's for advanced users
         return _get_bip39_seed(is_testnet=is_testnet)
     for cnt, word in enumerate(seed_phrase.split()):
-        if word not in WORD_LOOKUP:
+        if word not in BIP39:
             print_red(f"Word #{cnt+1} ({word}) is not a valid BIP39 word")
             return _get_bip39_seed(is_testnet=is_testnet)
     try:
