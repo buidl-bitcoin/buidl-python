@@ -57,15 +57,35 @@ class Share:
         self.id = id
         self.exponent = exponent
         self.group_index = group_index
+        if group_index < 0 or group_index > 15:
+            raise ValueError(
+                f"Group index should be between 0 and 15 inclusive {group_index}"
+            )
         self.group_threshold = group_threshold
+        if group_threshold < 1 or group_threshold > group_count:
+            raise ValueError(
+                f"Group threshold should be between 1 and {group_count} inclusive {group_threshold}"
+            )
         self.group_count = group_count
+        if group_count < 1 or group_count > 16:
+            raise ValueError(
+                f"Group count should be between 1 and 16 inclusive {group_count}"
+            )
         self.member_index = member_index
+        if member_index < 0 or member_index > 15:
+            raise ValueError(
+                f"Member index should be between 0 and 15 inclusive {member_index}"
+            )
         self.member_threshold = member_threshold
+        if member_threshold < 1 or member_threshold > 16:
+            raise ValueError(
+                f"Member threshold should be between 1 and 16 inclusive {member_threshold}"
+            )
         self.value = value
         self.bytes = int_to_big_endian(value, share_bit_length // 8)
 
     def __repr__(self):
-        return f"id: {self.id}\nexponent: {self.exponent}\ngi: {self.group_index}\ngroup: {self.group_threshold} of {self.group_count}\nmi: {self.member_index}\nmt: {self.member_threshold}\nshare: {self.value}"
+        return f"\n\n{self.mnemonic()}\nid: {self.id}\nexponent: {self.exponent}\ngi: {self.group_index}\ngroup: {self.group_threshold} of {self.group_count}\nmi: {self.member_index}\nmt: {self.member_threshold}\nshare: {self.value}"
 
     @classmethod
     def parse(cls, mnemonic):
@@ -148,24 +168,26 @@ class ShareSet:
             # check that the exponents are the same
             exponents = {s.exponent for s in shares}
             if len(exponents) != 1:
-                raise TypeError("Shares should have the same exponent")
+                raise TypeError(
+                    f"Shares should have the same exponent {exponents} {shares}"
+                )
             # check that the k-of-n is the same
             k = {s.group_threshold for s in shares}
             if len(k) != 1:
-                raise ValueError("K of K-of-N should be the same")
+                raise ValueError(f"K of K-of-N should be the same {k}")
             n = {s.group_count for s in shares}
             if len(n) != 1:
-                raise ValueError("N of K-of-N should be the same")
+                raise ValueError(f"N of K-of-N should be the same {n}")
             if k.pop() > n.pop():
                 raise ValueError("K > N in K-of-N")
             # check that the share lengths are the same
             lengths = {s.share_bit_length for s in shares}
             if len(lengths) != 1:
-                raise ValueError("all shares should have the same length")
+                raise ValueError(f"all shares should have the same length {lengths}")
             # check that the x coordinates are unique
             xs = {(s.group_index, s.member_index) for s in shares}
             if len(xs) != len(shares):
-                raise ValueError("Share indices should be unique")
+                raise ValueError(f"Share indices should be unique {xs}")
         self.id = shares[0].id
         self.salt = b"shamir" + int_to_big_endian(self.id, 2)
         self.exponent = shares[0].exponent
@@ -279,6 +301,12 @@ class ShareSet:
     @classmethod
     def split_secret(cls, secret, k, n):
         """Split secret into k-of-n shares"""
+        if n < 1:
+            raise ValueError("N is too small, must be at least 1")
+        if n > 16:
+            raise ValueError("N is too big, must be 16 or less")
+        if k < 1:
+            raise ValueError("K is too small, must be at least 1")
         if k > n:
             raise ValueError("K is too big, K <= N")
         num_bytes = len(secret)
@@ -317,19 +345,18 @@ class ShareSet:
         shares = []
         data = cls.split_secret(encrypted, k, n)
         for group_index, share_bytes in data:
-            shares.append(
-                Share(
-                    num_bits,
-                    id,
-                    exponent,
-                    group_index,
-                    k,
-                    n,
-                    0,
-                    1,
-                    big_endian_to_int(share_bytes),
-                ).mnemonic()
+            share = Share(
+                share_bit_length=num_bits,
+                id=id,
+                exponent=exponent,
+                group_index=group_index,
+                group_threshold=k,
+                group_count=n,
+                member_index=0,
+                member_threshold=1,
+                value=big_endian_to_int(share_bytes),
             )
+            shares.append(share.mnemonic())
         return shares
 
     @classmethod

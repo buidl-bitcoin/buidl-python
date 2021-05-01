@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
+# coding: utf-8
+
 import readline
 import sys
 from cmd import Cmd
 from getpass import getpass
+from itertools import combinations
 from os import environ
 from platform import platform
 from pkg_resources import DistributionNotFound, get_distribution
@@ -18,6 +21,7 @@ from buidl.hd import (
 )
 from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import BIP39
+from buidl.shamir import ShareSet
 from buidl.psbt import MixedNetwork, PSBT
 
 readline.parse_and_bind("tab: complete")  # TODO: can this be moved inside a method?
@@ -464,6 +468,73 @@ class MyPrompt(Cmd):
                 ),
             ),
         )
+
+    def do_recover_seed(self, arg):
+        """Recover a seed from Shamir shares per SLIP39"""
+        share_mnemonics = []
+        while True:
+            share_phrase = input(
+                blue_fg("Enter a SLIP39 Shamir share (blank to end): ")
+            ).strip()
+            if share_phrase == "":
+                break
+            share_mnemonics.append(share_phrase)
+        passphrase = b""
+        if self.ADVANCED_MODE:
+            has_passphrase = _get_bool("Is there a passphrase?", default=False)
+            if has_passphrase:
+                passphrase = _get_confirmed_pw().encode("ascii")
+        try:
+            mnemonic = ShareSet.recover_mnemonic(share_mnemonics, passphrase=passphrase)
+            print_green(f"Here is your recovered mnemonic:\n\n{mnemonic}")
+        except (TypeError, ValueError, SyntaxError) as e:
+            print_red(e)
+
+    def do_split_seed(self, arg):
+        """Split a seed to Shamir shares per SLIP39"""
+        mnemonic = input(blue_fg("Enter a BIP39 seed phrase: ")).strip()
+        k = _get_int(
+            "How many Shamir shares should be required to recover the seed phrase?",
+            default=2,
+            minimum=1,
+            maximum=16,
+        )
+        default_n = 2 * k - 1 if 2 * k - 1 < 16 else 16
+        n = _get_int(
+            "How many Shamir shares do you want to generate?",
+            default=default_n,
+            minimum=k,
+            maximum=16,
+        )
+        passphrase = b""
+        if self.ADVANCED_MODE:
+            add_passphrase = _get_bool(
+                "Do you want to add a passphrase?", default=False
+            )
+            if add_passphrase:
+                passphrase = _get_confirmed_pw().encode("ascii")
+        shares = ShareSet.generate_shares(mnemonic, k, n, passphrase=passphrase)
+        # test the shares (cap at 1000 combinations)
+        print("testing combinations...")
+        iterations = 0
+        for combo in combinations(shares, k):
+            iterations += 1
+            if iterations > 1000:
+                break
+            elif iterations % 10:
+                print(".", end="", flush=True)
+            calculated = ShareSet.recover_mnemonic(combo, passphrase)
+            if calculated != mnemonic:
+                # we should never reach this line
+                raise RuntimeError(f"Bad shares {calculated} for mnemonic {mnemonic}")
+        print("\n")
+        share_mnemonics = "\n\n".join(shares)
+        if passphrase:
+            additional = " AND your passphrase"
+        else:
+            additional = ""
+        prompt = f"You will need {k} of these {n} share phrases{additional} to recover your seed phrase:\n\n{share_mnemonics}"
+        print_green(prompt)
 
     def do_receive(self, arg):
         """Verify receive addresses for a multisig wallet using output descriptors (from Specter-Desktop)"""

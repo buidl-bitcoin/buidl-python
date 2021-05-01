@@ -370,6 +370,18 @@ class HDTest(TestCase):
             "label original trim census flock area area virus purchase hobby globe cart"
         )
         self.assertEqual(hd_priv.xprv(), expected.xprv())
+        shares = [
+            "wildlife deal ceramic round aluminum pitch goat racism employer miracle percent math decision episode dramatic editor lily prospect program scene rebuild display sympathy have single mustang junction relate often chemical society wits estate",
+            "wildlife deal decision scared acne fatal snake paces obtain election dryer dominant romp tactics railroad marvel trust helpful flip peanut theory theater photo luck install entrance taxi step oven network dictate intimate listen",
+            "wildlife deal ceramic scatter argue equip vampire together ruin reject literary rival distance aquatic agency teammate rebound false argue miracle stay again blessing peaceful unknown cover beard acid island language debris industry idle",
+            "wildlife deal ceramic snake agree voter main lecture axis kitchen physics arcade velvet spine idea scroll promise platform firm sharp patrol divorce ancestor fantasy forbid goat ajar believe swimming cowboy symbolic plastic spelling",
+            "wildlife deal decision shadow analysis adjust bulb skunk muscle mandate obesity total guitar coal gravity carve slim jacket ruin rebuild ancestor numerous hour mortgage require herd maiden public ceiling pecan pickup shadow club",
+        ]
+        hd_priv = HDPrivateKey.from_shares(shares, passphrase=b"TREZOR")
+        expected = HDPrivateKey.from_mnemonic(
+            "fatal click tennis boring short ask clever bus valve island join edit blue end obtain rate travel fragile ahead mimic maid receive employ learn"
+        )
+        self.assertEqual(hd_priv.xprv(), expected.xprv())
 
     def test_bip49(self):
         mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
