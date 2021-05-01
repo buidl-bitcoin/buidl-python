@@ -6,15 +6,13 @@ from buidl.hd import (
     generate_wshsortedmulti_address,
     HDPublicKey,
     HDPrivateKey,
-    InvalidBIP39Length,
-    InvalidChecksumWordsError,
     is_valid_bip32_path,
     ltrim_path,
     parse_key_record,
     parse_wshsortedmulti,
 )
 from buidl.helper import encode_base58_checksum
-from buidl.mnemonic import WORD_LIST
+from buidl.mnemonic import BIP39, InvalidBIP39Length, InvalidChecksumWordsError
 
 
 class HDTest(TestCase):
@@ -359,6 +357,20 @@ class HDTest(TestCase):
             private_key = HDPrivateKey.from_mnemonic(mnemonic, b"TREZOR")
             self.assertEqual(private_key.xprv(), xprv)
 
+    def test_from_shares(self):
+        shares = [
+            "eraser senior decision roster beard treat identify grumpy salt index fake aviation theater cubic bike cause research dragon emphasis counter",
+            "eraser senior ceramic snake clay various huge numb argue hesitate auction category timber browser greatest hanger petition script leaf pickup",
+            "eraser senior ceramic shaft dynamic become junior wrist silver peasant force math alto coal amazing segment yelp velvet image paces",
+            "eraser senior ceramic round column hawk trust auction smug shame alive greatest sheriff living perfect corner chest sled fumes adequate",
+            "eraser senior decision smug corner ruin rescue cubic angel tackle skin skunk program roster trash rumor slush angel flea amazing",
+        ]
+        hd_priv = HDPrivateKey.from_shares(shares, passphrase=b"TREZOR")
+        expected = HDPrivateKey.from_mnemonic(
+            "label original trim census flock area area virus purchase hobby globe cart"
+        )
+        self.assertEqual(hd_priv.xprv(), expected.xprv())
+
     def test_bip49(self):
         mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
         password = b""
@@ -404,7 +416,7 @@ class HDTest(TestCase):
     def test_zprv(self):
         mnemonic, priv = HDPrivateKey.generate(extra_entropy=1 << 128)
         for word in mnemonic.split():
-            self.assertTrue(word in WORD_LIST)
+            self.assertTrue(word in BIP39)
         zprv = priv.xprv(version=bytes.fromhex("04b2430c"))
         self.assertTrue(zprv.startswith("zprv"))
         zpub = priv.pub.xpub(version=bytes.fromhex("04b24746"))

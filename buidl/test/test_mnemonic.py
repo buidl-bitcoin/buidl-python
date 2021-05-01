@@ -22,7 +22,7 @@ class MnemonicTest(TestCase):
             HDPrivateKey.from_mnemonic(mnemonic, testnet=True)
 
         for invalid_num_bits in (-1, 1, 127, 129, 257, "notanint"):
-            with self.assertRaises(AssertionError):
+            with self.assertRaises(ValueError):
                 secure_mnemonic(num_bits=invalid_num_bits)
 
     def test_secure_mnemonic_extra_entropy(self):
@@ -41,6 +41,7 @@ class MnemonicTest(TestCase):
             # This is inherently non-deterministic, so we can't check the specific output
             HDPrivateKey.from_mnemonic(mnemonic, testnet=True)
 
-        for invalid_extra_entropy in (-1, "notanint"):
-            with self.assertRaises(AssertionError):
-                secure_mnemonic(extra_entropy=invalid_extra_entropy)
+        with self.assertRaises(TypeError):
+            secure_mnemonic(extra_entropy="not an int")
+        with self.assertRaises(ValueError):
+            secure_mnemonic(extra_entropy=-1)
