@@ -511,13 +511,15 @@ class MyPrompt(Cmd):
         starting_xpub = key_record_dict["xpub"]
         starting_path = key_record_dict["path"]
 
+        depth = 4
+        if not _get_bool("Use standard entropy parameters for blinding?", default=True):
+            depth = _get_int(
+                "EXPERTS ONLY: How deep of a BIP32 path do you want to blind this xpub with?",
+                default=4,
+                minimum=1,
+                maximum=16,
+            )
         # Get secret BIP32 path:
-        depth = _get_int(
-            "How deep of a BIP32 path would you like to use to blind this xpub?",
-            default=4,
-            minimum=1,
-            maximum=16,
-        )
         secret_bip32_path = secure_secret_path(depth=depth)
 
         print_blue(f"Generating BIP32 path with {31*depth} bits of good entropy...")
