@@ -356,6 +356,7 @@ class MyPrompt(Cmd):
     )
     intro = (
         "Welcome to multiwallet, the stateless multisig bitcoin wallet.\n"
+        "This tool is free and there is NO WAARRANTY OF ANY KIND.\n"
         f"You are currently in {'ADVANCED' if ADVANCED_MODE else 'SAFE'} mode.\n"
         "Type help or ? to list commands.\n"
     )
@@ -535,15 +536,25 @@ class MyPrompt(Cmd):
             to_print.append("-" * 80)
             to_print.append(f"{len(psbt_described['inputs_desc'])} Input(s):")
             for cnt, input_desc in enumerate(psbt_described["inputs_desc"]):
-                to_print.append(f"  input #{cnt}")
-                for k in input_desc:
-                    to_print.append(f"    {k}: {input_desc[k]}")
+                to_print.append(f"  Input #{cnt}")
+                for k, v in input_desc.items():
+                    if k == "sats":
+                        # Comma separate ints
+                        val = f"{v:,}"
+                    else:
+                        val = v
+                    to_print.append(f"    {k}: {val}")
             to_print.append("-" * 80)
             to_print.append(f"{len(psbt_described['outputs_desc'])} Output(s):")
             for cnt, output_desc in enumerate(psbt_described["outputs_desc"]):
-                to_print.append(f"  output #{cnt}")
-                for k in output_desc:
-                    to_print.append(f"    {k}: {output_desc[k]}")
+                to_print.append(f"  Output #{cnt}")
+                for k, v in output_desc.items():
+                    if k == "sats":
+                        # Comma separate ints
+                        val = f"{v:,}"
+                    else:
+                        val = v
+                    to_print.append(f"    {k}: {val}")
             print_yellow("\n".join(to_print))
 
         if not _get_bool(prompt="Sign this transaction?", default=True):
@@ -579,7 +590,7 @@ class MyPrompt(Cmd):
             print_yellow("Signed PSBT to broadcast:\n")
             print_green(psbt_obj.serialize_base64())
         else:
-            return _abort("PSBT wasn't signed")
+            return _abort("PSBT was NOT signed")
 
     def do_advanced_mode(self, arg):
         """

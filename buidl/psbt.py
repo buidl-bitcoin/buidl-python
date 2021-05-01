@@ -54,6 +54,11 @@ class MixedNetwork(Exception):
 
 
 class SuspiciousTransaction(Exception):
+    """
+    Advanced/atypical transactions will raise a SuspiciousTransaction Exception, as these cannot be trivially summarized.
+    This exception does not mean there is a problem with the transaction, just that it is too complex for simple summary.
+    """
+
     pass
 
 
@@ -378,7 +383,7 @@ class PSBT:
         return signed
 
     def sign_with_private_keys(self, private_keys):
-        """Signs appropriate inputs with the hd private key provided"""
+        """Signs appropriate inputs with the private key provided"""
         # set the signed boolean to False until we sign something
         signed = False
         # iterate through each private key
@@ -560,8 +565,7 @@ class PSBT:
           }
         These HDPublicKey's will be traversed according to the paths given in the PSBT.
 
-        Advanced/atypical transactions will raise a SuspiciousTransaction error, as these cannot be trivially summarized.
-        An error does not mean there is a problem with the transaction, just that it is too complex for simple summary.
+        A SuspiciousTransaction Exception does not strictly mean there is a problem with the transaction, it is likely just too complex for simple summary.
 
         If `xfp_for_signing` (a hex string) is included, then the root_paths needed to derive child private keys (for signing) from that seed will be returned for future use.
 
@@ -591,7 +595,7 @@ class PSBT:
 
             # Be sure all xpubs are properly acocunted for
             if len(hdpubkey_map) != len(psbt_in.named_pubs):
-                # TODO: doesn't handle case where the sampe xfp is >1 signers (surprisngly complex)
+                # TODO: doesn't handle case where the same xfp is >1 signers (surprisingly complex)
                 raise SuspiciousTransaction(
                     f"{len(hdpubkey_map)} xpubs supplied != {len(psbt_in.named_pubs)} named_pubs in PSBT input."
                 )
@@ -664,7 +668,7 @@ class PSBT:
             }
             inputs_desc.append(input_desc)
 
-        TOTAL_INPUT_SATS = sum([x["sats"] for x in inputs_desc])
+        total_input_sats = sum([x["sats"] for x in inputs_desc])
 
         # This too only supports TXs with 1-2 outputs (sweep TX OR spend+change TX):
         if len(self.psbt_outs) > 2:
@@ -763,8 +767,8 @@ class PSBT:
                     f"Cannot have both outputs in 2-output transaction be change nor spend, must be 1-and-1.\n {outputs_desc}"
                 )
 
-        # comma seperating satoshis for better display
-        tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with a fee of {tx_fee_sats:,} sats ({round(tx_fee_sats / TOTAL_INPUT_SATS * 100, 2)}% of spend)"
+        # comma separating satoshis for better display
+        tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with a fee of {tx_fee_sats:,} sats ({round(tx_fee_sats / total_input_sats * 100, 2)}% of spend)"
 
         to_return = {
             # TX level:
@@ -774,11 +778,11 @@ class PSBT:
             "version": self.tx_obj.version,
             "is_testnet": self.testnet,
             "tx_fee_sats": tx_fee_sats,
-            "total_input_sats": TOTAL_INPUT_SATS,
+            "total_input_sats": total_input_sats,
             "output_spend_sats": output_spend_sats,
             "change_addr": change_addr,
             "output_change_sats": output_change_sats,
-            "change_sats": TOTAL_INPUT_SATS - tx_fee_sats - output_spend_sats,
+            "change_sats": total_input_sats - tx_fee_sats - output_spend_sats,
             "spend_addr": spend_addr,
             # Input/output level
             "inputs_desc": inputs_desc,
@@ -798,6 +802,110 @@ class PSBT:
             to_return["root_paths"] = root_paths_for_signing
 
         return to_return
+
+    def describe_p2pkh_sweep(self, privkey_obj=None):
+        """
+        Describe a single key p2pkh sweep transaction in a human-readable way for manual verification before signing.
+        This would typically be used to sweep an old paper wallet.
+
+        This tool supports transactions with the following constraints:
+        * ALL inputs must be p2pkh and have the same private key. This does not currently support p2wpkh (TODO!).
+        * There can only be 1 output (sweep transaction). Single sig is dangerous, this should only be used to migrate away.
+
+        Note that for p2pkh we cannot directly verify the transaction fee, as the input amounts are not explicitly part of what we are prompted to sign.
+        This "bug" was fixed with segwit.
+        """
+        self.validate()  # FIXME: confirm this would throw an error
+
+        tx_fee_sats = self.tx_obj.fee()
+
+        if privkey_obj:
+            h160s = {
+                privkey_obj.point.hash160(compressed=True),
+                privkey_obj.point.hash160(compressed=False),
+            }
+        else:
+            h160s = {}
+
+        # Gather TX info and validate
+        inputs_desc = []
+        for cnt, psbt_in in enumerate(self.psbt_ins):
+            psbt_in.validate()
+
+            if psbt_in.witness_script or psbt_in.witness:
+                raise SuspiciousTransaction(f"Input #{cnt} has witness")
+
+            if psbt_in.redeem_script:
+                raise SuspiciousTransaction(f"Input #{cnt} has redeem_script")
+
+            if psbt_in.tx_in.script_pubkey().is_p2pkh() is not True:
+                raise SuspiciousTransaction(f"Input #{cnt} is not p2pkh")
+
+            # Optional check that this is the pubkey whose privkey we intend to sign with
+            if h160s and psbt_in.tx_in.script_pubkey().hash160() not in h160s:
+                raise SuspiciousTransaction(
+                    f"Input #{cnt} is encumbered by another public key. {psbt_in.tx_in.script_pubkey().hash160()} not in {h160s}"
+                )
+
+            psbt_prev_tx_out = psbt_in.prev_tx.tx_outs[psbt_in.tx_in.prev_index]
+            input_desc = {
+                "prev_txhash": psbt_in.tx_in.prev_tx.hex(),
+                "prev_idx": psbt_in.tx_in.prev_index,
+                "n_sequence": psbt_in.tx_in.sequence,
+                # "sats": tx_in.value(),  # FIXME: this requires internet and the following doesn't
+                "sats": psbt_prev_tx_out.amount,
+                "addr": psbt_prev_tx_out.script_pubkey.address(testnet=self.testnet),
+            }
+            inputs_desc.append(input_desc)
+
+        total_input_sats = sum([x["sats"] for x in inputs_desc])
+
+        if len(self.tx_obj.tx_outs) != len(self.psbt_outs):
+            raise SuspiciousTransaction("Invalid PSBT: output mismatch")
+
+        if len(self.psbt_outs) != 1:
+            raise SuspiciousTransaction(
+                f"PSBT with {len(self.psbt_outs)} outputs is incompatible with this script: this script only supports sweep transactions (1 output)"
+            )
+
+        psbt_out = self.psbt_outs[0]  # this script only accepts 1 output
+        psbt_out.validate()
+
+        spend_addr = psbt_out.tx_out.script_pubkey.address(testnet=self.testnet)
+        output_spend_sats = psbt_out.tx_out.amount
+        output_addr_type = psbt_out.tx_out.script_pubkey.__class__.__name__.rstrip(
+            "ScriptPubKey"
+        )
+        outputs_desc = [
+            {
+                "sats": output_spend_sats,
+                "addr": spend_addr,
+                "addr_type": output_addr_type,
+            }
+        ]
+
+        # comma separating satoshis for better display
+        tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with an UNVERIFIED fee of {tx_fee_sats:,} sats ({round(tx_fee_sats / total_input_sats * 100, 2)}% of spend)"
+
+        return {
+            # TX level:
+            "txid": self.tx_obj.id(),
+            "tx_summary_text": tx_summary_text,
+            "tx_size_bytes": len(
+                self.tx_obj.serialize()
+            ),  # no need to worry about vBytes because this is p2pkh
+            "is_rbf_able": self.tx_obj.is_rbf_able(),
+            "locktime": self.tx_obj.locktime,
+            "version": self.tx_obj.version,
+            "is_testnet": self.testnet,
+            "tx_fee_sats": tx_fee_sats,
+            "total_input_sats": total_input_sats,
+            "output_spend_sats": output_spend_sats,
+            "spend_addr": spend_addr,
+            # Input/output level
+            "inputs_desc": inputs_desc,
+            "outputs_desc": outputs_desc,
+        }
 
 
 class PSBTIn:

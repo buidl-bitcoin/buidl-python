@@ -213,10 +213,11 @@ class Signature:
 
 
 class PrivateKey:
-    def __init__(self, secret, testnet=False):
+    def __init__(self, secret, testnet=False, compressed=True):
         self.secret = secret
         self.point = secret * G
         self.testnet = testnet
+        self.compressed = compressed
 
     def hex(self):
         return "{:x}".format(self.secret).zfill(64)
@@ -269,10 +270,13 @@ class PrivateKey:
     def parse(cls, wif):
         """Converts WIF to a PrivateKey object"""
         raw = raw_decode_base58(wif)
-        if len(raw) == 34:  # compressed
+        if len(raw) == 34:
+            compressed = True
             if raw[-1] != 1:
                 raise ValueError("Invalid WIF")
             raw = raw[:-1]
+        else:
+            compressed = False
         secret = big_endian_to_int(raw[1:])
         if raw[0] == 0xEF:
             testnet = True
@@ -280,7 +284,7 @@ class PrivateKey:
             testnet = False
         else:
             raise ValueError("Invalid WIF")
-        return cls(secret, testnet=testnet)
+        return cls(secret, testnet=testnet, compressed=compressed)
 
     def wif(self, compressed=True):
         # convert the secret from integer to a 32-bytes in big endian using num.to_bytes(32, 'big')
