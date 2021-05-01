@@ -356,7 +356,7 @@ class MyPrompt(Cmd):
     )
     intro = (
         "Welcome to multiwallet, the stateless multisig bitcoin wallet.\n"
-        "This tool is free and there is NO WAARRANTY OF ANY KIND.\n"
+        "This tool is free and there is NO WARRANTY OF ANY KIND.\n"
         f"You are currently in {'ADVANCED' if ADVANCED_MODE else 'SAFE'} mode.\n"
         "Type help or ? to list commands.\n"
     )
