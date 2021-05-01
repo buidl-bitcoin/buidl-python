@@ -168,7 +168,6 @@ class MyPrompt(Cmd):
         if _get_bool(prompt="In Depth Transaction View?", default=True):
             to_print = []
             to_print.append("DETAILED VIEW")
-            to_print.append(f"Unsigned TX ID: {tx_obj.id()} (will change once signed)")
             to_print.append(f"Fee: {psbt_described['tx_fee_sats']:,} (unverified)")
             to_print.append(
                 f"Total Input Sats Consumed: {psbt_described['total_input_sats']:,} (unverified)"
@@ -218,7 +217,7 @@ class MyPrompt(Cmd):
             if was_signed is not True:
                 return _abort("PSBT was NOT signed")
 
-        print_yellow("SIGNED TX hex:\n")
+        print_yellow(f"SIGNED TX {tx_obj.hash().hex()} has the following hex:\n")
         print_green(tx_obj.serialize().hex())
         print_yellow("\nThis can be broadcast via:")
         print_yellow(" - Your bitcoin core node")

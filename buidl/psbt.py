@@ -815,7 +815,7 @@ class PSBT:
         Note that for p2pkh we cannot directly verify the transaction fee, as the input amounts are not explicitly part of what we are prompted to sign.
         This "bug" was fixed with segwit.
         """
-        self.validate()  # FIXME: confirm this would throw an error
+        self.validate()
 
         tx_fee_sats = self.tx_obj.fee()
 
@@ -852,7 +852,6 @@ class PSBT:
                 "prev_txhash": psbt_in.tx_in.prev_tx.hex(),
                 "prev_idx": psbt_in.tx_in.prev_index,
                 "n_sequence": psbt_in.tx_in.sequence,
-                # "sats": tx_in.value(),  # FIXME: this requires internet and the following doesn't
                 "sats": psbt_prev_tx_out.amount,
                 "addr": psbt_prev_tx_out.script_pubkey.address(testnet=self.testnet),
             }
@@ -889,7 +888,6 @@ class PSBT:
 
         return {
             # TX level:
-            "txid": self.tx_obj.id(),
             "tx_summary_text": tx_summary_text,
             "tx_size_bytes": len(
                 self.tx_obj.serialize()

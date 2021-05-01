@@ -601,7 +601,6 @@ class PSBTTest(TestCase):
 
         described_with_privkey = psbt_obj.describe_p2pkh_sweep(privkey_obj=privkey_obj)
         want = {
-            "txid": "d593e425778c054e1699e91c77100df04a123c67b6000fdf8dd0cbfcc8b482e2",
             "tx_summary_text": "PSBT sends 5,872 sats to bc1qt7hz93fd43ptgvs9emdmmapnjw4tukwxlfg2ll with an UNVERIFIED fee of 189 sats (3.12% of spend)",
             "tx_size_bytes": 82,
             "is_rbf_able": True,
