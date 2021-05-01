@@ -426,7 +426,7 @@ class Tx:
         # get the sig using get_sig_legacy
         sig = self.get_sig_legacy(input_index, private_key)
         # calculate the sec
-        sec = private_key.point.sec()
+        sec = private_key.point.sec(compressed=private_key.compressed)
         # finalize the input using finalize_p2pkh
         self.tx_ins[input_index].finalize_p2pkh(sig, sec)
         # return whether sig is valid using self.verify_input
@@ -437,7 +437,7 @@ class Tx:
         # get the sig using get_sig_segwit
         sig = self.get_sig_segwit(input_index, private_key)
         # calculate the sec
-        sec = private_key.point.sec()
+        sec = private_key.point.sec(compressed=private_key.compressed)
         # finalize the input using finalize_p2wpkh
         self.tx_ins[input_index].finalize_p2wpkh(sig, sec)
         # return whether sig is valid using self.verify_input
@@ -450,7 +450,7 @@ class Tx:
         # get the sig using get_sig_segwit
         sig = self.get_sig_segwit(input_index, private_key, redeem_script=redeem_script)
         # calculate the sec
-        sec = private_key.point.sec()
+        sec = private_key.point.sec(compressed=private_key.compressed)
         # finalize the input using finalize_p2wpkh
         self.tx_ins[input_index].finalize_p2wpkh(sig, sec, redeem_script)
         # return whether sig is valid using self.verify_input
@@ -537,6 +537,14 @@ class Tx:
         command = script_sig.coinbase[1 : 1 + length]
         # convert the command from little endian to int
         return little_endian_to_int(command)
+
+    def is_rbf_able(self):
+        # https://github.com/bitcoin/bips/blob/master/bip-0125.mediawiki#Implementation_Details
+        eligible = False
+        for tx_in in self.tx_ins:
+            if tx_in.sequence < 0xFFFFFFFF - 1:
+                eligible = True
+        return eligible
 
     def find_utxos(self, address):
         """Returns transaction outputs that matches the address"""

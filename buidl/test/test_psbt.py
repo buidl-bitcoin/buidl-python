@@ -6,7 +6,7 @@ from io import BytesIO
 from buidl.ecc import PrivateKey
 from buidl.hd import HDPrivateKey, HDPublicKey, parse_wshsortedmulti
 from buidl.helper import serialize_binary_path, encode_varstr, SIGHASH_ALL, read_varstr
-from buidl.psbt import PSBT, MixedNetwork, NamedHDPublicKey
+from buidl.psbt import PSBT, MixedNetwork, NamedHDPublicKey, SuspiciousTransaction
 from buidl.script import RedeemScript, Script, WitnessScript
 from buidl.tx import Tx, TxIn, TxOut, TxFetcher
 
@@ -586,7 +586,58 @@ class PSBTTest(TestCase):
             psbt_obj = PSBT.parse_base64(testnet_psbt_b64, testnet=testnet)
             self.assertEqual(psbt_obj.testnet, testnet)
 
-    def test_psbt_describe_1of4(self):
+    def test_psbt_singlsig_describe_sweep(self):
+        wif = "cVytB45CFmG3h1qS4c7qiNVCo6t3TZm2XEmgwJvz5amaRkR8BjS6"
+        want = "miZ1QCSk2WHg6kzTPXx7dZFK8bM7aXHyjR"
+        privkey_obj = PrivateKey.parse(wif)
+        have = privkey_obj.point.address(
+            compressed=privkey_obj.compressed, testnet=privkey_obj.testnet
+        )
+        self.assertEqual(have, want)
+
+        psbt_obj = PSBT.parse_base64(
+            "cHNidP8BAFICAAAAAWXWTGFBCWnNAD1kEfXLUBiYELkgB9NscUkYTYuzg7X5AQAAAAD9////AfAWAAAAAAAAFgAUX64ixS2sQrQyBc7bvfQzk6q+WcbLGx4AAAEA3gIAAAABznOeQeZoS2o2T4Kx3mFQIc/p7dHq2Qh7fcwCyt/UkkEBAAAAakcwRAIgSe+RDZUlOgLgfR51RI3JQfc1LDkl96dnliguKJs/SmgCIGTIWGQSeGrhTyurcaHfTVxmbX5hIHTZKzI5BFoap7KeASECowrs+fe7ulePOtNsS1JxBc/9TYVtU2QkSJKZl1tW3/79////AoQOAAAAAAAAFgAUX64ixS2sQrQyBc7bvfQzk6q+WcatFwAAAAAAABl2qRQhS81OXj+1hdUw7rmK7YgneOE1OoisyhseAAAA"
+        )
+
+        described_with_privkey = psbt_obj.describe_p2pkh_sweep(privkey_obj=privkey_obj)
+        want = {
+            "tx_summary_text": "PSBT sends 5,872 sats to bc1qt7hz93fd43ptgvs9emdmmapnjw4tukwxlfg2ll with an UNVERIFIED fee of 189 sats (3.12% of spend)",
+            "tx_size_bytes": 82,
+            "is_rbf_able": True,
+            "locktime": 1973195,
+            "version": 2,
+            "is_testnet": None,
+            "tx_fee_sats": 189,
+            "total_input_sats": 6061,
+            "output_spend_sats": 5872,
+            "spend_addr": "bc1qt7hz93fd43ptgvs9emdmmapnjw4tukwxlfg2ll",
+            "inputs_desc": [
+                {
+                    "prev_txhash": "f9b583b38b4d1849716cd30720b910981850cbf511643d00cd690941614cd665",
+                    "prev_idx": 1,
+                    "n_sequence": 4294967293,
+                    "sats": 6061,
+                    "addr": "143479MmDUrRKeWqfxyjoe2zGbkQiUqktj",
+                }
+            ],
+            "outputs_desc": [
+                {
+                    "sats": 5872,
+                    "addr": "bc1qt7hz93fd43ptgvs9emdmmapnjw4tukwxlfg2ll",
+                    "addr_type": "P2WPKH",
+                }
+            ],
+        }
+        self.assertEqual(described_with_privkey, want)
+        described_without_privkey = psbt_obj.describe_p2pkh_sweep(privkey_obj=None)
+        self.assertEqual(described_without_privkey, want)
+
+        with self.assertRaises(SuspiciousTransaction):
+            psbt_obj.describe_p2pkh_sweep(
+                privkey_obj=PrivateKey(secret=1, testnet=True)
+            )
+
+    def test_psbt_multisig_describe_1of4(self):
         output_record = "wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"
         wsh_sortedmulti_result = parse_wshsortedmulti(output_record)
         wsh_sortedmulti_want = {
