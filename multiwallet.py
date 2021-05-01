@@ -362,11 +362,11 @@ def _get_units():
 def _print_footgun_warning(custom_str=""):
     to_print = [
         "Running in SAFE mode.",
-        "If you want to live dangerously, enter `(₿) advanced_mode true` in the main menu.",
+        "If you want to live dangerously, enter `(₿) advanced_mode` in the main menu.",
     ]
     if custom_str:
         to_print.append(custom_str)
-    print_blue("\n".join(to_print))
+    print_blue("\n".join(to_print) + "\n")
 
 
 #####################################################################
@@ -531,7 +531,7 @@ class MyPrompt(Cmd):
         blinded_key_record = f"[{xfp_hex}/{blinded_full_path[2:]}]{blinded_child_xpub}"
 
         explanation_msg = (
-            "Here is a blinded xpub key record to upload to your Coordinator. "
+            "Here is a blinded xpub key record to upload to your Coordinator.\n"
             "Create a multisig wallet with this blinded xpub and it will become a part of your account map (output descriptors).\n"
         )
         print_yellow(explanation_msg)
@@ -539,10 +539,11 @@ class MyPrompt(Cmd):
         print_green(blinded_key_record)
 
         warning_msg = (
-            "\nImportant notes:"
-            "\t- Do NOT share this record with the holder of the seed phrase, or they will be able to unblind their key."
-            "\t- Possesion of this xpub key record has privacy implications, but it alone CANNOT be used to sign bitcoin transactions."
-            "\t- Possesion of the original seed phrase (used to create the without this xpub key record, CANNOT be used to sign bitcoin transactions."
+            "\nImportant notes:",
+            "  - Do NOT share this record with the holder of the seed phrase, or they will be able to unblind their key (potentially leaking privacy info about what it controls).",
+            "  - Possesion of this blinded xpub key record has privacy implications, but it CANNOT alone be used to sign bitcoin transactions.",
+            "  - Possesion of the original seed phrase (used to create the original xpub key record), CANNOT alone be used to sign bitcoin transactions.",
+            "  - In order to spend from this blinded xpub, you must have BOTH the seed phrase AND the blinded xpub key record (which will be included in your account map before you can receive funds).\n",
         )
         print_yellow("\n".join(warning_msg))
 
@@ -745,18 +746,12 @@ class MyPrompt(Cmd):
         Toggle advanced mode features like passphrases, different BIP39 seed checksums, and non-standard BIP32 paths.
         WARNING: these features are for advanced users and could lead to loss of funds.
         """
-        if arg.lower() in ("1", "t", "true", "y", "yes", "on", "enable", "enabled"):
-            if self.ADVANCED_MODE:
-                print_red("ADVANCED mode already set, no changes")
-            else:
-                print_yellow("ADVANCED mode set, don't mess up!")
-                self.ADVANCED_MODE = True
+        if self.ADVANCED_MODE:
+            self.ADVANCED_MODE = False
+            print_yellow("SAFE mode set, your training wheels have been restored!")
         else:
-            if self.ADVANCED_MODE:
-                print_yellow("SAFE mode set, your training wheels have been restored!")
-                self.ADVANCED_MODE = False
-            else:
-                print_red("SAFE mode already set, no changes")
+            self.ADVANCED_MODE = True
+            print_yellow("ADVANCED mode set, don't mess up!")
 
     def do_debug(self, arg):
         """Print program settings for debug purposes"""
