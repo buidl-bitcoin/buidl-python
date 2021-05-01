@@ -8,7 +8,8 @@ from buidl.hd import (
     HDPrivateKey,
     is_valid_bip32_path,
     ltrim_path,
-    parse_key_record,
+    parse_full_key_record,
+    parse_partial_key_record,
     parse_wshsortedmulti,
 )
 from buidl.helper import encode_base58_checksum
@@ -572,15 +573,27 @@ class BIP32PathsTest(TestCase):
 
 
 class OutputRecordTest(TestCase):
-    def test_valid_key_record(self):
+    def test_valid_key_record_regular(self):
         key_record = "[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*"
-        results = parse_key_record(key_record)
+        results = parse_full_key_record(key_record)
         want = {
             "xfp": "c7d0648a",
             "path": "m/48h/1h/0h/2h",
             "xpub_parent": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr",
             "xpub_child": "tpubDHXhgZEb9KfoFAuPQ5X6nayFrgifHEb3EUAbbs3EvwboxjttP4ekmPPz4NPRDE7p3q87DQH2TbNyxUmYGf2GNiSTfXj4Q5CfVgrpZuDEsak",
             "index": 0,
+            "is_testnet": True,
+        }
+        self.assertEqual(results, want)
+
+    def test_valid_key_record_slip132(self):
+        # oil * 12
+        key_record = "[2a77e0a6/48h/1h/0h/2h]Vpub5mvQbnmqKfpPjWfAZEw5Xjdr6UjnjyZEirzrhNMSuKjL8Qfd3nqLBkrBrVXNeMgKCjPXbyLnSCn6qcD8fHQCkNnNLnkpQtY3sh4MHmywvbe"
+        results = parse_partial_key_record(key_record)
+        want = {
+            "xfp": "2a77e0a6",
+            "path": "m/48h/1h/0h/2h",
+            "xpub": "Vpub5mvQbnmqKfpPjWfAZEw5Xjdr6UjnjyZEirzrhNMSuKjL8Qfd3nqLBkrBrVXNeMgKCjPXbyLnSCn6qcD8fHQCkNnNLnkpQtY3sh4MHmywvbe",
             "is_testnet": True,
         }
         self.assertEqual(results, want)

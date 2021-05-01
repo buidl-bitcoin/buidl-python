@@ -11,13 +11,15 @@ from platform import platform
 from pkg_resources import DistributionNotFound, get_distribution
 
 import buidl  # noqa: F401 (used below with pkg_resources for versioning)
+from buidl.blinding import blind_xpub, secure_secret_path
 from buidl.hd import (
     calc_num_valid_seedpicker_checksums,
     calc_valid_seedpicker_checksums,
+    generate_wshsortedmulti_address,
     HDPrivateKey,
     HDPublicKey,
+    parse_partial_key_record,
     parse_wshsortedmulti,
-    generate_wshsortedmulti_address,
 )
 from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import BIP39
@@ -333,6 +335,19 @@ def _get_bip39_seed(is_testnet):
     return hd_priv
 
 
+def _get_key_record():
+    key_record_str = input(
+        blue_fg(
+            "Enter an xpub key record to blind in the format [deadbeef/path]xpub (any path will do): "
+        )
+    ).strip()
+    try:
+        return parse_partial_key_record(key_record_str=key_record_str)
+    except ValueError as e:
+        print_red(f"Could not parse entry: {e}")
+        return _get_key_record()
+
+
 def _get_units():
     # TODO: re-incorporate this into TX summary
     units = input(blue_fg("Units to diplay [BTC/sats]: ")).strip().lower()
@@ -342,6 +357,16 @@ def _get_units():
         return "sats"
     print_red("Please choose either BTC or sats")
     return units
+
+
+def _print_footgun_warning(custom_str=""):
+    to_print = [
+        "Running in SAFE mode.",
+        "If you want to live dangerously, enter `(₿) advanced_mode true` in the main menu.",
+    ]
+    if custom_str:
+        to_print.append(custom_str)
+    print_blue("\n".join(to_print))
 
 
 #####################################################################
@@ -373,9 +398,8 @@ class MyPrompt(Cmd):
         """Seedpicker implementation: calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
 
         if not self.ADVANCED_MODE:
-            print_blue(
-                "Running in SAFE mode.\n"
-                f"For advanced features like passphrases, different checksum indices, and custom paths, first run  `{self.prompt} advanced_mode true` in the main menu.\n"
+            _print_footgun_warning(
+                "This will enable passphrases, custom paths, and different checksum indices."
             )
 
         first_words = _get_bip39_firstwords()
@@ -468,6 +492,59 @@ class MyPrompt(Cmd):
                 ),
             ),
         )
+
+    def do_blind_xpub(self, arg):
+        """Blind an XPUB using a random BIP32 path. Experts only!"""
+
+        # Prevent footgun-ing
+        if not self.ADVANCED_MODE:
+            warning_msg = (
+                "Blinding an xpub must be performed correctly or you could lose funds!\n"
+                "Multiwallet supports the custom BIP32 paths needed, but few HWWs can sign on these paths.\n"
+                "Some can't even co-sign a multisig transaction with nonstandard BIP32 paths (even if their path is standard)"
+            )
+            _print_footgun_warning(warning_msg)
+            return
+
+        key_record_dict = _get_key_record()
+        xfp_hex = key_record_dict["xfp"]
+        starting_xpub = key_record_dict["xpub"]
+        starting_path = key_record_dict["path"]
+
+        # Get secret BIP32 path:
+        depth = _get_int(
+            "How deep of a BIP32 path would you like to use to blind this xpub?",
+            default=4,
+            minimum=1,
+            maximum=16,
+        )
+        secret_bip32_path = secure_secret_path(depth=depth)
+
+        print_blue(f"Generating BIP32 path with {31*depth} bits of good entropy...")
+        blinded_xpub_dict = blind_xpub(
+            starting_xpub=starting_xpub,
+            starting_path=starting_path,
+            secret_path=secret_bip32_path,
+        )
+        blinded_full_path = blinded_xpub_dict["blinded_full_path"]
+        blinded_child_xpub = blinded_xpub_dict["blinded_child_xpub"]
+        blinded_key_record = f"[{xfp_hex}/{blinded_full_path[2:]}]{blinded_child_xpub}"
+
+        explanation_msg = (
+            "Here is a blinded xpub key record to upload to your Coordinator. "
+            "Create a multisig wallet with this blinded xpub and it will become a part of your account map (output descriptors).\n"
+        )
+        print_yellow(explanation_msg)
+
+        print_green(blinded_key_record)
+
+        warning_msg = (
+            "\nImportant notes:"
+            "\t- Do NOT share this record with the holder of the seed phrase, or they will be able to unblind their key."
+            "\t- Possesion of this xpub key record has privacy implications, but it alone CANNOT be used to sign bitcoin transactions."
+            "\t- Possesion of the original seed phrase (used to create the without this xpub key record, CANNOT be used to sign bitcoin transactions."
+        )
+        print_yellow("\n".join(warning_msg))
 
     def do_recover_seed(self, arg):
         """Recover a seed from Shamir shares per SLIP39"""

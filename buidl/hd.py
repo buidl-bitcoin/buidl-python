@@ -663,14 +663,15 @@ def ltrim_path(bip32_path, depth):
     return "m/" + "/".join(to_return)
 
 
-def parse_key_record(key_record_str):
+def parse_full_key_record(key_record_str):
     """
-    A key record will look something like this:
+    A full key record will come from your Coordinator and include a reference to change derivation.
+    It will look something like this:
     [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*'
     """
 
     key_record_re = re.match(
-        r"\[([0-9a-f]{8})\*?(.*?)\]([0-9A-Za-z]+).*([0-9]+?)", key_record_str
+        r"\[([0-9a-f]{8})(.*?)\]([0-9A-Za-z]+)\/([0-9]+?)\/\*", key_record_str
     )
     if key_record_re is None:
         raise ValueError(f"Invalid key record: {key_record_str}")
@@ -688,16 +689,9 @@ def parse_key_record(key_record_str):
     if not is_valid_bip32_path(path):
         raise ValueError(f"Invalid BIP32 path {path} in key record: {key_record_str}")
 
-    xpub_prefix = xpub[:4]
-    if xpub_prefix == "tpub":
-        is_testnet = True
-    elif xpub_prefix == "xpub":
-        is_testnet = False
-    else:
-        raise ValueError(f"Invalid xpub prefix {xpub_prefix} in {xpub}")
-
     try:
         parent_pubkey_obj = HDPublicKey.parse(s=xpub)
+        is_testnet = parent_pubkey_obj.testnet
         xpub_child = parent_pubkey_obj.child(index=index_int).xpub()
     except ValueError:
         raise ValueError(f"Invalid xpub {xpub} in key record: {key_record_str}")
@@ -708,6 +702,41 @@ def parse_key_record(key_record_str):
         "xpub_parent": xpub,
         "index": index_int,
         "xpub_child": xpub_child,
+        "is_testnet": is_testnet,
+    }
+
+
+def parse_partial_key_record(key_record_str):
+    """
+    A partial key record will come from your Signer and include no references to change derivation.
+    It will look something like this:
+    [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr'
+    """
+
+    key_record_re = re.match(
+        r"\[([0-9a-f]{8})\*?(.*?)\]([0-9A-Za-z].*)", key_record_str
+    )
+    if key_record_re is None:
+        raise ValueError(f"Invalid key record: {key_record_str}")
+
+    xfp, path, xpub = key_record_re.groups()
+
+    # Note that we don't validate xfp because the regex already tells us it's good
+
+    path = "m" + path
+    if not is_valid_bip32_path(path):
+        raise ValueError(f"Invalid BIP32 path {path} in key record: {key_record_str}")
+
+    try:
+        pubkey_obj = HDPublicKey.parse(s=xpub)
+        is_testnet = pubkey_obj.testnet
+    except ValueError:
+        raise ValueError(f"Invalid xpub {xpub} in key record: {key_record_str}")
+
+    return {
+        "xfp": xfp,
+        "path": path,
+        "xpub": xpub,
         "is_testnet": is_testnet,
     }
 
@@ -735,9 +764,9 @@ def parse_wshsortedmulti(output_record):
 
     key_records = []
     for key_record_str in key_records_str.split(","):
-        # A key record will look something like this:
+        # A full key record will look something like this:
         # [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*'
-        key_records.append(parse_key_record(key_record_str))
+        key_records.append(parse_full_key_record(key_record_str))
 
     quorum_n_int = len(key_records)
 
