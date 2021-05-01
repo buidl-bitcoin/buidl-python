@@ -87,34 +87,24 @@ def _get_wif():
         return _get_wif()
 
 
-#####################################################################
-# PSBT Signer
-#####################################################################
-
-
-def _get_psbt_obj(is_testnet, addr):
-    network = "TESTNET" if is_testnet else "MAINNET"
-    print_yellow(
-        f"WIF entered corresponds to Expecting PSBT to spend inputs from {addr}"
-    )
+def _get_psbt_obj(is_testnet):
     psbt_b64 = input(
-        blue_fg(
-            f"To spend from {addr}, enter {network} PSBT (partially signed bitcoin transaction) in base64 format: "
-        )
+        blue_fg("Enter PSBT (Partially Signed Bitcoin Transaction) in base64 format: ")
     ).strip()
+
     if not psbt_b64:
-        return _get_psbt_obj(is_testnet, addr)
+        return _get_psbt_obj(is_testnet)
 
     try:
         psbt_obj = PSBT.parse_base64(psbt_b64, testnet=is_testnet)
     except Exception as e:
         print_red(f"Could not parse PSBT: {e}")
-        return _get_psbt_obj(is_testnet, addr)
+        return _get_psbt_obj(is_testnet)
 
     # redundant but explicit
     if psbt_obj.validate() is not True:
         print_red("PSBT does not validate")
-        return _get_psbt_obj(is_testnet, addr)
+        return _get_psbt_obj(is_testnet)
 
     return psbt_obj
 
@@ -133,7 +123,7 @@ def _abort(msg):
 
 class MyPrompt(Cmd):
     intro = (
-        "Welcome to singlesweep, a stateless single sig sweeper.\n"
+        "Welcome to singlesweep, a stateless single sig sweeper that works with WIF and PSBTs.\n"
         "Single sig is DANGEROUS, this is an emergency recovery tool with NO WARRANTY OF ANY KIND.\n"
         "It is often used for collecting funds from old paper wallets.\n"
         "Type help or ? to list commands.\n"
@@ -150,11 +140,16 @@ class MyPrompt(Cmd):
         # Users SHOULD only run this code on an airgap machine
         privkey_obj = _get_wif()
         is_testnet = privkey_obj.testnet
+
         # TODO: create a new helper method in pecc.py/cecc.py?
         expected_utxo_addr = privkey_obj.point.address(
             compressed=privkey_obj.compressed, testnet=is_testnet
         )
-        psbt_obj = _get_psbt_obj(is_testnet=is_testnet, addr=expected_utxo_addr)
+        print_yellow(
+            f'Will attempt to spend from {"TESTNET" if is_testnet else "MAINNET"} {expected_utxo_addr}'
+        )
+
+        psbt_obj = _get_psbt_obj(is_testnet=is_testnet)
         tx_obj = psbt_obj.tx_obj
 
         try:
@@ -187,7 +182,7 @@ class MyPrompt(Cmd):
             for cnt, input_desc in enumerate(psbt_described["inputs_desc"]):
                 to_print.append(f"  Input #{cnt}")
                 for k, v in input_desc.items():
-                    if k in "sats":
+                    if k == "sats":
                         # Comma separate ints
                         val = f"{v:,} (unverified)"
                     else:
@@ -219,7 +214,7 @@ class MyPrompt(Cmd):
 
         print_yellow(f"SIGNED TX {tx_obj.hash().hex()} has the following hex:\n")
         print_green(tx_obj.serialize().hex())
-        print_yellow("\nThis can be broadcast via:")
+        print_yellow("\nbYou can be broadcast this hex via:")
         print_yellow(" - Your bitcoin core node")
         print_yellow(
             ' - "pushtx" block explorers (Blockstream, BlockCypher, Blockchain.com, etc), mining pools, Electrum SPV network, etc'
