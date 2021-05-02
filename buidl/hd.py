@@ -775,17 +775,17 @@ def parse_wshsortedmulti(output_record):
             f"Malformed threshold {quorum_m_int}-of-{quorum_n_int} (m must be less than n) in {output_record}"
         )
 
-    # Remove testnet from key records (can just return it once at the parent output record level)
+    # Remove testnet from each key record (can just return it once at the parent output record level)
     # Confirm all key records are on the same network
-    output_is_testnet = key_records[0]["is_testnet"]
-    if not all(x.pop("is_testnet") for x in key_records):
+    networks_list = [x.pop("is_testnet") for x in key_records]
+    if len(set(networks_list)) != 1:
         raise ValueError(f"Multiple (conflicting) networks in pubkeys: {key_records}")
 
     return {
         "quorum_m": quorum_m_int,
         "quorum_n": quorum_n_int,
         "key_records": key_records,
-        "is_testnet": output_is_testnet,
+        "is_testnet": networks_list[0],
     }
 
 

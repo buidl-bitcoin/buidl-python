@@ -661,3 +661,14 @@ class OutputRecordTest(TestCase):
 
         receive_addrs = list(generate_wshsortedmulti_address(**kwargs, is_change=False))
         self.assertEqual(receive_addrs, expected_receive_addrs)
+
+    def test_invalid_p2wsh_sortedmulti(self):
+        # Notice the mix of xpub and tpub
+        output_record = """wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]xpub6ENtkZb1q4JLHBocpPeoQj8xGsQ1Y7Jnkc3Vm43LyPaQ7BfzkDeF3fzxt78SBELXc2PUNHPuVEdTaukwNRqqc8xFKjVXfQ4FpN6eKqe6y9E/0/*))#tatkmj5q"""
+
+        with self.assertRaises(ValueError) as fail:
+            parse_wshsortedmulti(output_record)
+
+        self.assertIn(
+            "Multiple (conflicting) networks in pubkeys: ", str(fail.exception)
+        )
