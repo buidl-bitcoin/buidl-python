@@ -622,7 +622,9 @@ class MyPrompt(Cmd):
             if cnt % 10 == 0:
                 print(".", end="", flush=True)
 
-        print_yellow(f"\nSuccesfully tested {'ALL ' if testing_limit == 12870 else ''}{cnt} combinations")
+        print_yellow(
+            f"\nSuccesfully tested {'ALL ' if testing_limit == 12870 else ''}{cnt} combinations"
+        )
 
         print("\n")
         share_mnemonics = "\n\n".join(shares)
