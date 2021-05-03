@@ -9,7 +9,6 @@ from itertools import combinations
 from os import environ
 from platform import platform
 from pkg_resources import DistributionNotFound, get_distribution
-from random import sample
 
 import buidl  # noqa: F401 (used below with pkg_resources for versioning)
 from buidl.blinding import blind_xpub, secure_secret_path
@@ -611,7 +610,6 @@ class MyPrompt(Cmd):
         print_yellow(
             "Testing share combinations to be certain they will recover your seed phrase"
         )
-        all_combos = list()
         for cnt, combo in enumerate(combinations(shares, k)):
             if cnt > testing_limit:
                 break
