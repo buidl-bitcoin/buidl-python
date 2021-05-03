@@ -611,15 +611,18 @@ class MyPrompt(Cmd):
         print_yellow(
             "Testing share combinations to be certain they will recover your seed phrase"
         )
-        all_combos = list(combinations(shares, k))
-        combos = sample(all_combos, min(testing_limit, len(all_combos)))
-        for cnt, combo in enumerate(combos):
+        all_combos = list()
+        for cnt, combo in enumerate(combinations(shares, k)):
+            if cnt > testing_limit:
+                break
             calculated = ShareSet.recover_mnemonic(combo, passphrase)
             if calculated != mnemonic:
                 # we should never reach this line
                 raise RuntimeError(f"Bad shares {calculated} for mnemonic {mnemonic}")
-            if cnt % 10:
+            if cnt % 10 == 0:
                 print(".", end="", flush=True)
+
+        print_yellow(f"\nSuccesfully tested {'ALL ' if testing_limit == 12870 else ''}{cnt} combinations")
 
         print("\n")
         share_mnemonics = "\n\n".join(shares)
