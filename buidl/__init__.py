@@ -14,5 +14,6 @@ from .op import *
 from .pbkdf2 import *
 from .psbt import *
 from .script import *
+from .shamir import *
 from .tx import *
 from .witness import *
