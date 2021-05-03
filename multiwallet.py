@@ -9,6 +9,7 @@ from itertools import combinations
 from os import environ
 from platform import platform
 from pkg_resources import DistributionNotFound, get_distribution
+from random import sample
 
 import buidl  # noqa: F401 (used below with pkg_resources for versioning)
 from buidl.blinding import blind_xpub, secure_secret_path
@@ -587,26 +588,39 @@ class MyPrompt(Cmd):
             maximum=16,
         )
         passphrase = b""
+        # Max possible combos is 12,870 (with 8-of-16)
+        testing_limit = 12870
         if self.ADVANCED_MODE:
             add_passphrase = _get_bool(
                 "Do you want to add a passphrase?", default=False
             )
             if add_passphrase:
                 passphrase = _get_confirmed_pw().encode("ascii")
+            if _get_bool(
+                "Do you want to limit how many of these shares you test (for faster results)?",
+                default=False,
+            ):
+                testing_limit = _get_int(
+                    "How many combinations would you like to test?",
+                    default=1000,
+                    minimum=k,
+                    maximum=testing_limit,
+                )
         shares = ShareSet.generate_shares(mnemonic, k, n, passphrase=passphrase)
         # test the shares (cap at 1000 combinations)
-        print("testing combinations...")
-        iterations = 0
-        for combo in combinations(shares, k):
-            iterations += 1
-            if iterations > 1000:
-                break
-            elif iterations % 10:
-                print(".", end="", flush=True)
+        print_yellow(
+            "Testing share combinations to be certain they will recover your seed phrase"
+        )
+        all_combos = list(combinations(shares, k))
+        combos = sample(all_combos, min(testing_limit, len(all_combos)))
+        for cnt, combo in enumerate(combos):
             calculated = ShareSet.recover_mnemonic(combo, passphrase)
             if calculated != mnemonic:
                 # we should never reach this line
                 raise RuntimeError(f"Bad shares {calculated} for mnemonic {mnemonic}")
+            if cnt % 10:
+                print(".", end="", flush=True)
+
         print("\n")
         share_mnemonics = "\n\n".join(shares)
         if passphrase:
