@@ -1,3 +1,6 @@
+#! /usr/bin/env bash
+
+set -o xtrace
 rm -rf .venv3/
 rm -rf dist/
 rm -rf build/
