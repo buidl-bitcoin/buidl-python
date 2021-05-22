@@ -1,0 +1,2 @@
+include buidl/bip39_words.txt
+include buidl/slip39_words.txt
