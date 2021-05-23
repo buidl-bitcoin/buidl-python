@@ -288,7 +288,8 @@ class HDPrivateKey:
             child_number=child_number,
             testnet=testnet,
             priv_version=priv_version,
-            pub_version=priv_version,
+            # HDPublicKey will handle its own versioning:
+            pub_version=None,
         )
 
     def _get_address(self, purpose, account=0, external=True, address=0):

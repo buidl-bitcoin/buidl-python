@@ -517,24 +517,29 @@ class HDTest(TestCase):
     def test_xpub_version(self):
         mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
         hd_obj = HDPrivateKey.from_mnemonic(mnemonic, testnet=True)
-        self.assertEqual(
-            hd_obj.xprv(),
-            "tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd",
-        )
-        self.assertEqual(
-            hd_obj.xpub(),
-            "tpubD6NzVbkrYhZ4XYa9MoLt4BiMZ4gkt2faZ4BcmKu2a9te4LDpQmvEz2L2yDERivHxFPnxXXhqDRkUNnQCpZggCyEZLBktV7VaSmwayqMJy1s",
-        )
+        tprv = "tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd"
+        tpub = "tpubD6NzVbkrYhZ4XYa9MoLt4BiMZ4gkt2faZ4BcmKu2a9te4LDpQmvEz2L2yDERivHxFPnxXXhqDRkUNnQCpZggCyEZLBktV7VaSmwayqMJy1s"
+
+        self.assertEqual(hd_obj.xprv(), tprv)
+        self.assertEqual(hd_obj.xpub(), tpub)
+
+        # parse this same HDPrivateKey from the tprv (assume we no longer have the mnemonic)
+        recreated_obj = HDPrivateKey.parse(tprv)
+        self.assertEqual(recreated_obj.xpub(), tpub)
+        # Confirm the version bytes have passed through correctly to the HDPublicKey object:
+        self.assertEqual(recreated_obj.pub.xpub(), tpub)
 
         hd_obj = HDPrivateKey.from_mnemonic(mnemonic, testnet=False)
-        self.assertEqual(
-            hd_obj.xprv(),
-            "xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu",
-        )
-        self.assertEqual(
-            hd_obj.xpub(),
-            "xpub661MyMwAqRbcFkPHucMnrGNzDwb6teAX1RbKQmqtEF8kK3Z7LZ59qafCjB9eCRLiTVG3uxBxgKvRgbubRhqSKXnGGb1aoaqLrpMBDrVxga8",
-        )
+        xprv = "xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu"
+        xpub = "xpub661MyMwAqRbcFkPHucMnrGNzDwb6teAX1RbKQmqtEF8kK3Z7LZ59qafCjB9eCRLiTVG3uxBxgKvRgbubRhqSKXnGGb1aoaqLrpMBDrVxga8"
+        self.assertEqual(hd_obj.xprv(), xprv)
+        self.assertEqual(hd_obj.xpub(), xpub)
+
+        # parse this same HDPrivateKey from the tprv (assume we no longer have the mnemonic)
+        recreated_obj = HDPrivateKey.parse(xprv)
+        self.assertEqual(recreated_obj.xpub(), xpub)
+        # Confirm the version bytes have passed through correctly to the HDPublicKey object:
+        self.assertEqual(recreated_obj.pub.xpub(), xpub)
 
 
 class BIP32PathsTest(TestCase):
