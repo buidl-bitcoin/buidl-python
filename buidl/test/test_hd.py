@@ -535,7 +535,7 @@ class HDTest(TestCase):
         self.assertEqual(hd_obj.xprv(), xprv)
         self.assertEqual(hd_obj.xpub(), xpub)
 
-        # parse this same HDPrivateKey from the tprv (assume we no longer have the mnemonic)
+        # parse this same HDPrivateKey from the xprv (assume we no longer have the mnemonic)
         recreated_obj = HDPrivateKey.parse(xprv)
         self.assertEqual(recreated_obj.xpub(), xpub)
         # Confirm the version bytes have passed through correctly to the HDPublicKey object:
