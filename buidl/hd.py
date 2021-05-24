@@ -675,7 +675,7 @@ def parse_full_key_record(key_record_str):
         r"\[([0-9a-f]{8})(.*?)\]([0-9A-Za-z]+)\/([0-9]+?)\/\*", key_record_str
     )
     if key_record_re is None:
-        raise ValueError(f"Invalid key record: {key_record_str}")
+        raise ValueError(f"Invalid full key record: {key_record_str}")
 
     xfp, path, xpub, index_str = key_record_re.groups()
 
@@ -718,7 +718,7 @@ def parse_partial_key_record(key_record_str):
         r"\[([0-9a-f]{8})\*?(.*?)\]([0-9A-Za-z].*)", key_record_str
     )
     if key_record_re is None:
-        raise ValueError(f"Invalid key record: {key_record_str}")
+        raise ValueError(f"Invalid partial key record: {key_record_str}")
 
     xfp, path, xpub = key_record_re.groups()
 
