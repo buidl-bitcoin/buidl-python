@@ -192,6 +192,9 @@ class HDPrivateKey:
         # accept path in uppercase and/or using h instead of '
         path = path.lower().replace("h", "'")
 
+        if not path.startswith("m"):
+            raise ValueError(f"Invalid Path: {path}")
+
         # keep track of the current node starting with self
         current = self
         # split up the path by the '/' splitter, ignore the first
@@ -488,6 +491,9 @@ class HDPublicKey:
     def traverse(self, path):
         """Returns the HDPublicKey at the path indicated.
         Path should be in the form of m/x/y/z."""
+
+        if not path.startswith("m"):
+            raise ValueError(f"Invalid Path: {path}")
 
         # accept path in uppercase and/or using h instead of '
         path = path.lower().replace("h", "'")
