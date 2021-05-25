@@ -400,7 +400,7 @@ class HDTest(TestCase):
         self.assertEqual(account0.xprv(), want)
         account0_pub = account0.pub
         account0_first_key = account0.child(0).child(0)
-        pub_first_key = account0_pub.traverse("/0/0")
+        pub_first_key = account0_pub.traverse("m/0/0")
         want = "cULrpoZGXiuC19Uhvykx7NugygA3k86b3hmdCeyvHYQZSxojGyXJ"
         self.assertEqual(account0_first_key.wif(), want)
         want = 0xC9BDB49CFBAEDCA21C4B1F3A7803C34636B1D7DC55A717132443FC3F4C5867E8
