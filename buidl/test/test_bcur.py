@@ -40,9 +40,12 @@ class SpecterDesktopTest(TestCase):
         self.assertEqual(bcur_single_obj.encoded, enc)
         self.assertEqual(bcur_single_obj.text_b64, psbt_b64)
         self.assertEqual(
-            bcur_single_obj.encode(use_checksum=True), f"ur:bytes/{enc_hash}/{enc}"
+            bcur_single_obj.encode(use_checksum=True),
+            f"ur:bytes/{enc_hash}/{enc}".upper(),
         )
-        self.assertEqual(bcur_single_obj.encode(use_checksum=False), f"ur:bytes/{enc}")
+        self.assertEqual(
+            bcur_single_obj.encode(use_checksum=False), f"ur:bytes/{enc}".upper()
+        )
 
         # Re-instantiate this object from the encoded version
         bcur_single_obj_2 = BCURSingle.parse(to_parse=f"ur:bytes/{enc}")
@@ -87,8 +90,8 @@ class BCURMultiTest(TestCase):
         ]
         for cnt, chunk in enumerate(chunks_calculated):
             self.assertEqual(
-                f"ur:bytes/{cnt+1}of{len(chunks_calculated)}/{checksum_expected}/{chunks_expected[cnt]}",
-                chunk,
+                f"ur:bytes/{cnt+1}of{len(chunks_calculated)}/{checksum_expected}/{chunks_expected[cnt]}".upper(),
+                chunk.upper(),
             )
 
         bcur_multi_obj = BCURMulti.parse(to_parse=chunks_calculated)
@@ -105,7 +108,7 @@ class ParseTest(TestCase):
         self.GOOD_ENCODED = "tyrukurnvf607qgqe5pqqqqqqsdasdzvck45x4ktrm5jg8nqvuxazw4zhrupuz5y63c9x32c8z7l7qqqqqqqpl0llll6uhht2jztjuekypk9gdsu307alw37afyjd2dzmzhue0g30634fyqqqqqqqq8allll7xd6tl5y20ta4k3wd9382m0kmfw4y5fp35c74rgjszstk72vqp08qqqqqqqqlhlllluhse9w6m4zy0h0t3c6slp6m6qxld8283t0fj2h3qrycf20g2dpfyqsqqqqqr7lllllq8y3"
 
     def test_valid_bcur_parse_single_yeschecksum(self):
-        bcur_string = f"ur:bytes/{self.GOOD_CHECKSUM}/{self.GOOD_ENCODED}"
+        bcur_string = f"ur:bytes/{self.GOOD_CHECKSUM}/{self.GOOD_ENCODED}".upper()
         payload_parsed, checksum_parsed, x, y = _parse_bcur_helper(bcur_string)
         self.assertEqual(x, 1)
         self.assertEqual(y, 1)
@@ -113,7 +116,7 @@ class ParseTest(TestCase):
         self.assertEqual(payload_parsed, self.GOOD_ENCODED)
 
     def test_valid_bcur_parse_single_nochecksum(self):
-        bcur_string = f"ur:bytes/{self.GOOD_ENCODED}"
+        bcur_string = f"ur:bytes/{self.GOOD_ENCODED}".upper()
         payload_parsed, checksum_parsed, x, y = _parse_bcur_helper(bcur_string)
         self.assertEqual(x, 1)
         self.assertEqual(y, 1)
@@ -121,7 +124,7 @@ class ParseTest(TestCase):
         self.assertEqual(payload_parsed, self.GOOD_ENCODED)
 
     def test_valid_bcur_parse_multi(self):
-        bcur_string = f"ur:bytes/2of8/{self.GOOD_CHECKSUM}/{self.GOOD_ENCODED}"
+        bcur_string = f"ur:bytes/2of8/{self.GOOD_CHECKSUM}/{self.GOOD_ENCODED}".upper()
         payload_parsed, checksum_parsed, x, y = _parse_bcur_helper(bcur_string)
         self.assertEqual(x, 2)
         self.assertEqual(y, 8)
@@ -155,8 +158,8 @@ class BCURSingleTest(TestCase):
         self.assertEqual(bcur_single_obj.encoded, "gd56dxsyew2w5")
 
         # Render with and without checksum
-        bcur_single_checksum = "ur:bytes/ysypyck5etagxt08hzn6vcnwam3lgupp0uhcs7n8pg0wmen32p3qate5eg/gd56dxsyew2w5"
-        bcur_single_nochecksum = "ur:bytes/gd56dxsyew2w5"
+        bcur_single_checksum = "ur:bytes/ysypyck5etagxt08hzn6vcnwam3lgupp0uhcs7n8pg0wmen32p3qate5eg/gd56dxsyew2w5".upper()
+        bcur_single_nochecksum = "ur:bytes/gd56dxsyew2w5".upper()
         self.assertEqual(
             bcur_single_obj.encode(use_checksum=True), bcur_single_checksum
         )

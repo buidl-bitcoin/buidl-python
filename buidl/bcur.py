@@ -126,9 +126,12 @@ class BCURSingle:
     def encode(self, use_checksum=True):
         # Single QR, no x-of-y
         if use_checksum:
-            return f"ur:bytes/{self.enc_hash}/{self.encoded}"
+            to_return = f"ur:bytes/{self.enc_hash}/{self.encoded}"
         else:
-            return f"ur:bytes/{self.encoded}"
+            to_return = f"ur:bytes/{self.encoded}"
+        # Specter-Desktop likes uppercase only
+        # https://github.com/cryptoadvance/specter-desktop/blob/master/src/cryptoadvance/specter/templates/includes/qr-scanner.html#L93-L101
+        return to_return.upper()
 
     @classmethod
     def parse(cls, to_parse):
