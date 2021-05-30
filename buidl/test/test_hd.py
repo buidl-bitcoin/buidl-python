@@ -1,8 +1,10 @@
 from unittest import TestCase
 
 from buidl.hd import (
+    calc_core_checksum,
     calc_num_valid_seedpicker_checksums,
     calc_valid_seedpicker_checksums,
+    generate_wshsortedmulti_descriptor,
     generate_wshsortedmulti_address,
     HDPublicKey,
     HDPrivateKey,
@@ -607,6 +609,7 @@ class OutputRecordTest(TestCase):
         output_record = """wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"""
         results = parse_wshsortedmulti(output_record)
         expected = {
+            "checksum": "tatkmj5q",
             "quorum_m": 1,
             "quorum_n": 4,
             "key_records": [
@@ -667,6 +670,16 @@ class OutputRecordTest(TestCase):
         receive_addrs = list(generate_wshsortedmulti_address(**kwargs, is_change=False))
         self.assertEqual(receive_addrs, expected_receive_addrs)
 
+        # Validate the checksum
+        checksum_calculated = calc_core_checksum(output_record[:-9])
+        self.assertEqual(checksum_calculated, expected["checksum"])  # "tatkmj5q"
+
+        # Validate the checksum from the parsed result
+        regenerated = generate_wshsortedmulti_descriptor(
+            quorum_m=1, key_records=expected["key_records"]
+        )
+        self.assertEqual(regenerated, output_record)
+
     def test_invalid_p2wsh_sortedmulti(self):
         # Notice the mix of xpub and tpub
         output_record = """wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]xpub6ENtkZb1q4JLHBocpPeoQj8xGsQ1Y7Jnkc3Vm43LyPaQ7BfzkDeF3fzxt78SBELXc2PUNHPuVEdTaukwNRqqc8xFKjVXfQ4FpN6eKqe6y9E/0/*))#tatkmj5q"""
@@ -677,3 +690,27 @@ class OutputRecordTest(TestCase):
         self.assertIn(
             "Multiple (conflicting) networks in pubkeys: ", str(fail.exception)
         )
+
+    def test_p2wsh_1_of_2_generation(self):
+        TESTNET_DEFAULT_PATH = "m/48h/1h/0h/2h"
+        # https://github.com/satoshilabs/slips/blob/master/slip-0132.md
+        TESTNET_VERSION_BYTE = bytes.fromhex("043587cf")
+
+        key_records = []
+        for mnenmonic in ("invest ", "sell "):
+            hd_priv_obj = HDPrivateKey.from_mnemonic(mnenmonic * 12)
+            xfp_hex = hd_priv_obj.fingerprint().hex()
+            xpub = hd_priv_obj.traverse(path=TESTNET_DEFAULT_PATH).xpub(
+                TESTNET_VERSION_BYTE
+            )
+            key_records.append(
+                {
+                    "xfp": xfp_hex,
+                    "path": TESTNET_DEFAULT_PATH,
+                    "xpub_parent": xpub,
+                }
+            )
+
+        result = generate_wshsortedmulti_descriptor(quorum_m=1, key_records=key_records)
+        expected = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9/0/*))#t0v98kwu"
+        self.assertEqual(expected, result)

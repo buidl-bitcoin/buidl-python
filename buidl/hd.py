@@ -6,6 +6,7 @@ from buidl.ecc import N, PrivateKey, S256Point
 from buidl.helper import (
     big_endian_to_int,
     byte_to_int,
+    calc_core_checksum,
     encode_base58_checksum,
     hmac_sha512,
     hmac_sha512_kdf,
@@ -717,7 +718,7 @@ def parse_partial_key_record(key_record_str):
     """
     A partial key record will come from your Signer and include no references to change derivation.
     It will look something like this:
-    [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr'
+    [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr
     """
 
     key_record_re = re.match(
@@ -788,12 +789,45 @@ def parse_wshsortedmulti(output_record):
     if len(set(networks_list)) != 1:
         raise ValueError(f"Multiple (conflicting) networks in pubkeys: {key_records}")
 
+    calculated_checksum = calc_core_checksum(output_record.split("#")[0])
+    if calculated_checksum != checksum:
+        raise ValueError(
+            f"Inconsistent checksum: {calculated_checksum} not in {output_record}"
+        )
+
     return {
+        "checksum": checksum,
         "quorum_m": quorum_m_int,
         "quorum_n": quorum_n_int,
         "key_records": key_records,
         "is_testnet": networks_list[0],
     }
+
+
+def generate_wshsortedmulti_descriptor(quorum_m, key_records):
+    if type(quorum_m) is not int:
+        raise ValueError(f"quorum_m must be an int: {quorum_m}")
+
+    if len(key_records) < 2:
+        raise ValueError(
+            f"Multisig requires >1 key records, but you only supplied {len(key_records)}"
+        )
+
+    to_return = f"wsh(sortedmulti({quorum_m}"
+
+    for key_record in key_records:
+        account_idx = key_record.get("index", 0)
+        if type(account_idx) is not int:
+            raise ValueError(f"Account Index is not of type int: {account_idx}")
+        to_append = f",[{key_record['xfp']}{key_record['path'][1:]}]{key_record['xpub_parent']}/{account_idx}/*"
+        to_return += to_append
+
+    to_return += "))"
+
+    # Calculate the checksum
+    checksum = calc_core_checksum(to_return)
+    to_return += f"#{checksum}"
+    return to_return
 
 
 def generate_wshsortedmulti_address(
