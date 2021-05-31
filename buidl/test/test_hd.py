@@ -1,18 +1,13 @@
 from unittest import TestCase
 
 from buidl.hd import (
-    calc_core_checksum,
     calc_num_valid_seedpicker_checksums,
     calc_valid_seedpicker_checksums,
-    generate_wshsortedmulti_descriptor,
-    generate_wshsortedmulti_address,
     HDPublicKey,
     HDPrivateKey,
     is_valid_bip32_path,
+    is_valid_xfp_hex,
     ltrim_path,
-    parse_full_key_record,
-    parse_partial_key_record,
-    parse_wshsortedmulti,
 )
 from buidl.helper import encode_base58_checksum
 from buidl.mnemonic import BIP39, InvalidBIP39Length, InvalidChecksumWordsError
@@ -579,138 +574,18 @@ class BIP32PathsTest(TestCase):
             ltrim_path("m/", 1)
 
 
-class OutputRecordTest(TestCase):
-    def test_valid_key_record_regular(self):
-        key_record = "[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*"
-        results = parse_full_key_record(key_record)
-        want = {
-            "xfp": "c7d0648a",
-            "path": "m/48h/1h/0h/2h",
-            "xpub_parent": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr",
-            "xpub_child": "tpubDHXhgZEb9KfoFAuPQ5X6nayFrgifHEb3EUAbbs3EvwboxjttP4ekmPPz4NPRDE7p3q87DQH2TbNyxUmYGf2GNiSTfXj4Q5CfVgrpZuDEsak",
-            "index": 0,
-            "is_testnet": True,
-        }
-        self.assertEqual(results, want)
+class SeedFingerprintTest(TestCase):
+    def test_valid_xfps(self):
+        self.assertTrue(is_valid_xfp_hex("a" * 8))
+        self.assertTrue(is_valid_xfp_hex("abcdef01"))
+        self.assertTrue(is_valid_xfp_hex("01234567"))
+        self.assertTrue(is_valid_xfp_hex("deadbeef"))
 
-    def test_valid_key_record_slip132(self):
-        # oil * 12
-        key_record = "[2a77e0a6/48h/1h/0h/2h]Vpub5mvQbnmqKfpPjWfAZEw5Xjdr6UjnjyZEirzrhNMSuKjL8Qfd3nqLBkrBrVXNeMgKCjPXbyLnSCn6qcD8fHQCkNnNLnkpQtY3sh4MHmywvbe"
-        results = parse_partial_key_record(key_record)
-        want = {
-            "xfp": "2a77e0a6",
-            "path": "m/48h/1h/0h/2h",
-            "xpub": "Vpub5mvQbnmqKfpPjWfAZEw5Xjdr6UjnjyZEirzrhNMSuKjL8Qfd3nqLBkrBrVXNeMgKCjPXbyLnSCn6qcD8fHQCkNnNLnkpQtY3sh4MHmywvbe",
-            "is_testnet": True,
-        }
-        self.assertEqual(results, want)
-
-    def test_valid_p2wsh_sortedmulti(self):
-        output_record = """wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"""
-        results = parse_wshsortedmulti(output_record)
-        expected = {
-            "checksum": "tatkmj5q",
-            "quorum_m": 1,
-            "quorum_n": 4,
-            "key_records": [
-                {
-                    "xfp": "c7d0648a",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr",
-                    "index": 0,
-                    "xpub_child": "tpubDHXhgZEb9KfoFAuPQ5X6nayFrgifHEb3EUAbbs3EvwboxjttP4ekmPPz4NPRDE7p3q87DQH2TbNyxUmYGf2GNiSTfXj4Q5CfVgrpZuDEsak",
-                },
-                {
-                    "xfp": "12980eed",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae",
-                    "index": 0,
-                    "xpub_child": "tpubDGveumaKzgjigcr9Csv3n5bgwMA41rNiENgxwakQwxheD691uQ69UnVD3ZR7D64fS3gmUoxHuh8xoAJ93zi83AJGbL1cEJwqkbUPFphPaYs",
-                },
-                {
-                    "xfp": "3a52b5cd",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s",
-                    "index": 0,
-                    "xpub_child": "tpubDHEnEGFC357XqivEUbzD15biuf36dRMtgxZXud9MBQnJrWDWgMFfx4rjUma4rS47ncaqg3zz1TR6kCDjPNXC6rDn3XMTatKUFbu1cTbY6UX",
-                },
-                {
-                    "xfp": "f7d04090",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp",
-                    "index": 0,
-                    "xpub_child": "tpubDG6BBVZUnpyL78b8u9StfjLCv6BdTDHQDqPKTeEpAAVAjcMHsjusoUP2ayZi5ZRvZpqo6Cp9E3oQMvq9dMe5KGYJht72rnaxaqfSU3KjnjJ",
-                },
-            ],
-            "is_testnet": True,
-        }
-        self.assertEqual(results, expected)
-
-        kwargs = {
-            "quorum_m": expected["quorum_m"],
-            "key_records": expected["key_records"],
-            "is_testnet": expected["is_testnet"],
-            "limit": 3,
-        }
-
-        expected_change_addrs = [
-            "tb1qf454te8pvz4txevejg8s8tx5kkyfxgtkpg6tu5xphnyf6l2gcjss5zw0jx",
-            "tb1q0lh5an3hep9s57c5xkpyv0yldy825kzzwt888u0qfnu3nqkndrqqjuajuj",
-            "tb1qcklg00ymx85x7f5vzll3zypd2epywdxmhx05k7395e470pth8g8qvh62kw",
+    def test_invalid_xfps(self):
+        invalid_xfps = [
+            "a" * 7,
+            "a" * 9,
+            "hello123",
         ]
-        expected_receive_addrs = [
-            "tb1qlrjv2ek09g9aplga83j9mfvelnt6qymen9gd49kpezdz2g5pgwnsfmrucp",
-            "tb1qn2xhgxqxqcs8cl36f7efgg7jvreus4x6959hnc6mfmygnz435dksa39ygr",
-            "tb1q2lzh628dmylpf9gr869lgyq9fcc9xqat7unpumnmmn5nph6447cs40k7mw",
-        ]
-
-        change_addrs = list(generate_wshsortedmulti_address(**kwargs, is_change=True))
-        self.assertEqual(change_addrs, expected_change_addrs)
-
-        receive_addrs = list(generate_wshsortedmulti_address(**kwargs, is_change=False))
-        self.assertEqual(receive_addrs, expected_receive_addrs)
-
-        # Validate the checksum
-        checksum_calculated = calc_core_checksum(output_record[:-9])
-        self.assertEqual(checksum_calculated, expected["checksum"])  # "tatkmj5q"
-
-        # Validate the checksum from the parsed result
-        regenerated = generate_wshsortedmulti_descriptor(
-            quorum_m=1, key_records=expected["key_records"]
-        )
-        self.assertEqual(regenerated, output_record)
-
-    def test_invalid_p2wsh_sortedmulti(self):
-        # Notice the mix of xpub and tpub
-        output_record = """wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]xpub6ENtkZb1q4JLHBocpPeoQj8xGsQ1Y7Jnkc3Vm43LyPaQ7BfzkDeF3fzxt78SBELXc2PUNHPuVEdTaukwNRqqc8xFKjVXfQ4FpN6eKqe6y9E/0/*))#tatkmj5q"""
-
-        with self.assertRaises(ValueError) as fail:
-            parse_wshsortedmulti(output_record)
-
-        self.assertIn(
-            "Multiple (conflicting) networks in pubkeys: ", str(fail.exception)
-        )
-
-    def test_p2wsh_1_of_2_generation(self):
-        TESTNET_DEFAULT_PATH = "m/48h/1h/0h/2h"
-        # https://github.com/satoshilabs/slips/blob/master/slip-0132.md
-        TESTNET_VERSION_BYTE = bytes.fromhex("043587cf")
-
-        key_records = []
-        for mnenmonic in ("invest ", "sell "):
-            hd_priv_obj = HDPrivateKey.from_mnemonic(mnenmonic * 12)
-            xfp_hex = hd_priv_obj.fingerprint().hex()
-            xpub = hd_priv_obj.traverse(path=TESTNET_DEFAULT_PATH).xpub(
-                TESTNET_VERSION_BYTE
-            )
-            key_records.append(
-                {
-                    "xfp": xfp_hex,
-                    "path": TESTNET_DEFAULT_PATH,
-                    "xpub_parent": xpub,
-                }
-            )
-
-        result = generate_wshsortedmulti_descriptor(quorum_m=1, key_records=key_records)
-        expected = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9/0/*))#t0v98kwu"
-        self.assertEqual(expected, result)
+        for invalid in invalid_xfps:
+            self.assertFalse(is_valid_xfp_hex(invalid))

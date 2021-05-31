@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="buidl",
-    version="0.2.16",
+    version="0.2.17",
     author="Example Author",
     author_email="author@example.com",
     description="An easy-to-use and fully featured bitcoin library written in pure python (no dependencies).",
@@ -15,7 +15,7 @@ setup(
     url="https://github.com/buidl-bitcoin/buidl-python",
     packages=find_packages(),
     include_package_data=True,  # https://stackoverflow.com/a/56689053
-    scripts=["multiwallet.py"],  # hack to not require installation
+    scripts=["multiwallet.py", "singlesweep.py"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
