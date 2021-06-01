@@ -39,8 +39,8 @@ class MultiwalletTest(unittest.TestCase):
             # HACK
             # self.child.expect() doesn't work as expected because the prompts take place in the middle of a line
             self.child.readline()
-            res = str(self.child.read(42))
-            self.assertIn("Use Mainnet? [y/N]", res)
+            res = str(self.child.read(35))
+            self.assertIn("Use Mainnet?", res)
             self.child.sendline(is_mainnet)
             self.child.expect("Last word: bacon")
             for _ in range(5):
