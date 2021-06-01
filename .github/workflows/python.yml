@@ -35,6 +35,3 @@ jobs:
     - name: pytest unit tests
       run: |
         pytest -v buidl/test
-    - name: pytest multiwallet end-to-end testing
-      run: |
-        pytest -v test_multiwallet.py
