@@ -3,7 +3,7 @@ import unittest
 import pexpect
 
 
-class MyTest(unittest.TestCase):
+class MultiwalletTest(unittest.TestCase):
     def setUp(self):
         self.child = pexpect.spawn("python3 multiwallet.py", timeout=2)
         self.child.expect(
