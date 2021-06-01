@@ -226,6 +226,14 @@ class P2WSHSortedMulti:
     def __repr__(self):
         return self.descriptor_text + "#" + self.checksum
 
+    @property
+    def quorum_n(self):
+        return len(self.key_records)
+
+    @property
+    def m_of_n(self):
+        return f"{self.quorum_m}-of-{self.quorum_n}"
+
     @classmethod
     def parse(cls, output_record):
         # Fix strange slashes that some software (Specter-Desktop) may export

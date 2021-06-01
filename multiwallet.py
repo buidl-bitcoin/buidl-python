@@ -12,14 +12,12 @@ from pkg_resources import DistributionNotFound, get_distribution
 
 import buidl  # noqa: F401 (used below with pkg_resources for versioning)
 from buidl.blinding import blind_xpub, secure_secret_path
+from buidl.descriptor import P2WSHSortedMulti, parse_partial_key_record
 from buidl.hd import (
     calc_num_valid_seedpicker_checksums,
     calc_valid_seedpicker_checksums,
-    generate_wshsortedmulti_address,
     HDPrivateKey,
     HDPublicKey,
-    parse_partial_key_record,
-    parse_wshsortedmulti,
 )
 from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import BIP39
@@ -205,19 +203,21 @@ class WordCompleter:
 
 
 #####################################################################
-# Verify Receive Address
+# Output Descriptors
 #####################################################################
 
 
-def _get_output_record():
-    output_record = input(
-        blue_fg("Paste in your output record (collection of output descriptors): ")
-    ).strip()
-    try:
-        return parse_wshsortedmulti(output_record=output_record)
-    except Exception as e:
-        print_red(f"Could not parse output descriptor: {e}")
-        return _get_output_record()
+def get_p2wsh_sortedmulti():
+    while True:
+        output_record = input(
+            blue_fg("Paste in your account map (AKA output record): ")
+        ).strip()
+        try:
+            return P2WSHSortedMulti.parse(output_record=output_record)
+        except Exception as e:
+            print_red(f"Could not parse output descriptor: {e}")
+            if "wsh(sortedmulti(" not in output_record.lower():
+                print_red("It should start with wsh(sortedmulti(... ")
 
 
 #####################################################################
@@ -374,7 +374,7 @@ def _print_footgun_warning(custom_str=""):
 #####################################################################
 
 
-class MyPrompt(Cmd):
+class MultiWallet(Cmd):
     ADVANCED_MODE = environ.get("ADVANCED_MODE", "").lower() in (
         "1",
         "t",
@@ -391,8 +391,8 @@ class MyPrompt(Cmd):
     )
     prompt = "(₿) "  # the bitcoin symbol :)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, stdin=sys.stdin, stdout=sys.stdout):
+        Cmd.__init__(self, stdin=stdin, stdout=stdout)
 
     def do_generate_seed(self, arg):
         """Seedpicker implementation: calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
@@ -635,7 +635,7 @@ class MyPrompt(Cmd):
 
     def do_receive(self, arg):
         """Verify receive addresses for a multisig wallet using output descriptors (from Specter-Desktop)"""
-        output_record = _get_output_record()
+        p2wsh_sortedmulti_obj = get_p2wsh_sortedmulti()
         limit = _get_int(
             prompt="Limit of addresses to display",
             # This is slow without libsecp256k1:
@@ -656,21 +656,17 @@ class MyPrompt(Cmd):
                 default=True,
             )
 
-        to_print = f"{output_record['quorum_m']}-of-{output_record['quorum_n']} Multisig {'Change' if is_change else 'Receive'} Addresses"
+        to_print = f"{p2wsh_sortedmulti_obj.m_of_n} Multisig {'Change' if is_change else 'Receive'} Addresses"
         if not is_libsec_enabled():
             to_print += "\n(this is ~100x faster if you install libsec)"
         print_yellow(to_print + ":")
-        generator = generate_wshsortedmulti_address(
-            quorum_m=output_record["quorum_m"],
-            key_records=output_record["key_records"],
-            is_testnet=output_record["is_testnet"],
-            is_change=is_change,
-            offset=offset,
-            limit=limit,
-        )
-        cnt = 0
-        for cnt, address in enumerate(generator):
-            print_green(f"#{cnt + offset}: {address}")
+        for cnt in range(limit):
+            offset_to_use = offset + cnt
+            address = p2wsh_sortedmulti_obj.get_address(
+                is_change=is_change,
+                offset=offset_to_use,
+            )
+            print_green(f"#{offset_to_use}: {address}")
 
     def do_send(self, arg):
         """Sign a multisig PSBT using 1 of your BIP39 seed phrases. Can also be used to just inspect a TX and not sign it."""
@@ -681,11 +677,11 @@ class MyPrompt(Cmd):
 
         # Unfortunately, there is no way to validate change without having the hdpubkey_map
         # TODO: make version where users can enter this later (after manually approving the transaction)?
-        output_record = _get_output_record()
+        p2wsh_sortedmulti_obj = get_p2wsh_sortedmulti()
         psbt_obj = _get_psbt_obj()
 
         hdpubkey_map = {}
-        for key_record in output_record["key_records"]:
+        for key_record in p2wsh_sortedmulti_obj.key_records:
             hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
                 key_record["xpub_parent"]
             )
@@ -792,6 +788,6 @@ class MyPrompt(Cmd):
 
 if __name__ == "__main__":
     try:
-        MyPrompt().cmdloop()
+        MultiWallet().cmdloop()
     except KeyboardInterrupt:
         print_yellow("\nNo data saved")
