@@ -5,7 +5,7 @@ import pexpect
 
 class MultiwalletTest(unittest.TestCase):
     def setUp(self):
-        self.child = pexpect.spawn("python3 multiwallet.py", timeout=2)
+        self.child = pexpect.spawn("python3 multiwallet.py", timeout=5)
         self.child.expect(
             "Welcome to multiwallet, the stateless multisig bitcoin wallet"
         )
