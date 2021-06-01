@@ -5,7 +5,7 @@ import pexpect
 
 class MultiwalletTest(unittest.TestCase):
     def setUp(self):
-        self.child = pexpect.spawn("python3 multiwallet.py", timeout=5, encoding='utf-8')
+        self.child = pexpect.spawnu("python3 multiwallet.py", timeout=5)
         self.child.expect(
             "Welcome to multiwallet, the stateless multisig bitcoin wallet"
         )
@@ -145,6 +145,6 @@ class MultiwalletTest(unittest.TestCase):
     def test_fail(self):
         # This has to take some seconds to fail
         # TODO: find a way to make this optional (default to no because slow)
-        mw = pexpect.spawn("python3 multiwallet.py", timeout=2, encoding='utf-8')
+        mw = pexpect.spawnu("python3 multiwallet.py", timeout=2)
         with self.assertRaises(pexpect.exceptions.TIMEOUT):
             mw.expect("this text should not match")
