@@ -1,7 +1,7 @@
 import re
 
 from buidl.hd import HDPublicKey, is_valid_bip32_path, is_valid_xfp_hex
-from buidl.helper import is_intable, sha256
+from buidl.helper import sha256
 from buidl.op import OP_CODE_NAMES_LOOKUP
 from buidl.script import P2WSHScriptPubKey, WitnessScript
 
@@ -72,11 +72,7 @@ def parse_full_key_record(key_record_str):
         raise ValueError(f"Invalid key record: {key_record_str}")
 
     xfp, path, xpub, index_str = key_record_re.groups()
-
-    # Note that we don't validate xfp because the regex already tells us it's good
-
-    if not is_intable(index_str):
-        raise ValueError(f"Invalid index {index_str} in key record: {key_record_str}")
+    # Note that we don't validate xfp/index because the regex already tells us they're composed of ints
 
     index_int = int(index_str)
 
@@ -115,8 +111,7 @@ def parse_partial_key_record(key_record_str):
         raise ValueError(f"Invalid key record: {key_record_str}")
 
     xfp, path, xpub = key_record_re.groups()
-
-    # Note that we don't validate xfp because the regex already tells us it's good
+    # Note that we don't validate xfp because the regex already tells us it's hex
 
     path = "m" + path
     if not is_valid_bip32_path(path):
@@ -259,8 +254,6 @@ class P2WSHSortedMulti:
                 err_msg += "\n\nPerhaps try again this with no checksum (no #foo at the end of your output_record)?"
                 raise ValueError(err_msg)
 
-        if not is_intable(quorum_m_str):
-            raise ValueError(f"m in m-of-n must be an int: {quorum_m_str}")
         quorum_m_int = int(quorum_m_str)
 
         key_records = []
