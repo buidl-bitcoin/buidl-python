@@ -45,6 +45,9 @@ ALL_TESTNET_XPUBS = {
     for x in ["043587cf", "044a5262", "045f1cf6", "024289ef", "02575483"]
 }
 
+MAINNET_DEFAULT_P2WSH_PATH = "m/48h/0h/0h/2h"
+TESTNET_DEFAULT_P2WSH_PATH = "m/48h/1h/0h/2h"
+
 
 class HDPrivateKey:
     def __init__(
@@ -391,6 +394,49 @@ class HDPrivateKey:
         password is for the mnemonic."""
         mnemonic = ShareSet.recover_mnemonic(share_mnemonics, passphrase)
         return cls.from_mnemonic(mnemonic, password, path, testnet)
+
+    def generate_p2wsh_key_record(self, bip32_path=None, use_slip132_version_byte=True):
+        """
+        Convenience method for generating a public key_record to supply to your Coordinator software.
+
+        We default use_slip132_version_byte to unamiguously communicate the network to Specter-Desktop.
+        """
+        # Check that we're using the root HDPrivateKey
+        if self.depth != 0:
+            raise ValueError(
+                "Key depth != 0. Please supply the root HDPrivateKey to use this method."
+            )
+        if self.parent_fingerprint != b"\x00\x00\x00\x00":
+            raise ValueError(
+                "Parent fingerprint != the zero byte. Please supply the root HDPrivateKey to use this method."
+            )
+        if self.child_number != 0:
+            raise ValueError(
+                "child_number != 0. Please supply the root HDPrivateKey to use this method."
+            )
+        if bip32_path is not None and not is_valid_bip32_path(bip32_path):
+            raise ValueError(f"bip32_path {bip32_path} is not valid")
+
+        if use_slip132_version_byte:
+            # https://github.com/satoshilabs/slips/blob/master/slip-0132.md
+            if self.testnet:
+                version_byte = bytes.fromhex("02575483")
+            else:
+                version_byte = bytes.fromhex("02aa7ed3")
+        else:
+            version_byte = None  # buidl will automatically pick between xpub/tpub
+
+        if bip32_path is None:
+            if self.testnet:
+                bip32_path = TESTNET_DEFAULT_P2WSH_PATH
+            else:
+                bip32_path = MAINNET_DEFAULT_P2WSH_PATH
+        else:
+            # make the standard h instead of ' for consistency
+            bip32_path = bip32_path.replace("'", "h")
+
+        xpub = self.traverse(bip32_path).xpub(version=version_byte)
+        return f"[{self.fingerprint().hex()}/{bip32_path[2:]}]{xpub}"
 
 
 class HDPublicKey:
