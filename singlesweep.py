@@ -65,48 +65,49 @@ def _get_bool(prompt, default=True):
     else:
         yn = "[y/N]"
 
-    response_str = input(blue_fg(f"{prompt} {yn}: ")).strip().lower()
-    if response_str == "":
-        return default
-    if response_str in ("n", "no"):
-        return False
-    if response_str in ("y", "yes"):
-        return True
-    print_red("Please choose either y or n")
-    return _get_bool(prompt=prompt, default=default)
+    while True:
+        response_str = input(blue_fg(f"{prompt} {yn}: ")).strip().lower()
+        if response_str == "":
+            return default
+        if response_str in ("n", "no"):
+            return False
+        if response_str in ("y", "yes"):
+            return True
+        print_red("Please choose either y or n")
 
 
 def _get_wif():
-    wif = getpass(
-        prompt=blue_fg("Enter WIF (Wallet Import Format) to use for signing: ")
-    ).strip()
-    try:
-        return PrivateKey.parse(wif)
-    except Exception as e:
-        print_red(f"Could not parse WIF: {e}")
-        return _get_wif()
+    prompt = blue_fg("Enter WIF (Wallet Import Format) to use for signing: ")
+    while True:
+        wif = getpass(prompt=prompt).strip()
+        try:
+            return PrivateKey.parse(wif)
+        except Exception as e:
+            print_red(f"Could not parse WIF: {e}")
 
 
 def _get_psbt_obj(is_testnet):
-    psbt_b64 = input(
-        blue_fg("Enter PSBT (Partially Signed Bitcoin Transaction) in base64 format: ")
-    ).strip()
+    psbt_prompt = blue_fg(
+        "Paste partially signed bitcoin transaction (PSBT) in base64 form: "
+    )
+    while True:
+        psbt_b64 = input(psbt_prompt).strip()
 
-    if not psbt_b64:
-        return _get_psbt_obj(is_testnet)
+        if not psbt_b64:
+            continue
 
-    try:
-        psbt_obj = PSBT.parse_base64(psbt_b64, testnet=is_testnet)
-    except Exception as e:
-        print_red(f"Could not parse PSBT: {e}")
-        return _get_psbt_obj(is_testnet)
+        try:
+            psbt_obj = PSBT.parse_base64(psbt_b64, testnet=is_testnet)
+        except Exception as e:
+            print_red(f"Could not parse PSBT: {e}")
+            continue
 
-    # redundant but explicit
-    if psbt_obj.validate() is not True:
-        print_red("PSBT does not validate")
-        return _get_psbt_obj(is_testnet)
+        # redundant but explicit
+        if psbt_obj.validate() is not True:
+            print_red("PSBT does not validate")
+            continue
 
-    return psbt_obj
+        return psbt_obj
 
 
 def _abort(msg):
@@ -133,7 +134,7 @@ class MyPrompt(Cmd):
     def __init__(self):
         super().__init__()
 
-    def do_send(self, arg):
+    def do_sweep(self, arg):
         """Sign a single-sig PSBT sweep transaction (1 output) using 1 WIF."""
 
         # We ask for this upfront so we can infer the network from it (PSBT doesn't have network info)
@@ -168,7 +169,7 @@ class MyPrompt(Cmd):
                 f"Total Input Sats Consumed: {psbt_described['total_input_sats']:,} (unverified)"
             )
             to_print.append(
-                f"Total Output Sats Created: {psbt_described['output_spend_sats']:,} (unverified)"
+                f"Total Output Sats Created: {psbt_described['output_spend_sats']:,}"
             )
             to_print.append(f"Lock Time: {psbt_described['locktime']:,}")
             to_print.append(
@@ -214,7 +215,7 @@ class MyPrompt(Cmd):
 
         print_yellow(f"SIGNED TX {tx_obj.hash().hex()} has the following hex:\n")
         print_green(tx_obj.serialize().hex())
-        print_yellow("\nbYou can be broadcast this hex via:")
+        print_yellow("\nYou can be broadcast this hex via:")
         print_yellow(" - Your bitcoin core node")
         print_yellow(
             ' - "pushtx" block explorers (Blockstream, BlockCypher, Blockchain.com, etc), mining pools, Electrum SPV network, etc'
