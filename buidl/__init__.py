@@ -4,6 +4,7 @@ from .bech32 import *
 from .blinding import *
 from .block import *
 from .bloomfilter import *
+from .descriptor import *
 from .ecc import *
 from .hd import *
 from .helper import *

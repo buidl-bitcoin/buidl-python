@@ -12,14 +12,12 @@ from pkg_resources import DistributionNotFound, get_distribution
 
 import buidl  # noqa: F401 (used below with pkg_resources for versioning)
 from buidl.blinding import blind_xpub, secure_secret_path
+from buidl.descriptor import P2WSHSortedMulti, parse_partial_key_record
 from buidl.hd import (
     calc_num_valid_seedpicker_checksums,
     calc_valid_seedpicker_checksums,
-    generate_wshsortedmulti_address,
     HDPrivateKey,
     HDPublicKey,
-    parse_partial_key_record,
-    parse_wshsortedmulti,
 )
 from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import BIP39
@@ -82,35 +80,28 @@ def _get_buidl_version():
 
 
 def _get_int(prompt, default=20, minimum=0, maximum=None):
-    res = input(blue_fg(f"{prompt} [{default}]: ")).strip()
-    if not res:
-        res = str(default)
-    try:
-        res_int = int(res)
-    except ValueError:
-        print_red(f"{res} is not an integer")
-        return _get_int(
-            prompt=prompt,
-            default=default,
-            minimum=minimum,
-            maximum=maximum,
-        )
+    while True:
+        res = input(blue_fg(f"{prompt} [{default}]: ")).strip()
+        if not res:
+            res = str(default)
+        try:
+            res_int = int(res)
+        except ValueError:
+            print_red(f"{res} is not an integer")
+            continue
 
-    if maximum is not None:
-        if not minimum <= res_int <= maximum:
-            print_red(
-                f"Please pick a number between {minimum} and {maximum} (inclusive)"
-            )
-            return _get_int(
-                prompt=prompt, default=default, minimum=minimum, maximum=maximum
-            )
-    elif res_int < minimum:
-        print_red(f"Please pick a number >= {minimum}")
-        return _get_int(
-            prompt=prompt, default=default, minimum=minimum, maximum=maximum
-        )
+        if maximum is not None:
+            if not minimum <= res_int <= maximum:
+                print_red(
+                    f"Please pick a number between {minimum} and {maximum} (inclusive)"
+                )
+                continue
 
-    return res_int
+        if res_int < minimum:
+            print_red(f"Please pick an integer >= {minimum}")
+            continue
+
+        return res_int
 
 
 def _get_bool(prompt, default=True):
@@ -119,38 +110,39 @@ def _get_bool(prompt, default=True):
     else:
         yn = "[y/N]"
 
-    response_str = input(blue_fg(f"{prompt} {yn}: ")).strip().lower()
-    if response_str == "":
-        return default
-    if response_str in ("n", "no"):
-        return False
-    if response_str in ("y", "yes"):
-        return True
-    print_red("Please choose either y or n")
-    return _get_bool(prompt=prompt, default=default)
+    while True:
+        response_str = input(blue_fg(f"{prompt} {yn}: ")).strip().lower()
+        if response_str == "":
+            return default
+        if response_str in ("n", "no"):
+            return False
+        if response_str in ("y", "yes"):
+            return True
+        print_red("Please choose either y or n")
 
 
 def _get_path_string():
-    res = input(blue_fg('Path to use (should start with "m/"): ')).strip().lower()
-    if not res.startswith("m/"):
-        print_red(f'Invalid path "{res}" must start with "m/")')
-        return _get_path_string()
-    if res == "m/":
-        # TODO: support this?
-        print_red("Empty path (must have a depth of > 0): m/somenumberhere")
-        return _get_path_string()
-    for sub_path in res.split("/")[1:]:
-        if sub_path.endswith("'") or sub_path.endswith("h"):
-            # Trim trailing hardening indicator
-            sub_path_cleaned = sub_path[:-1]
-        else:
-            sub_path_cleaned = sub_path
-        try:
-            int(sub_path_cleaned)
-        except Exception:
-            print_red(f"Invalid Path Section: {sub_path}")
-            return _get_path_string()
-    return res.replace("h", "'")
+    while True:
+        res = input(blue_fg('Path to use (should start with "m/"): ')).strip().lower()
+        if not res.startswith("m/"):
+            print_red(f'Invalid path "{res}" must start with "m/")')
+            continue
+        if res == "m/":
+            # TODO: support this?
+            print_red("Empty path (must have a depth of > 0): m/somenumberhere")
+            continue
+        for sub_path in res.split("/")[1:]:
+            if sub_path.endswith("'") or sub_path.endswith("h"):
+                # Trim trailing hardening indicator
+                sub_path_cleaned = sub_path[:-1]
+            else:
+                sub_path_cleaned = sub_path
+            try:
+                int(sub_path_cleaned)
+            except Exception:
+                print_red(f"Invalid Path Section: {sub_path}")
+                continue
+        return res.replace("h", "'")
 
 
 def _get_path(is_testnet):
@@ -171,18 +163,19 @@ def _get_path(is_testnet):
 
 
 def _get_confirmed_pw():
-    first = getpass(prompt=blue_fg("Enter custom passphrase: "))
-    if first.strip() != first:
-        print_red(
-            "Leading/trailing spaces in passphrases are not supported. "
-            "Please use an unambiguous passphrase."
-        )
-        return _get_confirmed_pw()
-    second = getpass(prompt=blue_fg("Confirm custom passphrase: "))
-    if first != second:
-        print_red("Passphrases don't match, please try again.")
-        return _get_confirmed_pw()
-    return first
+    while True:
+        first = getpass(prompt=blue_fg("Enter custom passphrase: "))
+        if first.strip() != first:
+            print_red(
+                "Leading/trailing spaces in passphrases are not supported. "
+                "Please use an unambiguous passphrase."
+            )
+            continue
+        second = getpass(prompt=blue_fg("Confirm custom passphrase: "))
+        if first != second:
+            print_red("Passphrases don't match, please try again.")
+            continue
+        return first
 
 
 def _get_password():
@@ -205,19 +198,21 @@ class WordCompleter:
 
 
 #####################################################################
-# Verify Receive Address
+# Output Descriptors
 #####################################################################
 
 
-def _get_output_record():
-    output_record = input(
-        blue_fg("Paste in your output record (collection of output descriptors): ")
-    ).strip()
-    try:
-        return parse_wshsortedmulti(output_record=output_record)
-    except Exception as e:
-        print_red(f"Could not parse output descriptor: {e}")
-        return _get_output_record()
+def get_p2wsh_sortedmulti():
+    while True:
+        output_record = input(
+            blue_fg("Paste in your account map (AKA output record): ")
+        ).strip()
+        try:
+            return P2WSHSortedMulti.parse(output_record=output_record)
+        except Exception as e:
+            print_red(f"Could not parse output descriptor: {e}")
+            if "wsh(sortedmulti(" not in output_record.lower():
+                print_red("It should start with wsh(sortedmulti(... ")
 
 
 #####################################################################
@@ -228,24 +223,28 @@ def _get_output_record():
 def _get_bip39_firstwords():
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=BIP39)
-
     readline.set_completer(completer.complete)
-    fw = input(blue_fg("Enter the first 23 words of your BIP39 seed phrase: ")).strip()
-    fw_num = len(fw.split())
-    if fw_num not in (11, 14, 17, 20, 23):
-        # TODO: 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for advanced users
-        print_red(
-            f"You entered {fw_num} words. "
-            "We recommend 23 words, but advanced users may enter 11, 14, 17 or 20 words."
-        )
-        return _get_bip39_firstwords()
-    for cnt, word in enumerate(fw.split()):
-        if word not in BIP39:
-            print_red(f"Word #{cnt+1} ({word} is not a valid BIP39 word")
-            return _get_bip39_firstwords()
+    while True:
+        fw = input(
+            blue_fg("Enter the first 23 words of your BIP39 seed phrase: ")
+        ).strip()
+        fw_num = len(fw.split())
 
-    readline.set_completer(old_completer)
-    return fw
+        if fw_num not in (11, 14, 17, 20, 23):
+            # TODO: 11, 14, 17, or 20 word seed phrases also work but this is not documented as it's for advanced users
+            print_red(
+                f"You entered {fw_num} words. "
+                "We recommend 23 words, but advanced users may enter 11, 14, 17 or 20 words."
+            )
+            continue
+
+        for cnt, word in enumerate(fw.split()):
+            if word not in BIP39:
+                print_red(f"Word #{cnt+1} ({word} is not a valid BIP39 word")
+                continue
+
+        readline.set_completer(old_completer)
+        return fw
 
 
 #####################################################################
@@ -254,45 +253,48 @@ def _get_bip39_firstwords():
 
 
 def _get_psbt_obj():
-    psbt_b64 = input(
-        blue_fg("Paste partially signed bitcoin transaction (PSBT) in base64 form: ")
-    ).strip()
-    if not psbt_b64:
-        return _get_psbt_obj()
+    psbt_prompt = blue_fg(
+        "Paste partially signed bitcoin transaction (PSBT) in base64 form: "
+    )
+    while True:
+        psbt_b64 = input(psbt_prompt).strip()
 
-    try:
-        # Attempt to infer network from BIP32 paths
-        psbt_obj = PSBT.parse_base64(psbt_b64, testnet=None)
-        if psbt_obj.testnet:
-            use_testnet = _get_bool(
-                prompt="Transaction appears to be a testnet transaction. Display as testnet?",
-                default=True,
-            )
-        else:
+        if not psbt_b64:
+            continue
+
+        try:
+            # Attempt to infer network from BIP32 paths
+            psbt_obj = PSBT.parse_base64(psbt_b64, testnet=None)
+            if psbt_obj.testnet:
+                use_testnet = _get_bool(
+                    prompt="Transaction appears to be a testnet transaction. Display as testnet?",
+                    default=True,
+                )
+            else:
+                use_testnet = not _get_bool(
+                    prompt="Transaction appears to be a mainnet transaction. Display as mainnet?",
+                    default=True,
+                )
+            if psbt_obj.testnet != use_testnet:
+                psbt_obj = PSBT.parse_base64(psbt_b64, testnet=use_testnet)
+
+        except MixedNetwork:
             use_testnet = not _get_bool(
-                prompt="Transaction appears to be a mainnet transaction. Display as mainnet?",
+                prompt="Cannot infer PSBT network from BIP32 paths. Use Mainnet?",
                 default=True,
             )
-        if psbt_obj.testnet != use_testnet:
             psbt_obj = PSBT.parse_base64(psbt_b64, testnet=use_testnet)
 
-    except MixedNetwork:
-        use_testnet = not _get_bool(
-            prompt="Cannot infer PSBT network from BIP32 paths. Use Mainnet?",
-            default=True,
-        )
-        psbt_obj = PSBT.parse_base64(psbt_b64, testnet=use_testnet)
+        except Exception as e:
+            print_red(f"Could not parse PSBT: {e}")
+            continue
 
-    except Exception as e:
-        print_red(f"Could not parse PSBT: {e}")
-        return _get_psbt_obj()
+        # redundant but explicit
+        if psbt_obj.validate() is not True:
+            print_red("PSBT does not validate")
+            continue
 
-    # redundant but explicit
-    if psbt_obj.validate() is not True:
-        print_red("PSBT does not validate")
-        return _get_psbt_obj()
-
-    return psbt_obj
+        return psbt_obj
 
 
 def _abort(msg):
@@ -305,58 +307,62 @@ def _abort(msg):
 def _get_bip39_seed(is_testnet):
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=BIP39)
-
     readline.set_completer(completer.complete)
-    seed_phrase = input(blue_fg("Enter your full BIP39 seed phrase: ")).strip()
-    seed_phrase_num = len(seed_phrase.split())
-    if seed_phrase_num not in (12, 15, 18, 21, 24):
-        print_red(
-            f"You entered {seed_phrase_num} words. "
-            "By default seed phrases are 24 words long, but advanced users may have seed phrases that are 12, 15, 18 or 21 words long."
-        )
-        # Other length seed phrases also work but this is not documented as it's for advanced users
-        return _get_bip39_seed(is_testnet=is_testnet)
-    for cnt, word in enumerate(seed_phrase.split()):
-        if word not in BIP39:
-            print_red(f"Word #{cnt+1} ({word}) is not a valid BIP39 word")
-            return _get_bip39_seed(is_testnet=is_testnet)
-    try:
-        _ = HDPrivateKey.from_mnemonic(mnemonic=seed_phrase, testnet=is_testnet)
 
-        password = _get_password()
-        hd_priv = HDPrivateKey.from_mnemonic(
-            mnemonic=seed_phrase, testnet=is_testnet, password=password.encode()
-        )
-    except Exception as e:
-        print_red(f"Invalid mnemonic: {e}")
-        return _get_bip39_seed(is_testnet=is_testnet)
+    bip39_prompt = blue_fg("Enter your full BIP39 seed phrase: ")
+    while True:
+        seed_phrase = input(bip39_prompt).strip()
+        seed_phrase_num = len(seed_phrase.split())
 
-    readline.set_completer(old_completer)
-    return hd_priv
+        if seed_phrase_num not in (12, 15, 18, 21, 24):
+            # Other length seed phrases also work but this is not documented as it's for advanced users
+            print_red(
+                f"You entered {seed_phrase_num} words. "
+                "By default seed phrases should be 24 words long (advanced users may enter seed phrases that are 12, 15, 18 or 21 words long)."
+            )
+            continue
+
+        for cnt, word in enumerate(seed_phrase.split()):
+            if word not in BIP39:
+                print_red(f"Word #{cnt+1} ({word}) is not a valid BIP39 word")
+                continue
+        try:
+            HDPrivateKey.from_mnemonic(mnemonic=seed_phrase, testnet=is_testnet)
+
+            password = _get_password()
+            hd_priv = HDPrivateKey.from_mnemonic(
+                mnemonic=seed_phrase, testnet=is_testnet, password=password.encode()
+            )
+        except Exception as e:
+            print_red(f"Invalid mnemonic: {e}")
+            continue
+
+        readline.set_completer(old_completer)
+        return hd_priv
 
 
 def _get_key_record():
-    key_record_str = input(
-        blue_fg(
-            "Enter an xpub key record to blind in the format [deadbeef/path]xpub (any path will do): "
-        )
-    ).strip()
-    try:
-        return parse_partial_key_record(key_record_str=key_record_str)
-    except ValueError as e:
-        print_red(f"Could not parse entry: {e}")
-        return _get_key_record()
+    key_record_prompt = blue_fg(
+        "Enter an xpub key record to blind in the format [deadbeef/path]xpub (any path will do): "
+    )
+    while True:
+        key_record_str = input(key_record_prompt).strip()
+        try:
+            return parse_partial_key_record(key_record_str=key_record_str)
+        except ValueError as e:
+            print_red(f"Could not parse entry: {e}")
+            continue
 
 
 def _get_units():
     # TODO: re-incorporate this into TX summary
-    units = input(blue_fg("Units to diplay [BTC/sats]: ")).strip().lower()
-    if units in ("", "btc", "btcs", "bitcoin", "bitcoins"):
-        return "btc"
-    if units in ("sat", "satoshis", "sats"):
-        return "sats"
-    print_red("Please choose either BTC or sats")
-    return units
+    prompt = blue_fg("Units to diplay [BTC/sats]: ")
+    while True:
+        units = input(prompt).strip().lower()
+        if units in ("", "btc", "btcs", "bitcoin", "bitcoins"):
+            return "btc"
+        if units in ("sat", "satoshis", "sats"):
+            return "sats"
 
 
 def _print_footgun_warning(custom_str=""):
@@ -374,7 +380,7 @@ def _print_footgun_warning(custom_str=""):
 #####################################################################
 
 
-class MyPrompt(Cmd):
+class MultiWallet(Cmd):
     ADVANCED_MODE = environ.get("ADVANCED_MODE", "").lower() in (
         "1",
         "t",
@@ -391,8 +397,8 @@ class MyPrompt(Cmd):
     )
     prompt = "(₿) "  # the bitcoin symbol :)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, stdin=sys.stdin, stdout=sys.stdout):
+        Cmd.__init__(self, stdin=stdin, stdout=stdout)
 
     def do_generate_seed(self, arg):
         """Seedpicker implementation: calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
@@ -543,8 +549,8 @@ class MyPrompt(Cmd):
         warning_msg = (
             "\nImportant notes:",
             "  - Do NOT share this record with the holder of the seed phrase, or they will be able to unblind their key (potentially leaking privacy info about what it controls).",
-            "  - Possesion of this blinded xpub key record has privacy implications, but it CANNOT alone be used to sign bitcoin transactions.",
-            "  - Possesion of the original seed phrase (used to create the original xpub key record), CANNOT alone be used to sign bitcoin transactions.",
+            "  - Possession of this blinded xpub key record has privacy implications, but it CANNOT alone be used to sign bitcoin transactions.",
+            "  - Possession of the original seed phrase (used to create the original xpub key record), CANNOT alone be used to sign bitcoin transactions.",
             "  - In order to spend from this blinded xpub, you must have BOTH the seed phrase AND the blinded xpub key record (which will be included in your account map before you can receive funds).\n",
         )
         print_yellow("\n".join(warning_msg))
@@ -635,7 +641,7 @@ class MyPrompt(Cmd):
 
     def do_receive(self, arg):
         """Verify receive addresses for a multisig wallet using output descriptors (from Specter-Desktop)"""
-        output_record = _get_output_record()
+        p2wsh_sortedmulti_obj = get_p2wsh_sortedmulti()
         limit = _get_int(
             prompt="Limit of addresses to display",
             # This is slow without libsecp256k1:
@@ -656,21 +662,17 @@ class MyPrompt(Cmd):
                 default=True,
             )
 
-        to_print = f"{output_record['quorum_m']}-of-{output_record['quorum_n']} Multisig {'Change' if is_change else 'Receive'} Addresses"
+        to_print = f"{p2wsh_sortedmulti_obj.m_of_n} Multisig {'Change' if is_change else 'Receive'} Addresses"
         if not is_libsec_enabled():
             to_print += "\n(this is ~100x faster if you install libsec)"
         print_yellow(to_print + ":")
-        generator = generate_wshsortedmulti_address(
-            quorum_m=output_record["quorum_m"],
-            key_records=output_record["key_records"],
-            is_testnet=output_record["is_testnet"],
-            is_change=is_change,
-            offset=offset,
-            limit=limit,
-        )
-        cnt = 0
-        for cnt, address in enumerate(generator):
-            print_green(f"#{cnt + offset}: {address}")
+        for cnt in range(limit):
+            offset_to_use = offset + cnt
+            address = p2wsh_sortedmulti_obj.get_address(
+                is_change=is_change,
+                offset=offset_to_use,
+            )
+            print_green(f"#{offset_to_use}: {address}")
 
     def do_send(self, arg):
         """Sign a multisig PSBT using 1 of your BIP39 seed phrases. Can also be used to just inspect a TX and not sign it."""
@@ -681,11 +683,11 @@ class MyPrompt(Cmd):
 
         # Unfortunately, there is no way to validate change without having the hdpubkey_map
         # TODO: make version where users can enter this later (after manually approving the transaction)?
-        output_record = _get_output_record()
+        p2wsh_sortedmulti_obj = get_p2wsh_sortedmulti()
         psbt_obj = _get_psbt_obj()
 
         hdpubkey_map = {}
-        for key_record in output_record["key_records"]:
+        for key_record in p2wsh_sortedmulti_obj.key_records:
             hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
                 key_record["xpub_parent"]
             )
@@ -792,6 +794,6 @@ class MyPrompt(Cmd):
 
 if __name__ == "__main__":
     try:
-        MyPrompt().cmdloop()
+        MultiWallet().cmdloop()
     except KeyboardInterrupt:
         print_yellow("\nNo data saved")

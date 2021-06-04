@@ -1,12 +1,9 @@
-import re
-
 from io import BytesIO
 
 from buidl.ecc import N, PrivateKey, S256Point
 from buidl.helper import (
     big_endian_to_int,
     byte_to_int,
-    calc_core_checksum,
     encode_base58_checksum,
     hmac_sha512,
     hmac_sha512_kdf,
@@ -14,7 +11,6 @@ from buidl.helper import (
     int_to_byte,
     is_intable,
     raw_decode_base58,
-    sha256,
 )
 from buidl.mnemonic import (
     BIP39,
@@ -22,8 +18,6 @@ from buidl.mnemonic import (
     secure_mnemonic,
     mnemonic_to_bytes,
 )
-from buidl.op import OP_CODE_NAMES_LOOKUP
-from buidl.script import P2WSHScriptPubKey, WitnessScript
 from buidl.shamir import ShareSet
 
 # https://github.com/satoshilabs/slips/blob/master/slip-0132.md
@@ -669,196 +663,3 @@ def ltrim_path(bip32_path, depth):
 
     to_return = path.split("/")[depth + 1 :]
     return "m/" + "/".join(to_return)
-
-
-def parse_full_key_record(key_record_str):
-    """
-    A full key record will come from your Coordinator and include a reference to change derivation.
-    It will look something like this:
-    [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*'
-    """
-
-    key_record_re = re.match(
-        r"\[([0-9a-f]{8})(.*?)\]([0-9A-Za-z]+)\/([0-9]+?)\/\*", key_record_str
-    )
-    if key_record_re is None:
-        raise ValueError(f"Invalid key record: {key_record_str}")
-
-    xfp, path, xpub, index_str = key_record_re.groups()
-
-    # Note that we don't validate xfp because the regex already tells us it's good
-
-    if not is_intable(index_str):
-        raise ValueError(f"Invalid index {index_str} in key record: {key_record_str}")
-
-    index_int = int(index_str)
-
-    path = "m" + path
-    if not is_valid_bip32_path(path):
-        raise ValueError(f"Invalid BIP32 path {path} in key record: {key_record_str}")
-
-    try:
-        parent_pubkey_obj = HDPublicKey.parse(s=xpub)
-        is_testnet = parent_pubkey_obj.testnet
-        xpub_child = parent_pubkey_obj.child(index=index_int).xpub()
-    except ValueError:
-        raise ValueError(f"Invalid xpub {xpub} in key record: {key_record_str}")
-
-    return {
-        "xfp": xfp,
-        "path": path,
-        "xpub_parent": xpub,
-        "index": index_int,
-        "xpub_child": xpub_child,
-        "is_testnet": is_testnet,
-    }
-
-
-def parse_partial_key_record(key_record_str):
-    """
-    A partial key record will come from your Signer and include no references to change derivation.
-    It will look something like this:
-    [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr
-    """
-
-    key_record_re = re.match(
-        r"\[([0-9a-f]{8})\*?(.*?)\]([0-9A-Za-z].*)", key_record_str
-    )
-    if key_record_re is None:
-        raise ValueError(f"Invalid key record: {key_record_str}")
-
-    xfp, path, xpub = key_record_re.groups()
-
-    # Note that we don't validate xfp because the regex already tells us it's good
-
-    path = "m" + path
-    if not is_valid_bip32_path(path):
-        raise ValueError(f"Invalid BIP32 path {path} in key record: {key_record_str}")
-
-    try:
-        pubkey_obj = HDPublicKey.parse(s=xpub)
-        is_testnet = pubkey_obj.testnet
-    except ValueError:
-        raise ValueError(f"Invalid xpub {xpub} in key record: {key_record_str}")
-
-    return {
-        "xfp": xfp,
-        "path": path,
-        "xpub": xpub,
-        "is_testnet": is_testnet,
-    }
-
-
-def parse_wshsortedmulti(output_record):
-    """
-    TODO: generalize this to all output records and not just wsh sortedmulti?
-    """
-    # Fix strange slashes that some software (Specter-Desktop) may use
-    output_record = output_record.strip().replace(r"\/", "/")
-
-    # Regex match the string
-    re_output_results = re.match(
-        r".*wsh\(sortedmulti\(([0-9]*),(.*)\)\)\#([qpzry9x8gf2tvdw0s3jn54khce6mua7l]{8}).*",
-        output_record,
-    )
-    if re_output_results is None:
-        raise ValueError(f"Not a valid wsh sortedmulti: {output_record}")
-
-    quorum_m_str, key_records_str, checksum = re_output_results.groups()
-
-    if not is_intable(quorum_m_str):
-        raise ValueError(f"m in m-of-n must be an int: {quorum_m_str}")
-    quorum_m_int = int(quorum_m_str)
-
-    key_records = []
-    for key_record_str in key_records_str.split(","):
-        # A full key record will look something like this:
-        # [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*'
-        key_records.append(parse_full_key_record(key_record_str))
-
-    quorum_n_int = len(key_records)
-
-    if quorum_m_int > quorum_n_int:
-        raise ValueError(
-            f"Malformed threshold {quorum_m_int}-of-{quorum_n_int} (m must be less than n) in {output_record}"
-        )
-
-    # Remove testnet from each key record (can just return it once at the parent output record level)
-    # Confirm all key records are on the same network
-    networks_list = [x.pop("is_testnet") for x in key_records]
-    if len(set(networks_list)) != 1:
-        raise ValueError(f"Multiple (conflicting) networks in pubkeys: {key_records}")
-
-    calculated_checksum = calc_core_checksum(output_record.split("#")[0])
-    if calculated_checksum != checksum:
-        raise ValueError(
-            f"Inconsistent checksum: {calculated_checksum} not in {output_record}"
-        )
-
-    return {
-        "checksum": checksum,
-        "quorum_m": quorum_m_int,
-        "quorum_n": quorum_n_int,
-        "key_records": key_records,
-        "is_testnet": networks_list[0],
-    }
-
-
-def generate_wshsortedmulti_descriptor(quorum_m, key_records):
-    if type(quorum_m) is not int:
-        raise ValueError(f"quorum_m must be an int: {quorum_m}")
-
-    if len(key_records) < 2:
-        raise ValueError(
-            f"Multisig requires >1 key records, but you only supplied {len(key_records)}"
-        )
-
-    to_return = f"wsh(sortedmulti({quorum_m}"
-
-    for key_record in key_records:
-        account_idx = key_record.get("index", 0)
-        if type(account_idx) is not int:
-            raise ValueError(f"Account Index is not of type int: {account_idx}")
-        to_append = f",[{key_record['xfp']}{key_record['path'][1:]}]{key_record['xpub_parent']}/{account_idx}/*"
-        to_return += to_append
-
-    to_return += "))"
-
-    # Calculate the checksum
-    checksum = calc_core_checksum(to_return)
-    to_return += f"#{checksum}"
-    return to_return
-
-
-def generate_wshsortedmulti_address(
-    quorum_m, key_records, is_testnet, is_change=False, offset=0, limit=5
-):
-    """
-    Generator to return (nearly) infinite valid addresses.
-
-    If is_change=True, then we display change addresses.
-    If is_change=False we display receive addresses.
-    If you set a limit, it will eventually return.
-
-    As a generator, you must iterate through it with your own loop or using next()
-    """
-    cnt = 0
-    while cnt < limit:
-        sec_hexes_to_use = []
-        for key_record in key_records:
-            hdpubkey = HDPublicKey.parse(key_record["xpub_parent"])
-            if is_change is True:
-                account = key_record["index"] + 1
-            else:
-                account = key_record["index"]
-            leaf_xpub = hdpubkey.child(account).child(cnt + offset)
-            sec_hexes_to_use.append(leaf_xpub.sec().hex())
-
-        commands = [OP_CODE_NAMES_LOOKUP["OP_{}".format(quorum_m)]]
-        commands.extend([bytes.fromhex(x) for x in sorted(sec_hexes_to_use)])  # BIP67
-        commands.append(OP_CODE_NAMES_LOOKUP["OP_{}".format(len(key_records))])
-        commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
-        witness_script = WitnessScript(commands)
-        redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
-        yield redeem_script.address(testnet=is_testnet)
-        cnt += 1

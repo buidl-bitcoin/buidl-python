@@ -4,7 +4,8 @@ from unittest import TestCase
 from io import BytesIO
 
 from buidl.ecc import PrivateKey
-from buidl.hd import HDPrivateKey, HDPublicKey, parse_wshsortedmulti
+from buidl.descriptor import P2WSHSortedMulti
+from buidl.hd import HDPrivateKey, HDPublicKey
 from buidl.helper import serialize_binary_path, encode_varstr, SIGHASH_ALL, read_varstr
 from buidl.psbt import PSBT, MixedNetwork, NamedHDPublicKey, SuspiciousTransaction
 from buidl.script import RedeemScript, Script, WitnessScript
@@ -638,48 +639,12 @@ class PSBTTest(TestCase):
             )
 
     def test_psbt_multisig_describe_1of4(self):
-        output_record = "wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"
-        wsh_sortedmulti_result = parse_wshsortedmulti(output_record)
-        wsh_sortedmulti_want = {
-            "checksum": "tatkmj5q",
-            "quorum_m": 1,
-            "quorum_n": 4,
-            "key_records": [
-                {
-                    "xfp": "c7d0648a",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr",
-                    "index": 0,
-                    "xpub_child": "tpubDHXhgZEb9KfoFAuPQ5X6nayFrgifHEb3EUAbbs3EvwboxjttP4ekmPPz4NPRDE7p3q87DQH2TbNyxUmYGf2GNiSTfXj4Q5CfVgrpZuDEsak",
-                },
-                {
-                    "xfp": "12980eed",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae",
-                    "index": 0,
-                    "xpub_child": "tpubDGveumaKzgjigcr9Csv3n5bgwMA41rNiENgxwakQwxheD691uQ69UnVD3ZR7D64fS3gmUoxHuh8xoAJ93zi83AJGbL1cEJwqkbUPFphPaYs",
-                },
-                {
-                    "xfp": "3a52b5cd",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s",
-                    "index": 0,
-                    "xpub_child": "tpubDHEnEGFC357XqivEUbzD15biuf36dRMtgxZXud9MBQnJrWDWgMFfx4rjUma4rS47ncaqg3zz1TR6kCDjPNXC6rDn3XMTatKUFbu1cTbY6UX",
-                },
-                {
-                    "xfp": "f7d04090",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp",
-                    "index": 0,
-                    "xpub_child": "tpubDG6BBVZUnpyL78b8u9StfjLCv6BdTDHQDqPKTeEpAAVAjcMHsjusoUP2ayZi5ZRvZpqo6Cp9E3oQMvq9dMe5KGYJht72rnaxaqfSU3KjnjJ",
-                },
-            ],
-            "is_testnet": True,
-        }
-        self.assertEqual(wsh_sortedmulti_result, wsh_sortedmulti_want)
+        valid_output_record = "wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"
+        # This is already parsed in test_descriptor.py, so not duplicating that here
+        p2wsh_sortedmulti_obj = P2WSHSortedMulti.parse(valid_output_record)
 
         hdpubkey_map = {}
-        for key_record in wsh_sortedmulti_result["key_records"]:
+        for key_record in p2wsh_sortedmulti_obj.key_records:
             hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
                 key_record["xpub_parent"]
             )
@@ -887,41 +852,14 @@ class PSBTTest(TestCase):
         self.assertEqual(psbt_obj.serialize_base64(), psbt_signed_b64)
 
     def test_describe_psbt_2of3(self):
-        output_record = "wsh(sortedmulti(2,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#0stzl64e"
-        wsh_sortedmulti_result = parse_wshsortedmulti(output_record)
-        expected = {
-            "checksum": "0stzl64e",
-            "quorum_m": 2,
-            "quorum_n": 3,
-            "key_records": [
-                {
-                    "xfp": "c7d0648a",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr",
-                    "index": 0,
-                    "xpub_child": "tpubDHXhgZEb9KfoFAuPQ5X6nayFrgifHEb3EUAbbs3EvwboxjttP4ekmPPz4NPRDE7p3q87DQH2TbNyxUmYGf2GNiSTfXj4Q5CfVgrpZuDEsak",
-                },
-                {
-                    "xfp": "12980eed",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae",
-                    "index": 0,
-                    "xpub_child": "tpubDGveumaKzgjigcr9Csv3n5bgwMA41rNiENgxwakQwxheD691uQ69UnVD3ZR7D64fS3gmUoxHuh8xoAJ93zi83AJGbL1cEJwqkbUPFphPaYs",
-                },
-                {
-                    "xfp": "f7d04090",
-                    "path": "m/48h/1h/0h/2h",
-                    "xpub_parent": "tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp",
-                    "index": 0,
-                    "xpub_child": "tpubDG6BBVZUnpyL78b8u9StfjLCv6BdTDHQDqPKTeEpAAVAjcMHsjusoUP2ayZi5ZRvZpqo6Cp9E3oQMvq9dMe5KGYJht72rnaxaqfSU3KjnjJ",
-                },
-            ],
-            "is_testnet": True,
-        }
-        self.assertEqual(wsh_sortedmulti_result, expected)
+        valid_output_record = "wsh(sortedmulti(2,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#0stzl64e"
+        # This is already parsed in test_descriptor.py, so not duplicating that here
+        p2wsh_sortedmulti_obj = P2WSHSortedMulti.parse(valid_output_record)
+
+        self.assertEqual(valid_output_record, str(p2wsh_sortedmulti_obj))
 
         hdpubkey_map = {}
-        for key_record in wsh_sortedmulti_result["key_records"]:
+        for key_record in p2wsh_sortedmulti_obj.key_records:
             hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
                 key_record["xpub_parent"]
             )

@@ -6,7 +6,6 @@ from buidl.helper import (
     bit_field_to_bytes,
     bytes_to_bit_field,
     bytes_to_str,
-    calc_core_checksum,
     decode_base58,
     encode_base58_checksum,
     decode_golomb,
@@ -271,10 +270,6 @@ class HelperTest(TestCase):
             result = pack_bits(encode_golomb(x, p))
             self.assertEqual(result, want)
             self.assertEqual(decode_golomb(unpack_bits(result), p), x)
-
-    def test_bitcoin_core_descriptor_checksum(self):
-        descriptor_ex_checksum = "sh(multi(2,[00000000/111'/222]xpub6ERApfZwUNrhLCkDtcHTcxd75RbzS1ed54G1LkBUHQVHQKqhMkhgbmJbZRkrgZw4koxb5JaHWkY4ALHY2grBGRjaDMzQLcgJvLJuZZvRcEL,xpub68NZiKmJWnxxS6aaHmn81bvJeTESw724CRDs6HbuccFQN9Ku14VQrADWgqbhhTHBaohPX4CjNLf9fq9MYo6oDaPPLPxSb7gwQN3ih19Zm4Y/0))"
-        self.assertEqual(calc_core_checksum(descriptor_ex_checksum), "tjg09x5t")
 
     def test_hashed_items(self):
         from buidl.block import Block
