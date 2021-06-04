@@ -1,7 +1,7 @@
 import re
 
-from buidl.hd import HDPublicKey, is_valid_bip32_path, is_valid_xfp_hex
-from buidl.helper import sha256
+from buidl.hd import HDPublicKey, is_valid_bip32_path
+from buidl.helper import sha256, uses_only_hex_chars
 from buidl.op import OP_CODE_NAMES_LOOKUP
 from buidl.script import P2WSHScriptPubKey, WitnessScript
 
@@ -56,6 +56,10 @@ def calc_core_checksum(output_descriptor):
     for j in range(0, 8):
         ret[j] = DESCRIPTOR_CHECKSUM_CHARSET[(c >> (5 * (7 - j))) & 31]
     return "".join(ret)
+
+
+def is_valid_xfp_hex(string):
+    return len(string) == 8 and uses_only_hex_chars(string)
 
 
 def parse_full_key_record(key_record_str):

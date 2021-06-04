@@ -2,6 +2,7 @@ from unittest import TestCase
 
 from buidl.descriptor import (
     calc_core_checksum,
+    is_valid_xfp_hex,
     P2WSHUnsortedMulti,
     P2WSHSortedMulti,
     parse_full_key_record,
@@ -231,3 +232,20 @@ class CoreChecksumTest(TestCase):
         # https://github.com/cryptoadvance/specter-desktop/blob/c1ce0e982a0552883cc339ecf5ee6860574e79b7/tests/test_util_descriptor.py
         descriptor_ex_checksum = "sh(wsh(sortedmulti(2,029dfee2aaa23e2220476c34eda9a76591c1257f8dfce54e42ff014f922ede0838,03151d5b21c6491915e7a103bff913b4d85246c8209a342bb7104850e4cb394686,03646d8e624fedb63739e7963d0c7ad368a7f7935557b2b28c4c954882b19fe6e1)))"
         self.assertEqual(calc_core_checksum(descriptor_ex_checksum), "rzmdthwy")
+
+
+class SeedFingerprintTest(TestCase):
+    def test_valid_xfps(self):
+        self.assertTrue(is_valid_xfp_hex("a" * 8))
+        self.assertTrue(is_valid_xfp_hex("abcdef01"))
+        self.assertTrue(is_valid_xfp_hex("01234567"))
+        self.assertTrue(is_valid_xfp_hex("deadbeef"))
+
+    def test_invalid_xfps(self):
+        invalid_xfps = [
+            "a" * 7,
+            "a" * 9,
+            "hello123",
+        ]
+        for invalid in invalid_xfps:
+            self.assertFalse(is_valid_xfp_hex(invalid))

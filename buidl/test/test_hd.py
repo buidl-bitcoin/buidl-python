@@ -6,7 +6,6 @@ from buidl.hd import (
     HDPublicKey,
     HDPrivateKey,
     is_valid_bip32_path,
-    is_valid_xfp_hex,
     ltrim_path,
 )
 from buidl.helper import encode_base58_checksum
@@ -572,20 +571,3 @@ class BIP32PathsTest(TestCase):
 
         with self.assertRaises(ValueError):
             ltrim_path("m/", 1)
-
-
-class SeedFingerprintTest(TestCase):
-    def test_valid_xfps(self):
-        self.assertTrue(is_valid_xfp_hex("a" * 8))
-        self.assertTrue(is_valid_xfp_hex("abcdef01"))
-        self.assertTrue(is_valid_xfp_hex("01234567"))
-        self.assertTrue(is_valid_xfp_hex("deadbeef"))
-
-    def test_invalid_xfps(self):
-        invalid_xfps = [
-            "a" * 7,
-            "a" * 9,
-            "hello123",
-        ]
-        for invalid in invalid_xfps:
-            self.assertFalse(is_valid_xfp_hex(invalid))

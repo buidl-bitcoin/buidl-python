@@ -11,7 +11,6 @@ from buidl.helper import (
     int_to_byte,
     is_intable,
     raw_decode_base58,
-    uses_only_hex_chars,
 )
 from buidl.mnemonic import (
     BIP39,
@@ -616,10 +615,6 @@ def calc_num_valid_seedpicker_checksums(num_first_words):
         20: 16,
         23: 8,
     }[num_first_words]
-
-
-def is_valid_xfp_hex(string):
-    return len(string) == 8 and uses_only_hex_chars(string)
 
 
 def is_valid_bip32_path(path):
