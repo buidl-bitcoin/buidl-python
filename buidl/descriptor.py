@@ -182,6 +182,11 @@ class P2WSHSortedMulti:
             xpub_parent = key_record.get("xpub_parent")
             try:
                 hdpubkey_obj = HDPublicKey.parse(xpub_parent)
+                # get rid of slip132 version byte (if it exists) as this will alter the checksum calculation
+                hdpubkey_obj_attrs = vars(hdpubkey_obj)
+                del hdpubkey_obj_attrs["pub_version"]
+                del hdpubkey_obj_attrs["_raw"]
+                xpub_to_use = HDPublicKey(**hdpubkey_obj_attrs).xpub()
             except ValueError:
                 raise ValueError(
                     f"Invalid xpub_parent `{xpub_parent}` in key record: {key_record}"
@@ -201,12 +206,12 @@ class P2WSHSortedMulti:
                 {
                     "path": path,
                     "xfp": xfp_hex,
-                    "xpub_parent": xpub_parent,
+                    "xpub_parent": xpub_to_use,
                     "account_index": account_index,
                 }
             )
 
-            descriptor_text += f",[{key_record['xfp']}{key_record['path'][1:]}]{key_record['xpub_parent']}/{account_index}/*"
+            descriptor_text += f",[{key_record['xfp']}{key_record['path'][1:]}]{xpub_to_use}/{account_index}/*"
 
         descriptor_text += "))"
         self.descriptor_text = descriptor_text
