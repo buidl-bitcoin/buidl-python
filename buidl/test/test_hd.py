@@ -474,9 +474,11 @@ class HDTest(TestCase):
 
     def test_from_mnemonic_errors(self):
         with self.assertRaises(InvalidBIP39Length):
+            # only 1 word!
             HDPrivateKey.from_mnemonic("hello")
 
         with self.assertRaises(InvalidChecksumWordsError):
+            # 12 words (11 would work)
             mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon"
             HDPrivateKey.from_mnemonic(mnemonic)
 
@@ -536,6 +538,28 @@ class HDTest(TestCase):
         self.assertEqual(recreated_obj.xpub(), xpub)
         # Confirm the version bytes have passed through correctly to the HDPublicKey object:
         self.assertEqual(recreated_obj.pub.xpub(), xpub)
+
+    def test_key_record(self):
+        # Matched against seedpicker.net on 2021-06-04
+        seed_phrase = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art"
+
+        # mainnet
+        hdpriv_obj = HDPrivateKey.from_mnemonic(seed_phrase)
+        want = "[5436d724/48h/0h/0h/2h]Zpub74fkz9VnCkwXHqheLbKfBEPKPfnFg3S1Ecn7Jx4HgBWwD1FS5VLMtFYNqLmFBVifGuXKz2nirv647gFYCinhBSdBqrrh5vq8ok8m2eaRAt7"
+        self.assertEqual(hdpriv_obj.generate_p2wsh_key_record(), want)
+        want = "[5436d724/48h/0h/0h/2h]xpub6E79FaRWLSJCAgA2jDHRvyrWKwT6aSmR685zptzyYPvmUd44omcxZ1NAzDtbdFBvEADjcVbV4NzTDwQeU6oiSV9KGiMSWhjANZjbfUHkm3Y"
+        self.assertEqual(
+            hdpriv_obj.generate_p2wsh_key_record(use_slip132_version_byte=False), want
+        )
+
+        # testnet
+        hdpriv_obj = HDPrivateKey.from_mnemonic(seed_phrase, testnet=True)
+        want = "[5436d724/48h/1h/0h/2h]Vpub5ncJ4gVToMcTWjG4shBZHeeCUXhX5r86W9cwggqw1m6aojbrHxr9yJFsoXaiXrBfAzV3TaVyxCB6EYUW21SVayfcAhiVc9XRJS1WL4Gh9td"
+        self.assertEqual(hdpriv_obj.generate_p2wsh_key_record(), want)
+        want = "[5436d724/48h/1h/0h/2h]tpubDFkN51vYF36W4Yfn3wGv5fpmRo3ok7vZZjc1gmRJjumq33L776e6GkP4HGdCVjDqYiBahXCrXQKja8aUZ2xovQNS8WkF46MdY7TLHJLYD7H"
+        self.assertEqual(
+            hdpriv_obj.generate_p2wsh_key_record(use_slip132_version_byte=False), want
+        )
 
 
 class BIP32PathsTest(TestCase):

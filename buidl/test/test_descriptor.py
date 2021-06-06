@@ -177,6 +177,30 @@ class P2WSHMultiTest(TestCase):
             else:
                 self.assertNotEqual(sorted_addr, unsorted_addr)
 
+    def test_mixed_slip132_p2wsh_sortedmulti(self):
+        # this should coalesce the values into non-slip132 (p2wsh sortedmulti already conveys the script type unambiguously)
+        quorum_m = 1
+        key_records = [
+            {
+                # investx12:
+                "xfp": "aa917e75",
+                "path": "m/48h/1h/0h/2h",
+                "xpub_parent": "tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy",
+                "account_index": 0,
+            },
+            {
+                # sellx12:
+                "xfp": "2553c4b8",
+                "path": "m/48h/1h/0h/2h/2046266013/1945465733/1801020214/1402692941",
+                "xpub_parent": "Vpub5uMrp2GYpnHN8BkjvXpP71TuZ8BDqu61PPcwEKSzE9Mcuow727mUJNsDsKdzAiupHXea5F7ZxD9SaSQvbr1hvpNjrijJQ2J46VQjc5yEcm8",
+                "account_index": 0,
+            },
+        ]
+        p2wsh_sortedmulti_obj = P2WSHSortedMulti(quorum_m, key_records)
+        # notice that both values are tpub, despite ingesting Vpub
+        want = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h/2046266013/1945465733/1801020214/1402692941]tpubDNVvpMhdGTmQg1AT6muju2eUWPXWWAtUSyc1EQ2MxJ2s97fMqFZQbpzQM4gU8bwzfFM7KBpSXRJ5v2Wu8sY2GF5ZpXm3qy8GLArZZNM1Wru/0/*))#0lfdttke"
+        self.assertEqual(str(p2wsh_sortedmulti_obj), want)
+
     def test_invalid_p2wsh_sortedmulti(self):
         # Notice the mix of xpub and tpub
         output_record = """wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]xpub6ENtkZb1q4JLHBocpPeoQj8xGsQ1Y7Jnkc3Vm43LyPaQ7BfzkDeF3fzxt78SBELXc2PUNHPuVEdTaukwNRqqc8xFKjVXfQ4FpN6eKqe6y9E/0/*))#tatkmj5q"""

@@ -18,13 +18,13 @@ from buidl.hd import (
     calc_valid_seedpicker_checksums,
     HDPrivateKey,
     HDPublicKey,
+    MAINNET_DEFAULT_P2WSH_PATH,
+    TESTNET_DEFAULT_P2WSH_PATH,
 )
 from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import BIP39
 from buidl.shamir import ShareSet
 from buidl.psbt import MixedNetwork, PSBT
-
-readline.parse_and_bind("tab: complete")  # TODO: can this be moved inside a method?
 
 
 #####################################################################
@@ -34,10 +34,6 @@ readline.parse_and_bind("tab: complete")  # TODO: can this be moved inside a met
 
 # https://stackoverflow.com/questions/287871/how-to-print-colored-text-in-python
 RESET_TERMINAL_COLOR = "\033[0m"
-
-
-DEFAULT_TESTNET_PATH = "m/48'/1'/0'/2'"
-DEFAULT_MAINNET_PATH = "m/48'/0'/0'/2'"
 
 
 def blue_fg(string):
@@ -148,10 +144,10 @@ def _get_path_string():
 def _get_path(is_testnet):
     if is_testnet:
         network_string = "Testnet"
-        default_path = DEFAULT_TESTNET_PATH
+        default_path = TESTNET_DEFAULT_P2WSH_PATH
     else:
         network_string = "Mainnet"
-        default_path = DEFAULT_MAINNET_PATH
+        default_path = MAINNET_DEFAULT_P2WSH_PATH
 
     if _get_bool(
         prompt=f"Use default path ({default_path} for {network_string})",
@@ -221,6 +217,7 @@ def get_p2wsh_sortedmulti():
 
 
 def _get_bip39_firstwords():
+    readline.parse_and_bind("tab: complete")
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=BIP39)
     readline.set_completer(completer.complete)
@@ -238,10 +235,13 @@ def _get_bip39_firstwords():
             )
             continue
 
+        all_words_valid = True
         for cnt, word in enumerate(fw.split()):
             if word not in BIP39:
                 print_red(f"Word #{cnt+1} ({word} is not a valid BIP39 word")
-                continue
+                all_words_valid = False
+        if all_words_valid is False:
+            continue
 
         readline.set_completer(old_completer)
         return fw
@@ -305,6 +305,7 @@ def _abort(msg):
 
 
 def _get_bip39_seed(is_testnet):
+    readline.parse_and_bind("tab: complete")
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=BIP39)
     readline.set_completer(completer.complete)
@@ -464,20 +465,20 @@ class MultiWallet(Cmd):
 
         if self.ADVANCED_MODE:
             path_to_use = _get_path(is_testnet=is_testnet)
+            use_slip132_version_byte = _get_bool(
+                prompt="Encode with SLIP132 version byte?", default=True
+            )
         else:
-            path_to_use = DEFAULT_TESTNET_PATH if is_testnet else DEFAULT_MAINNET_PATH
-
-        # TODO: migrate away from SLIP132 bytes?
-        # https://github.com/cryptoadvance/specter-desktop/issues/628
-        if is_testnet:
-            SLIP132_VERSION_BYTES = "02575483"
-        else:
-            SLIP132_VERSION_BYTES = "02aa7ed3"
+            path_to_use = None  # buidl will use default path
+            use_slip132_version_byte = True
 
         hd_priv = HDPrivateKey.from_mnemonic(
             mnemonic=f"{first_words} {last_word}",
             password=password.encode(),
             testnet=is_testnet,
+        )
+        key_record = hd_priv.generate_p2wsh_key_record(
+            bip32_path=path_to_use, use_slip132_version_byte=use_slip132_version_byte
         )
         print(yellow_fg("SECRET INFO") + red_fg(" (guard this VERY carefully)"))
         print_green(f"Last word: {last_word}")
@@ -489,15 +490,7 @@ class MultiWallet(Cmd):
 
         print_yellow(f"\nPUBLIC KEY INFO ({'testnet' if is_testnet else 'mainnet'})")
         print_yellow("Copy-paste this into Specter-Desktop:")
-        print_green(
-            "  [{}{}]{}".format(
-                hd_priv.fingerprint().hex(),
-                path_to_use.replace("m", "").replace("'", "h"),
-                hd_priv.traverse(path_to_use).xpub(
-                    version=bytes.fromhex(SLIP132_VERSION_BYTES)
-                ),
-            ),
-        )
+        print_green(key_record)
 
     def do_blind_xpub(self, arg):
         """Blind an XPUB using a random BIP32 path. Experts only!"""
