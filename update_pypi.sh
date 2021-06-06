@@ -17,9 +17,11 @@ rm -rf buidl.egg-info/
 find . | grep -E "(__pycache__|\.pyc|\.pyo$)" | xargs rm -rf
 
 # Tests
+if [ -f requirements-test.txt ]; then python3 -m pip install -r requirements-test.txt; fi
 black --check .
 flake8 .
-pytest -v
+pytest -v buidl/test/
+pytest -v test_*.py
 
 # Safety
 git push

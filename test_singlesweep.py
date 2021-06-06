@@ -36,31 +36,31 @@ class SinglesweepTest(unittest.TestCase):
         self.child.sendline("sweep")
         for _ in range(5):
             self.child.readline()
-        res = str(self.child.read(90))
+        res = str(self.child.read(70))
         self.assertIn("Enter WIF (Wallet Import Format) to use for signing:", res)
         self.child.sendline("cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuh9HqjiLNWDVQudB7k4E")
         self.child.expect(
             "Will attempt to spend from TESTNET mxgA6BsDLcv4vooLx4j6MfHQRihbrdwV5P"
         )
-        res = str(self.child.read(85))
+        self.child.readline()
+        res = str(self.child.read(70))
         self.assertIn(
             "Paste partially signed bitcoin transaction (PSBT) in base64 form", res
         )
         psbt_to_sign = "cHNidP8BAFUCAAAAAVRZh97dheVJzHkcaznyZCtSunoNJgnNGBRKGYw5nBSQAQAAAAD9////ASCFAQAAAAAAGXapFJ+aer1gDAyqA5g6d8jD344GLLL6iKxZiR4AAAEA4gIAAAAAAQEy/IizvbchxG0F6yLb/g0qEa9HidaAzlDzGCUMNgwZTQAAAAAA/v///wKEOaMAAAAAABepFOpylCCZWu7JekQ9p98RPeFn3kRoh6CGAQAAAAAAGXapFLw3unG6dBaKPCHEL+A8dYsff8aRiKwCRzBEAiBanqsb6aKeGstvedoheUCnr7buvdOHz58/J803NfsOkAIgOIpcQ+OGZEzFo7E3FBvUHagLZJLik8vf9KqnfVwfn9MBIQO3M5Kw2cHk3i3s1FpZK69B/oUOubZhv6e/GU7n6RVAeViJHgAAAA=="
         self.child.sendline(psbt_to_sign)
-        res = str(self.child.read(580))
-        self.assertIn(
-            "PSBT sends 99,616 sats to mv4rnyY3Su5gjcDNzbMLKBQkBicCtHUtFB with an UNVERIFIED fee of 384 sats (0.38% of spend)",
-            res,
-        )
+        self.child.readline()
+        res = str(self.child.readline())
+        want = "PSBT sends 99,616 sats to mv4rnyY3Su5gjcDNzbMLKBQkBicCtHUtFB with an UNVERIFIED fee of 384 sats (0.38% of spend)"
+        self.assertIn(want, res)
         res = str(self.child.read(40))
         self.assertIn("In Depth Transaction View? [Y/n]", res)
         self.child.sendline("Y")
         self.child.expect("DETAILED VIEW")
         for _ in range(21):
             self.child.readline()
-        res = str(self.child.read(45))
-        self.assertIn("Sign this transaction? [Y/n]: ", res)
+        res = str(self.child.read(35))
+        self.assertIn("Sign this transaction?", res)
         self.child.sendline("Y")
         self.child.expect(
             "SIGNED TX 0dfc0c3b8e0e87b6321a75fca542c22f792b2d6f519720e0a974976c646b7d5e"
@@ -86,31 +86,31 @@ class SinglesweepTest(unittest.TestCase):
         self.child.sendline("sweep")
         for _ in range(5):
             self.child.readline()
-        res = str(self.child.read(90))
+        res = str(self.child.read(70))
         self.assertIn("Enter WIF (Wallet Import Format) to use for signing:", res)
         self.child.sendline("91avARGdfge8E4tZfYLoxeJ5sGBdNJQH4nM1C3RmiaMW6WFGmDS")
         self.child.expect(
             "Will attempt to spend from TESTNET mzJtwV9LL6B3Nvm1uc1Z5NK3mqqaZyn9w1"
         )
-        res = str(self.child.read(85))
+        self.child.readline()
+        res = str(self.child.read(70))
         self.assertIn(
             "Paste partially signed bitcoin transaction (PSBT) in base64 form", res
         )
         psbt_to_sign = "cHNidP8BAFUCAAAAAaASEHE91UJrrmU5FMjXIVUV5HF91EGzcaktfooEUPBFAAAAAAD9////AWPhFwAAAAAAGXapFJ+aer1gDAyqA5g6d8jD344GLLL6iKxniR4AAAEA4gIAAAAAAQH96ccGxhmgYfsrP9xnIUl2WJxnE+Jz2iAH08QAkPiSiQAAAAAA/v///wLj4hcAAAAAABl2qRTOIpkaGEnqK3MB5zwY6WWk/ZKiRoisAWO7XQAAAAAXqRT2kti1/KAVtU90LS4zl1LNGa3NtocCRzBEAiAnsPi908ar1ROFyTWV4TlqlKHijNRbOuolJILCG2G6ywIgCPZLYkWebvcTOztJj3I+D6CX/y9DCZRRhrD9QJtdR80BIQPLHa2FJlrG7KzxKA6ZVJfJ2P3xGp/88a65XIkCNK6Xk1iJHgAAAA=="
         self.child.sendline(psbt_to_sign)
-        res = str(self.child.read(580))
-        self.assertIn(
-            "PSBT sends 1,565,027 sats to mv4rnyY3Su5gjcDNzbMLKBQkBicCtHUtFB with an UNVERIFIED fee of 384 sats (0.02% of spend)",
-            res,
-        )
-        res = str(self.child.read(45))
-        self.assertIn("In Depth Transaction View? [Y/n]", res)
+        self.child.readline()
+        res = str(self.child.readline())
+        want = "PSBT sends 1,565,027 sats to mv4rnyY3Su5gjcDNzbMLKBQkBicCtHUtFB with an UNVERIFIED fee of 384 sats (0.02% of spend)"
+        self.assertIn(want, res)
+        res = str(self.child.read(40))
+        self.assertIn("In Depth Transaction View?", res)
         self.child.sendline("Y")
         self.child.expect("DETAILED VIEW")
         for _ in range(21):
             self.child.readline()
-        res = str(self.child.read(45))
-        self.assertIn("Sign this transaction? [Y/n]: ", res)
+        res = str(self.child.read(35))
+        self.assertIn("Sign this transaction?", res)
         self.child.sendline("Y")
         self.child.expect(
             "SIGNED TX f3271bbac2b66d83379de855a79cead9d0e5210b857bee5c22462635033861c4"
