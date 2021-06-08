@@ -345,7 +345,6 @@ class P2WSHSortedMulti:
             to_append["name"] = name
             to_return["extendedPublicKeys"].append(to_append)
 
-        # TODO: pretty-print this:
         return json.dumps(to_return)
 
 
