@@ -5,6 +5,9 @@ from buidl.helper import sha256, uses_only_hex_chars
 from buidl.op import OP_CODE_NAMES_LOOKUP
 from buidl.script import P2WSHScriptPubKey, WitnessScript
 
+import json
+
+
 DESCRIPTOR_INPUT_CHARSET = "0123456789()[],'/*abcdefgh@:$%{}IJKLMNOPQRSTUVWXYZ&+-.;<=>?!^_|~ijklmnopqrstuvwxyzABCDEFGH`#\"\\ "
 DESCRIPTOR_CHECKSUM_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
@@ -309,6 +312,42 @@ class P2WSHSortedMulti:
         redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
         return redeem_script.address(testnet=self.is_testnet)
 
+    def caravan_export(self, wallet_name="p2wsh", key_record_names=[]):
+        if key_record_names and len(key_record_names) != len(self.key_records):
+            raise ValueError(
+                f"{len(self.key_records)} key records but only {len(key_record_names)} names supplied: {key_record_names}"
+            )
+
+        to_return = {
+            "name": wallet_name,
+            "addressType": "P2WSH",
+            "network": "testnet" if self.is_testnet else "mainnet",
+            "client": {"type": "public"},  # node connection instructions
+            "quorum": {
+                "requiredSigners": self.quorum_m,
+                "totalSigners": len(self.key_records),
+            },
+            "extendedPublicKeys": [],
+            "startingAddressIndex": self.key_records[0]["account_index"],
+        }
+        for cnt, key_record in enumerate(self.key_records):
+            to_append = {
+                "bip32Path": key_record["path"].lower().replace("h", "'"),
+                "xpub": key_record["xpub_parent"],
+                "xfp": key_record["xfp"],
+            }
+            if key_record_names:
+                name = key_record_names[cnt]
+            else:
+                # Generic/deterministic name: "Seed A"
+                seed_letter = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[cnt]
+                name = f"Seed {seed_letter}"
+            to_append["name"] = name
+            to_return["extendedPublicKeys"].append(to_append)
+
+        # TODO: pretty-print this:
+        return json.dumps(to_return)
+
 
 class P2WSHUnsortedMulti(P2WSHSortedMulti):
     """
@@ -323,3 +362,6 @@ class P2WSHUnsortedMulti(P2WSHSortedMulti):
     DESCRIPTOR_REGEX = (
         r".*wsh\(multi\(([0-9]*),(.*)\)\)(\#[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{8})?.*"
     )
+
+    def caravan_export(self, *args, **kwargs):
+        raise NotImplementedError("Unsorted multisig should not be supported")

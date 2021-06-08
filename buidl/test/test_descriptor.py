@@ -101,6 +101,10 @@ class P2WSHMultiTest(TestCase):
         with self.assertRaises(ValueError):
             P2WSHSortedMulti.parse(valid_output_record_sans_checksum + "#" + "a" * 8)
 
+        # manually checked on 2021-06-08 that when imported to Caravan it generates the same addresses as buidl
+        want = """{"name": "p2wsh", "addressType": "P2WSH", "network": "testnet", "client": {"type": "public"}, "quorum": {"requiredSigners": 1, "totalSigners": 4}, "extendedPublicKeys": [{"bip32Path": "m/48'/1'/0'/2'", "xpub": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr", "xfp": "c7d0648a", "name": "Seed A"}, {"bip32Path": "m/48'/1'/0'/2'", "xpub": "tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae", "xfp": "12980eed", "name": "Seed B"}, {"bip32Path": "m/48'/1'/0'/2'", "xpub": "tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s", "xfp": "3a52b5cd", "name": "Seed C"}, {"bip32Path": "m/48'/1'/0'/2'", "xpub": "tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp", "xfp": "f7d04090", "name": "Seed D"}], "startingAddressIndex": 0}"""
+        self.assertEqual(p2wsh_sortedmulti_obj.caravan_export(), want)
+
     def test_p2wsh_2of3(self):
         valid_output_record = "wsh(sortedmulti(2,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#0stzl64e"
         p2wsh_sortedmulti_obj = P2WSHSortedMulti.parse(valid_output_record)
@@ -109,6 +113,10 @@ class P2WSHMultiTest(TestCase):
 
         self.assertTrue(p2wsh_sortedmulti_obj.is_testnet)
         self.assertEqual(p2wsh_sortedmulti_obj.checksum, "0stzl64e")
+        self.assertEqual(
+            p2wsh_sortedmulti_obj.get_address(),
+            "tb1q0cy5x39ezyvc4pfydrqedng0h9arh2hcw8lpfa6e9ama7ky7cffsmzmgx8",
+        )
 
         expected_key_records = [
             {
@@ -131,6 +139,10 @@ class P2WSHMultiTest(TestCase):
             },
         ]
         self.assertEqual(p2wsh_sortedmulti_obj.key_records, expected_key_records)
+
+        # manually checked on 2021-06-08 that when imported to Caravan it generates the same addresses as buidl
+        want = """{"name": "p2wsh", "addressType": "P2WSH", "network": "testnet", "client": {"type": "public"}, "quorum": {"requiredSigners": 2, "totalSigners": 3}, "extendedPublicKeys": [{"bip32Path": "m/48'/1'/0'/2'", "xpub": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr", "xfp": "c7d0648a", "name": "Seed A"}, {"bip32Path": "m/48'/1'/0'/2'", "xpub": "tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae", "xfp": "12980eed", "name": "Seed B"}, {"bip32Path": "m/48'/1'/0'/2'", "xpub": "tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp", "xfp": "f7d04090", "name": "Seed C"}], "startingAddressIndex": 0}"""
+        self.assertEqual(p2wsh_sortedmulti_obj.caravan_export(), want)
 
     def test_p2wsh_1of2_sorted_and_unsorted(self):
         TESTNET_DEFAULT_PATH = "m/48h/1h/0h/2h"
@@ -156,6 +168,10 @@ class P2WSHMultiTest(TestCase):
         p2wsh_sorted_obj = P2WSHSortedMulti(quorum_m=1, key_records=key_records)
         expected = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9/0/*))#t0v98kwu"
         self.assertEqual(expected, str(p2wsh_sorted_obj))
+        self.assertEqual(
+            p2wsh_sorted_obj.get_address(1),
+            "tb1q6y5dh62l40q9de8k53sjekqz2zcn9dfs55g5v8pjmd7ehg08gk0sms9q4l",
+        )
 
         # Test unsorted
         p2wsh_unsorted_obj = P2WSHUnsortedMulti.parse(
@@ -176,6 +192,15 @@ class P2WSHMultiTest(TestCase):
                 self.assertEqual(sorted_addr, unsorted_addr)
             else:
                 self.assertNotEqual(sorted_addr, unsorted_addr)
+
+        # manually checked on 2021-06-08 that when imported to Caravan it generates the same addresses as buidl
+        want = """{"name": "foo", "addressType": "P2WSH", "network": "testnet", "client": {"type": "public"}, "quorum": {"requiredSigners": 1, "totalSigners": 2}, "extendedPublicKeys": [{"bip32Path": "m/48'/1'/0'/2'", "xpub": "tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy", "xfp": "aa917e75", "name": "alice"}, {"bip32Path": "m/48'/1'/0'/2'", "xpub": "tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9", "xfp": "2553c4b8", "name": "bob"}], "startingAddressIndex": 0}"""
+        self.assertEqual(
+            p2wsh_sorted_obj.caravan_export(
+                wallet_name="foo", key_record_names=["alice", "bob"]
+            ),
+            want,
+        )
 
     def test_mixed_slip132_p2wsh_sortedmulti(self):
         # this should coalesce the values into non-slip132 (p2wsh sortedmulti already conveys the script type unambiguously)
