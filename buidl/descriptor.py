@@ -142,10 +142,6 @@ class P2WSHSortedMulti:
 
     # TODO: make an inheritable base descriptor class that this inherits from
 
-    REQUIRE_SORTING_PUBKEYS = True
-    DESCRIPTOR_TEXT_START = "wsh(sortedmulti("
-    DESCRIPTOR_REGEX = r".*wsh\(sortedmulti\(([0-9]*),(.*)\)\)(\#[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{8})?.*"
-
     def __init__(
         self,
         quorum_m,  # m as in m-of-n
@@ -160,8 +156,7 @@ class P2WSHSortedMulti:
             raise ValueError("No key_records supplied")
 
         key_records_to_save, is_testnet = [], None
-        descriptor_text = self.DESCRIPTOR_TEXT_START
-        descriptor_text += f"{quorum_m}"
+        descriptor_text = f"wsh(sortedmulti({quorum_m}"
         for key_record in key_records:
             # TODO: does bitcoin core have a standard to enforce for h vs ' in bip32 path?
             path = key_record.get("path")
@@ -248,7 +243,7 @@ class P2WSHSortedMulti:
 
         # Regex match the string
         re_output_results = re.match(
-            cls.DESCRIPTOR_REGEX,
+            r".*wsh\(sortedmulti\(([0-9]*),(.*)\)\)(\#[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{8})?.*",
             output_record,
         )
         if re_output_results is None:
@@ -281,10 +276,12 @@ class P2WSHSortedMulti:
 
         return cls(quorum_m=quorum_m_int, key_records=key_records, checksum=checksum)
 
-    def get_address(self, offset=0, is_change=False):
+    def get_address(self, offset=0, is_change=False, sort_keys=True):
         """
         If is_change=True, then we display change addresses.
         If is_change=False we display receive addresses.
+
+        sort_keys is for expert users only and should be left as True
         """
         assert type(is_change) is bool, is_change
         assert type(offset) is int and offset >= 0, offset
@@ -300,7 +297,7 @@ class P2WSHSortedMulti:
             sec_hexes_to_use.append(leaf_xpub.sec().hex())
 
         commands = [OP_CODE_NAMES_LOOKUP[f"OP_{self.quorum_m}"]]
-        if self.REQUIRE_SORTING_PUBKEYS:
+        if sort_keys:
             # BIP67 lexicographical sorting for sortedmulti
             commands.extend([bytes.fromhex(x) for x in sorted(sec_hexes_to_use)])
         else:
@@ -346,21 +343,3 @@ class P2WSHSortedMulti:
             to_return["extendedPublicKeys"].append(to_append)
 
         return json.dumps(to_return)
-
-
-class P2WSHUnsortedMulti(P2WSHSortedMulti):
-    """
-    This class requires users to supply their pubkeys (key_records) in the correct order
-
-    DO NOT USE THIS CLASS FOR NEW WALLETS.
-    It is only for recovery of older wallets that predate sortedmulti.
-    """
-
-    REQUIRE_SORTING_PUBKEYS = False
-    DESCRIPTOR_TEXT_START = "wsh(multi("
-    DESCRIPTOR_REGEX = (
-        r".*wsh\(multi\(([0-9]*),(.*)\)\)(\#[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{8})?.*"
-    )
-
-    def caravan_export(self, *args, **kwargs):
-        raise NotImplementedError("Unsorted multisig should not be supported")

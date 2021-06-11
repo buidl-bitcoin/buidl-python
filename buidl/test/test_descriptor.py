@@ -3,7 +3,6 @@ from unittest import TestCase
 from buidl.descriptor import (
     calc_core_checksum,
     is_valid_xfp_hex,
-    P2WSHUnsortedMulti,
     P2WSHSortedMulti,
     parse_full_key_record,
     parse_partial_key_record,
@@ -174,20 +173,12 @@ class P2WSHMultiTest(TestCase):
         )
 
         # Test unsorted
-        p2wsh_unsorted_obj = P2WSHUnsortedMulti.parse(
-            # Get rid of checksum (no longer accurate), and replace sortedmulti with multi:
-            expected.replace("sortedmulti", "multi").split("#")[0]
-        )
-        self.assertEqual(
-            "wsh(multi(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9/0/*))#fy5e5rw2",
-            str(p2wsh_unsorted_obj),
-        )
 
         # These sometimes produce the same address (should be 50% on average)
         addr_matches = [False, True, True, True, True, False, True, False, True, False]
         for cnt, addr_match in enumerate(addr_matches):
-            sorted_addr = p2wsh_sorted_obj.get_address(cnt)
-            unsorted_addr = p2wsh_unsorted_obj.get_address(cnt)
+            sorted_addr = p2wsh_sorted_obj.get_address(cnt, sort_keys=True)
+            unsorted_addr = p2wsh_sorted_obj.get_address(cnt, sort_keys=False)
             if addr_match:
                 self.assertEqual(sorted_addr, unsorted_addr)
             else:
