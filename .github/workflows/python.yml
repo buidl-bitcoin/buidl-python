@@ -35,3 +35,6 @@ jobs:
     - name: pytest unit tests
       run: |
         pytest -v buidl/test
+    - name: pytest cli apps
+      run: |
+        pytest -v test_singlewallet.py
