@@ -6,18 +6,25 @@ from buidl import PrivateKey
 
 
 class SinglesweepTest(unittest.TestCase):
+
     def expect(self, text):
         """
         Expect a string of bytes one at a time (not waiting on a newline)
         """
         buffer = ""
         while True:
-            # This will error out at the end of the buffer
-            latest_char = self.child.read(1)
+
+            try:
+                # This will error out at the end of the buffer
+                latest_char = self.child.read(1)
+            except Exception as e:
+                raise Exception(f"Failed to find `{text}` in `{buffer}`.\nGot error: `{e}`")
+
             try:
                 buffer += latest_char.decode()
             except UnicodeDecodeError:
                 buffer += str(latest_char)
+
             if text in buffer:
                 return True
 
