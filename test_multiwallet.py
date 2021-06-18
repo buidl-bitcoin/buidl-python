@@ -14,7 +14,7 @@ class MultiwalletTest(unittest.TestCase):
             try:
                 # This will error out at the end of the buffer
                 latest_char = self.child.read(1)
-            except Exception as e:
+            except Exception:
                 raise Exception(f"Failed to find text in `{buffer}`")
 
             try:
