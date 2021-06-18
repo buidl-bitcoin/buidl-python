@@ -14,8 +14,9 @@ class MultiwalletTest(unittest.TestCase):
             try:
                 # This will error out at the end of the buffer
                 latest_char = self.child.read(1)
-            except Exception:
-                raise Exception(f"Failed to find text in `{buffer}`")
+            except Exception as e:
+                print("buffer", buffer)
+                raise Exception(f"Failed to find text `{text}`in buffer. Got: {e}")
 
             try:
                 buffer += latest_char.decode()
@@ -116,9 +117,7 @@ class MultiwalletTest(unittest.TestCase):
         self.expect("Paste partially signed bitcoin transaction (PSBT) in base64 form")
 
         self.child.sendline(unsigned_psbt_b64)
-        self.expect(
-            "Transaction appears to be a testnet transaction. Display as testnet?",
-        )
+        self.expect("Display as testnet?")
 
         self.child.sendline("Y")
         self.expect(
