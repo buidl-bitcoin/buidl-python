@@ -101,7 +101,11 @@ class MultiwalletTest(unittest.TestCase):
         self.expect("Offset of addresses to display")
 
         self.child.sendline("0")
-        self.expect("Display receive addresses?")
+        # UGLY HACK
+        # Line reads:
+        #   Display receive addresses? `N` to display change addresses instead. [Y/n]:
+        # But Github CI uses a very narrow terminal and only picks this part up:
+        self.expect("to display change addresses instead")
 
         self.child.sendline("N")
         self.expect("1-of-2 Multisig Change Addresses")
