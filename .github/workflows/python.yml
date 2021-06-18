@@ -34,7 +34,7 @@ jobs:
         flake8 . --count --statistics
     - name: pytest unit tests
       run: |
-        echo no || pytest -v buidl/test
+        pytest -v buidl/test
     - name: pytest CLI apps
       run: |
         pytest -v test_singlesweep.py test_multiwallet.py
