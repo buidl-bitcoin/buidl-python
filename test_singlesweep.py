@@ -17,13 +17,15 @@ class SinglesweepTest(unittest.TestCase):
                 # This will error out at the end of the buffer
                 latest_char = self.child.read(1)
             except Exception as e:
-                raise Exception(
-                    f"Failed to find `{text}` in `{buffer}`.\nGot error: `{e}`"
-                )
+                print("buffer", buffer)
+                raise Exception(f"Failed to find text `{text}`in buffer. Error: {e}")
 
             try:
-                buffer += latest_char.decode()
+                latest_char = latest_char.decode()
+                if latest_char not in ("\n", "\r"):
+                    buffer += latest_char
             except UnicodeDecodeError:
+                # Handle non-unicode char edge-case (bitcoin symbol)
                 buffer += str(latest_char)
 
             if text in buffer:
