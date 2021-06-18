@@ -19,8 +19,11 @@ class MultiwalletTest(unittest.TestCase):
                 raise Exception(f"Failed to find text `{text}`in buffer. Got: {e}")
 
             try:
-                buffer += latest_char.decode().replace("\n", "")
+                latest_char = latest_char.decode()
+                if latest_char not in ("\n", "\r"):
+                    buffer += latest_char
             except UnicodeDecodeError:
+                # Handle non-unicode char edge-case (bitcoin symbol)
                 buffer += str(latest_char)
 
             if text in buffer:
