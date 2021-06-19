@@ -35,3 +35,6 @@ jobs:
     - name: pytest unit tests
       run: |
         pytest -v buidl/test
+    - name: pytest CLI apps
+      run: |
+        pytest -v test_singlesweep.py test_multiwallet.py
