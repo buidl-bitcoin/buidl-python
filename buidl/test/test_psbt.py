@@ -597,34 +597,35 @@ class PSBTTest(TestCase):
         self.assertEqual(have, want)
 
         psbt_obj = PSBT.parse_base64(
-            "cHNidP8BAFICAAAAAWXWTGFBCWnNAD1kEfXLUBiYELkgB9NscUkYTYuzg7X5AQAAAAD9////AfAWAAAAAAAAFgAUX64ixS2sQrQyBc7bvfQzk6q+WcbLGx4AAAEA3gIAAAABznOeQeZoS2o2T4Kx3mFQIc/p7dHq2Qh7fcwCyt/UkkEBAAAAakcwRAIgSe+RDZUlOgLgfR51RI3JQfc1LDkl96dnliguKJs/SmgCIGTIWGQSeGrhTyurcaHfTVxmbX5hIHTZKzI5BFoap7KeASECowrs+fe7ulePOtNsS1JxBc/9TYVtU2QkSJKZl1tW3/79////AoQOAAAAAAAAFgAUX64ixS2sQrQyBc7bvfQzk6q+WcatFwAAAAAAABl2qRQhS81OXj+1hdUw7rmK7YgneOE1OoisyhseAAAA"
+            "cHNidP8BAFICAAAAAWXWTGFBCWnNAD1kEfXLUBiYELkgB9NscUkYTYuzg7X5AQAAAAD9////AfAWAAAAAAAAFgAUX64ixS2sQrQyBc7bvfQzk6q+WcbLGx4AAAEA3gIAAAABznOeQeZoS2o2T4Kx3mFQIc/p7dHq2Qh7fcwCyt/UkkEBAAAAakcwRAIgSe+RDZUlOgLgfR51RI3JQfc1LDkl96dnliguKJs/SmgCIGTIWGQSeGrhTyurcaHfTVxmbX5hIHTZKzI5BFoap7KeASECowrs+fe7ulePOtNsS1JxBc/9TYVtU2QkSJKZl1tW3/79////AoQOAAAAAAAAFgAUX64ixS2sQrQyBc7bvfQzk6q+WcatFwAAAAAAABl2qRQhS81OXj+1hdUw7rmK7YgneOE1OoisyhseAAAA",
+            testnet=True,
         )
 
         described_with_privkey = psbt_obj.describe_p2pkh_sweep(privkey_obj=privkey_obj)
         want = {
-            "tx_summary_text": "PSBT sends 5,872 sats to bc1qt7hz93fd43ptgvs9emdmmapnjw4tukwxlfg2ll with an UNVERIFIED fee of 189 sats (3.12% of spend)",
+            "tx_summary_text": "PSBT sends 5,872 sats to tb1qt7hz93fd43ptgvs9emdmmapnjw4tukwx40neyv with an UNVERIFIED fee of 189 sats (3.12% of spend)",
             "tx_size_bytes": 82,
             "is_rbf_able": True,
             "locktime": 1973195,
             "version": 2,
-            "is_testnet": None,
+            "is_testnet": True,
             "tx_fee_sats": 189,
             "total_input_sats": 6061,
             "output_spend_sats": 5872,
-            "spend_addr": "bc1qt7hz93fd43ptgvs9emdmmapnjw4tukwxlfg2ll",
+            "spend_addr": "tb1qt7hz93fd43ptgvs9emdmmapnjw4tukwx40neyv",
             "inputs_desc": [
                 {
                     "prev_txhash": "f9b583b38b4d1849716cd30720b910981850cbf511643d00cd690941614cd665",
                     "prev_idx": 1,
                     "n_sequence": 4294967293,
                     "sats": 6061,
-                    "addr": "143479MmDUrRKeWqfxyjoe2zGbkQiUqktj",
+                    "addr": "miZ1QCSk2WHg6kzTPXx7dZFK8bM7aXHyjR",
                 }
             ],
             "outputs_desc": [
                 {
                     "sats": 5872,
-                    "addr": "bc1qt7hz93fd43ptgvs9emdmmapnjw4tukwxlfg2ll",
+                    "addr": "tb1qt7hz93fd43ptgvs9emdmmapnjw4tukwx40neyv",
                     "addr_type": "P2WPKH",
                 }
             ],
