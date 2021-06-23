@@ -81,7 +81,7 @@ class MultiwalletTest(unittest.TestCase):
         # Line reads:
         #    How many total keys will be able to sign transaction from this wallet?
         # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("able to sign transaction from this wallet?")
+        self.expect("to sign transaction from this wallet?")
         self.child.sendline("2")
 
         self.expect("Enter key record ")
