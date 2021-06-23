@@ -71,11 +71,18 @@ class MultiwalletTest(unittest.TestCase):
         # Blinded example from https://github.com/mflaxman/blind-xpub/blob/90af581695ef4ab1b7c40324c4cd7f2ce70e3403/README.md#create-output-descriptors
         self.child.sendline("create_output_descriptors")
 
-        self.expect("How many signatures will be required to spend from this wallet?")
+        # UGLY HACK
+        # Line reads:
+        #   How many signatures will be required to spend from this wallet?
+        # But Github CI uses a very narrow terminal and only picks this part up:
+        self.expect("be required to spend from this wallet?")
         self.child.sendline("1")
 
+        # Line reads:
+        #    How many total keys will be able to sign transaction from this wallet?
+        # But Github CI uses a very narrow terminal and only picks this part up:
         self.expect(
-            "How many total keys will be able to sign transaction from this wallet?"
+            "able to sign transaction from this wallet?"
         )
         self.child.sendline("2")
 
