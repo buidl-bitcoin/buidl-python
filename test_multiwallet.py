@@ -16,7 +16,7 @@ class MultiwalletTest(unittest.TestCase):
                 latest_char = self.child.read(1)
             except Exception as e:
                 print("buffer", buffer)
-                raise Exception(f"Failed to find text `{text}`in buffer. Error: {e}")
+                raise Exception(f"Failed to find text `{text}` in buffer. Error: {e}")
 
             try:
                 latest_char = latest_char.decode()

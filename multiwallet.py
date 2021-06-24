@@ -18,8 +18,7 @@ from buidl.hd import (
     calc_valid_seedpicker_checksums,
     HDPrivateKey,
     HDPublicKey,
-    MAINNET_DEFAULT_P2WSH_PATH,
-    TESTNET_DEFAULT_P2WSH_PATH,
+    DEFAULT_P2WSH_PATH,
 )
 from buidl.libsec_status import is_libsec_enabled
 from buidl.mnemonic import BIP39
@@ -141,13 +140,9 @@ def _get_path_string():
         return res.replace("h", "'")
 
 
-def _get_path(is_testnet):
-    if is_testnet:
-        network_string = "Testnet"
-        default_path = TESTNET_DEFAULT_P2WSH_PATH
-    else:
-        network_string = "Mainnet"
-        default_path = MAINNET_DEFAULT_P2WSH_PATH
+def _get_path(network):
+    network_string = network.capitalize()
+    default_path = DEFAULT_P2WSH_PATH[network]
 
     if _get_bool(
         prompt=f"Use default path ({default_path} for {network_string})",
@@ -264,26 +259,28 @@ def _get_psbt_obj():
 
         try:
             # Attempt to infer network from BIP32 paths
-            psbt_obj = PSBT.parse_base64(psbt_b64, testnet=None)
-            if psbt_obj.testnet:
-                use_testnet = _get_bool(
-                    prompt="Transaction appears to be a testnet transaction. Display as testnet?",
-                    default=True,
-                )
+            psbt_obj = PSBT.parse_base64(psbt_b64, network=None)
+            if _get_bool(
+                prompt=f"Transaction appears to be a {psbt_obj.network} transaction. Display as {psbt_obj.network}?",
+                default=True,
+            ):
+                network = psbt_obj.network
+            elif psbt_obj.network == "mainnet":
+                network = "testnet"
             else:
-                use_testnet = not _get_bool(
-                    prompt="Transaction appears to be a mainnet transaction. Display as mainnet?",
-                    default=True,
-                )
-            if psbt_obj.testnet != use_testnet:
-                psbt_obj = PSBT.parse_base64(psbt_b64, testnet=use_testnet)
+                network = "mainnet"
+            if psbt_obj.network != network:
+                psbt_obj = PSBT.parse_base64(psbt_b64, network=network)
 
         except MixedNetwork:
-            use_testnet = not _get_bool(
+            if _get_bool(
                 prompt="Cannot infer PSBT network from BIP32 paths. Use Mainnet?",
                 default=True,
-            )
-            psbt_obj = PSBT.parse_base64(psbt_b64, testnet=use_testnet)
+            ):
+                network = "mainnet"
+            else:
+                network = "testnet"
+            psbt_obj = PSBT.parse_base64(psbt_b64, network=network)
 
         except Exception as e:
             print_red(f"Could not parse PSBT: {e}")
@@ -304,7 +301,7 @@ def _abort(msg):
     return True
 
 
-def _get_bip39_seed(is_testnet):
+def _get_bip39_seed(network):
     readline.parse_and_bind("tab: complete")
     old_completer = readline.get_completer()
     completer = WordCompleter(wordlist=BIP39)
@@ -328,11 +325,11 @@ def _get_bip39_seed(is_testnet):
                 print_red(f"Word #{cnt+1} ({word}) is not a valid BIP39 word")
                 continue
         try:
-            HDPrivateKey.from_mnemonic(mnemonic=seed_phrase, testnet=is_testnet)
+            HDPrivateKey.from_mnemonic(mnemonic=seed_phrase, network=network)
 
             password = _get_password()
             hd_priv = HDPrivateKey.from_mnemonic(
-                mnemonic=seed_phrase, testnet=is_testnet, password=password.encode()
+                mnemonic=seed_phrase, network=network, password=password.encode()
             )
         except Exception as e:
             print_red(f"Invalid mnemonic: {e}")
@@ -459,10 +456,13 @@ class MultiWallet(Cmd):
         else:
             password = ""
 
-        is_testnet = not _get_bool(prompt="Use Mainnet?", default=False)
+        if _get_bool(prompt="Use Mainnet?", default=False):
+            network = "mainnet"
+        else:
+            network = "testnet"
 
         if self.ADVANCED_MODE:
-            path_to_use = _get_path(is_testnet=is_testnet)
+            path_to_use = _get_path(network=network)
             use_slip132_version_byte = _get_bool(
                 prompt="Encode with SLIP132 version byte?", default=True
             )
@@ -473,7 +473,7 @@ class MultiWallet(Cmd):
         hd_priv = HDPrivateKey.from_mnemonic(
             mnemonic=f"{first_words} {last_word}",
             password=password.encode(),
-            testnet=is_testnet,
+            network=network,
         )
         key_record = hd_priv.generate_p2wsh_key_record(
             bip32_path=path_to_use, use_slip132_version_byte=use_slip132_version_byte
@@ -486,7 +486,7 @@ class MultiWallet(Cmd):
         if password:
             print_green(f"Passphrase: {password}")
 
-        print_yellow(f"\nPUBLIC KEY INFO ({'testnet' if is_testnet else 'mainnet'})")
+        print_yellow(f"\nPUBLIC KEY INFO ({network})")
         print_yellow("Copy-paste this into Specter-Desktop:")
         print_green(key_record)
 
@@ -767,7 +767,7 @@ class MultiWallet(Cmd):
             print_yellow(f"Transaction {psbt_obj.tx_obj.id()} NOT signed")
             return
 
-        hd_priv = _get_bip39_seed(is_testnet=psbt_obj.testnet)
+        hd_priv = _get_bip39_seed(network=psbt_obj.network)
         xfp_hex = hd_priv.fingerprint().hex()
 
         # Derive list of child private keys we'll use to sign the TX

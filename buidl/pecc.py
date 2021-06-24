@@ -277,17 +277,17 @@ class S256Point(Point):
         """Returns the RedeemScript for a p2sh-p2wpkh redemption"""
         return self.p2wpkh_script().redeem_script()
 
-    def address(self, compressed=True, testnet=False):
+    def address(self, compressed=True, network="mainnet"):
         """Returns the p2pkh address string"""
-        return self.p2pkh_script(compressed).address(testnet)
+        return self.p2pkh_script(compressed).address(network)
 
-    def bech32_address(self, testnet=False):
+    def bech32_address(self, network="mainnet"):
         """Returns the p2wpkh bech32 address string"""
-        return self.p2wpkh_script().address(testnet)
+        return self.p2wpkh_script().address(network)
 
-    def p2sh_p2wpkh_address(self, testnet=False):
+    def p2sh_p2wpkh_address(self, network="mainnet"):
         """Returns the p2sh-p2wpkh base58 address string"""
-        return self.p2wpkh_script().p2sh_address(testnet)
+        return self.p2wpkh_script().p2sh_address(network)
 
     def verify(self, z, sig):
         # remember sig.r and sig.s are the main things we're checking
@@ -399,10 +399,10 @@ class Signature:
 
 
 class PrivateKey:
-    def __init__(self, secret, testnet=False, compressed=True):
+    def __init__(self, secret, network="mainnet", compressed=True):
         self.secret = secret
         self.point = secret * G
-        self.testnet = testnet
+        self.network = network
         self.compressed = compressed
 
     def hex(self):
@@ -457,11 +457,11 @@ class PrivateKey:
     def wif(self, compressed=True):
         # convert the secret from integer to a 32-bytes in big endian using int_to_big_endian(x, 32)
         secret_bytes = int_to_big_endian(self.secret, 32)
-        # prepend b'\xef' on testnet, b'\x80' on mainnet
-        if self.testnet:
-            prefix = b"\xef"
-        else:
+        # prepend b'\xef' on testnet/signet, b'\x80' on mainnet
+        if self.network == "mainnet":
             prefix = b"\x80"
+        else:
+            prefix = b"\xef"
         # append b'\x01' if compressed
         if compressed:
             suffix = b"\x01"
@@ -483,9 +483,9 @@ class PrivateKey:
             compressed = False
         secret = big_endian_to_int(raw[1:])
         if raw[0] == 0xEF:
-            testnet = True
+            network = "testnet"
         elif raw[0] == 0x80:
-            testnet = False
+            network = "mainnet"
         else:
             raise ValueError("Invalid WIF")
-        return cls(secret, testnet=testnet, compressed=compressed)
+        return cls(secret, network=network, compressed=compressed)

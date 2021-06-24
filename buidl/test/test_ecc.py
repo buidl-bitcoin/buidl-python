@@ -86,9 +86,12 @@ class S256Test(TestCase):
         )
         for secret, mainnet_legacy, testnet_legacy in tests:
             point = secret * G
-            self.assertEqual(point.address(testnet=False), mainnet_legacy)
+            self.assertEqual(point.address(network="mainnet"), mainnet_legacy)
             self.assertEqual(
-                point.address(compressed=False, testnet=True), testnet_legacy
+                point.address(compressed=False, network="testnet"), testnet_legacy
+            )
+            self.assertEqual(
+                point.address(compressed=False, network="signet"), testnet_legacy
             )
 
     def test_bech32_address(self):
@@ -111,9 +114,10 @@ class S256Test(TestCase):
         )
         for secret, mainnet_bech32, testnet_bech32 in tests:
             point = secret * G
-            self.assertEqual(point.bech32_address(testnet=False), mainnet_bech32)
+            self.assertEqual(point.bech32_address(network="mainnet"), mainnet_bech32)
             self.assertEqual(decode_bech32(mainnet_bech32)[2], point.hash160())
-            self.assertEqual(point.bech32_address(testnet=True), testnet_bech32)
+            self.assertEqual(point.bech32_address(network="testnet"), testnet_bech32)
+            self.assertEqual(point.bech32_address(network="signet"), testnet_bech32)
 
     def test_p2sh_p2wpkh_address(self):
         tests = (
@@ -135,8 +139,9 @@ class S256Test(TestCase):
         )
         for secret, mainnet_p2sh, testnet_p2sh in tests:
             point = secret * G
-            self.assertEqual(point.p2sh_p2wpkh_address(testnet=False), mainnet_p2sh)
-            self.assertEqual(point.p2sh_p2wpkh_address(testnet=True), testnet_p2sh)
+            self.assertEqual(point.p2sh_p2wpkh_address(network="mainnet"), mainnet_p2sh)
+            self.assertEqual(point.p2sh_p2wpkh_address(network="testnet"), testnet_p2sh)
+            self.assertEqual(point.p2sh_p2wpkh_address(network="signet"), testnet_p2sh)
 
     def test_verify(self):
         tests = (

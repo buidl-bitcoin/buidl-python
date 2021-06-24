@@ -82,7 +82,7 @@ class PSBTTest(TestCase):
         hex_named_hd = "4f01043587cf034d513c1580000000fb406c9fec09b6957a3449d2102318717b0c0d230b657d0ebc6698abd52145eb02eaf3397fea02c5dac747888a9e535eaf3c7e7cb9d5f2da77ddbdd943592a14af10fbfef36f2c0000800100008000000080"
         stream = BytesIO(bytes.fromhex(hex_named_hd))
         named_hd = NamedHDPublicKey.parse(read_varstr(stream), stream)
-        psbt_obj.tx_obj.testnet = True
+        psbt_obj.tx_obj.network = "testnet"
         tx_lookup = psbt_obj.tx_obj.get_input_tx_lookup()
         pubkey_lookup = named_hd.bip44_lookup()
         psbt_obj.update(tx_lookup, pubkey_lookup)
@@ -109,7 +109,7 @@ class PSBTTest(TestCase):
     def test_final_tx(self):
         hex_psbt = "70736274ff0100770100000001192f88eeabc44ac213604adbb5b699678815d24b718b5940f5b1b1853f0887480100000000ffffffff0220a10700000000001976a91426d5d464d148454c76f7095fdf03afc8bc8d82c388ac2c9f0700000000001976a9144df14c8c8873451290c53e95ebd1ee8fe488f0ed88ac00000000000100fda40102000000000102816f71fa2b62d7235ae316d54cb174053c793d16644064405a8326094518aaa901000000171600148900fe9d1950305978d57ebbc25f722bbf131b53feffffff6e3e62f2e005db1bb2a1f12e5ca2bfbb4f82f2ca023c23b0a10a035cabb38fb60000000017160014ae01dce99edb5398cee5e4dc536173d35a9495a9feffffff0278de16000000000017a914a2be7a5646958a5b53f1c3de5a896f6c0ff5419f8740420f00000000001976a9149a9bfaf8ef6c4b061a30e8e162da3458cfa122c688ac02473044022017506b1a15e0540efe5453fcc9c61dcc4457dd00d22cba5e5b937c56944f96ff02207a1c071a8e890cf69c4adef5154d6556e5b356fc09d74a7c811484de289c2d41012102de6c105c8ed6c54d9f7a166fbe3012fecbf4bb3cecda49a8aad1d0c07784110c0247304402207035217de1a2c587b1aaeb5605b043189d551451697acb74ffc99e5a288f4fde022013b7f33a916f9e05846d333b6ea314f56251e74f243682e0ec45ce9e16c6344d01210205174b405fba1b53a44faf08679d63c871cece6c3b2c343bd2d7c559aa32dfb1a227180001076b483045022100b98bb5a69a081543e7e6de6b62b3243c8870211c679a8cf568916631494e99d50220631e1f70231286f059f5cdef8d746f7b8986cfec47346bdfea163528250d7d24012102c1b6ac6e6a625fee295dc2d580f80aae08b7e76eca54ae88a854e956095af77c000000"
         psbt_obj = PSBT.parse(BytesIO(bytes.fromhex(hex_psbt)))
-        psbt_obj.tx_obj.testnet = True
+        psbt_obj.tx_obj.network = "testnet"
         tx_obj = psbt_obj.final_tx()
         want = "0100000001192f88eeabc44ac213604adbb5b699678815d24b718b5940f5b1b1853f088748010000006b483045022100b98bb5a69a081543e7e6de6b62b3243c8870211c679a8cf568916631494e99d50220631e1f70231286f059f5cdef8d746f7b8986cfec47346bdfea163528250d7d24012102c1b6ac6e6a625fee295dc2d580f80aae08b7e76eca54ae88a854e956095af77cffffffff0220a10700000000001976a91426d5d464d148454c76f7095fdf03afc8bc8d82c388ac2c9f0700000000001976a9144df14c8c8873451290c53e95ebd1ee8fe488f0ed88ac00000000"
         self.assertEqual(tx_obj.serialize().hex(), want)
@@ -121,7 +121,7 @@ class PSBTTest(TestCase):
             "47522102db8b701c3210e1bf6f2a8a9a657acad18be1e8bff3f7435d48f973de8408f29021026421c7673552fdad57193e102df96134be00649195b213fec9d07c6d918f418d52ae",
         ]
         psbt_obj = PSBT.parse(BytesIO(bytes.fromhex(hex_psbt)))
-        psbt_obj.tx_obj.testnet = True
+        psbt_obj.tx_obj.network = "testnet"
         tx_lookup = psbt_obj.tx_obj.get_input_tx_lookup()
         key_1 = bytes.fromhex(
             "02043587cf034d513c1580000000fb406c9fec09b6957a3449d2102318717b0c0d230b657d0ebc6698abd52145eb02eaf3397fea02c5dac747888a9e535eaf3c7e7cb9d5f2da77ddbdd943592a14af"
@@ -162,7 +162,7 @@ class PSBTTest(TestCase):
     def test_update_p2wpkh(self):
         hex_psbt = "70736274ff01005201000000015c89191dc2abf62339e0f114cb4c3bf8fb399d522d112c9afa2dc7a43759f9060000000000ffffffff01583e0f000000000016001427459b7e4317d1c9e1d0f8320d557c6bb08731ef00000000000000"
         psbt_obj = PSBT.parse(BytesIO(bytes.fromhex(hex_psbt)))
-        psbt_obj.tx_obj.testnet = True
+        psbt_obj.tx_obj.network = "testnet"
         tx_lookup = psbt_obj.tx_obj.get_input_tx_lookup()
         key = bytes.fromhex(
             "02043587cf0398242fbc80000000959cb81379545d7a34287f41485a3c08fc6ecf66cb89caff8a4f618b484d6e7d0362f19f492715b6041723d97403f166da0e3246eb614d80635c036a8d2f753393"
@@ -197,7 +197,7 @@ class PSBTTest(TestCase):
     def test_final_tx_p2wpkh(self):
         hex_psbt = "70736274ff01005201000000015c89191dc2abf62339e0f114cb4c3bf8fb399d522d112c9afa2dc7a43759f9060000000000ffffffff01583e0f000000000016001427459b7e4317d1c9e1d0f8320d557c6bb08731ef000000000001011f40420f0000000000160014f0cd79383f13584bdeca184cecd16135b8a79fc201070001086b024730440220575870ef714252a26bc4e61a6ee31db0f3896606a4792d11a42ef7d30c9f1b33022007cd28fb8618b704cbcf1cc6292d9be901bf3c99d967b0cace7307532619811e01210247aed77c3def4b8ce74a8db08d7f5fd315f8d96b6cd801729a910c3045d750f2002202026421c7673552fdad57193e102df96134be00649195b213fec9d07c6d918f418d18797dcdac2c0000800100008000000080010000000000000000"
         psbt_obj = PSBT.parse(BytesIO(bytes.fromhex(hex_psbt)))
-        psbt_obj.tx_obj.testnet = True
+        psbt_obj.tx_obj.network = "testnet"
         tx_obj = psbt_obj.final_tx()
         want = "010000000001015c89191dc2abf62339e0f114cb4c3bf8fb399d522d112c9afa2dc7a43759f9060000000000ffffffff01583e0f000000000016001427459b7e4317d1c9e1d0f8320d557c6bb08731ef024730440220575870ef714252a26bc4e61a6ee31db0f3896606a4792d11a42ef7d30c9f1b33022007cd28fb8618b704cbcf1cc6292d9be901bf3c99d967b0cace7307532619811e01210247aed77c3def4b8ce74a8db08d7f5fd315f8d96b6cd801729a910c3045d750f200000000"
         self.assertEqual(tx_obj.serialize().hex(), want)
@@ -208,7 +208,7 @@ class PSBTTest(TestCase):
         psbt_obj = PSBT.create(tx_obj)
         want = "70736274ff01005201000000015c89191dc2abf62339e0f114cb4c3bf8fb399d522d112c9afa2dc7a43759f9060100000000ffffffff01583e0f00000000001600146e13971913b9aa89659a9f53d327baa8826f2d7500000000000000"
         self.assertEqual(psbt_obj.serialize().hex(), want)
-        psbt_obj.tx_obj.testnet = True
+        psbt_obj.tx_obj.network = "testnet"
         hex_named_hd = "4f01043587cf0398242fbc80000000959cb81379545d7a34287f41485a3c08fc6ecf66cb89caff8a4f618b484d6e7d0362f19f492715b6041723d97403f166da0e3246eb614d80635c036a8d2f75339310797dcdac2c0000800100008000000080"
         stream = BytesIO(bytes.fromhex(hex_named_hd))
         named_hd = NamedHDPublicKey.parse(read_varstr(stream), stream)
@@ -238,7 +238,7 @@ class PSBTTest(TestCase):
             "47522102db8b701c3210e1bf6f2a8a9a657acad18be1e8bff3f7435d48f973de8408f29021026421c7673552fdad57193e102df96134be00649195b213fec9d07c6d918f418d52ae",
         ]
         psbt_obj = PSBT.parse(BytesIO(bytes.fromhex(hex_psbt)))
-        psbt_obj.tx_obj.testnet = True
+        psbt_obj.tx_obj.network = "testnet"
         tx_lookup = psbt_obj.tx_obj.get_input_tx_lookup()
         key_1 = bytes.fromhex(
             "02043587cf034d513c1580000000fb406c9fec09b6957a3449d2102318717b0c0d230b657d0ebc6698abd52145eb02eaf3397fea02c5dac747888a9e535eaf3c7e7cb9d5f2da77ddbdd943592a14af"
@@ -275,7 +275,7 @@ class PSBTTest(TestCase):
         psbt_obj = PSBT.create(tx_obj)
         want = "70736274ff01005201000000015c89191dc2abf62339e0f114cb4c3bf8fb399d522d112c9afa2dc7a43759f9060300000000ffffffff01583e0f00000000001600146e13971913b9aa89659a9f53d327baa8826f2d7500000000000000"
         self.assertEqual(psbt_obj.serialize().hex(), want)
-        psbt_obj.tx_obj.testnet = True
+        psbt_obj.tx_obj.network = "testnet"
         hex_witness_scripts = [
             "69532102c1b6ac6e6a625fee295dc2d580f80aae08b7e76eca54ae88a854e956095af77c21031b31547c895b5e301206740ea9890a0d6d127baeebb7fffb07356527323c915b210247aed77c3def4b8ce74a8db08d7f5fd315f8d96b6cd801729a910c3045d750f253ae"
         ]
@@ -562,45 +562,44 @@ class PSBTTest(TestCase):
     def test_insane_psbt(self):
         PSBT.parse_base64(
             "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",
-            testnet=False,
+            network="mainnet",
         )
 
     def test_mixed_psbt_network_parsing(self):
         # This contains both testnet and mainnet paths, so it should parse if forced to as either, but throw an error if attempting to infer based on (conflicting) paths
         mixed_psbt_b64 = "cHNidP8BAIkCAAAAAUYAY5RbY81ZhfuXkkRiwfljZDjD8cIGUHBmk/12qz5GAQAAAAD9////AoA4AQAAAAAAIgAgk1U7p/N5g35nzvoUWeBSzN2zF2eajCzQ2Sx5CiRY5CNXTQAAAAAAACIAIB2n9K+g9tTXEmaNsC9yctc0fqbGfIssoC7P+rlmSpcgAAAAAAABASughgEAAAAAACIAIHUJko5YlyOgiN3KsrFLuFJtVfeTLgPGjqZYGhs4nReDAQWtUSEC1YKN9BHfcfd2R7IfAlBK7qjwT2xH8ULojx0GM9xO0YYhAwqoDCSuUc0NvJjK5TElShKNkJg4kMYIs+/sXHAR5jGoIQMZgHao+1eGHjwWLn5hUzrmJ/ChRp+3ZHfgrDWivVRsCiEDpsKKb7ofiMx37vD64ThCvgRV++c9AtRASF15OpQa27UhA8Pni0wHemy313UWoUfiA3lQoVhw86x2wf7zo+8qAL89Va4iBgLVgo30Ed9x93ZHsh8CUEruqPBPbEfxQuiPHQYz3E7RhhD30ECQAQAAAAAAAAAAAAAAIgYDCqgMJK5RzQ28mMrlMSVKEo2QmDiQxgiz7+xccBHmMagc99BAkDAAAIABAACAAAAAgAIAAIAAAAAAAAAAACIGAxmAdqj7V4YePBYufmFTOuYn8KFGn7dkd+CsNaK9VGwKHBKYDu0wAACAAQAAgAAAAIACAACAAAAAAAAAAAAiBgOmwopvuh+IzHfu8PrhOEK+BFX75z0C1EBIXXk6lBrbtRw6UrXNMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAIgYDw+eLTAd6bLfXdRahR+IDeVChWHDzrHbB/vOj7yoAvz0cx9BkijAAAIABAACAAAAAgAIAAIAAAAAAAAAAAAABAa1RIQI2ps9CVMgpChaOyrSu53EBjTV+qHFUpbX+qe2bruJYXiEDVewQAcLE8dzi3pQL6svct9d0YUAoGpKDAAqkbSUdRjEhA4M9bnxBIRgPt5GAt4oFc61XwpmCXxj0n2lCyzi2vwI6IQOp40HDLYhwcGEVRDzxY7/D0toMqFFaKbzBpQDGXPsjuyEDsqwRgDBDwNuITc3f3P8CWZMk1edHsm5CNfV7gBn64EFVriICAjamz0JUyCkKFo7KtK7ncQGNNX6ocVSltf6p7Zuu4lheHMfQZIowAACAAQAAgAAAAIACAACAAQAAAAAAAAAiAgNV7BABwsTx3OLelAvqy9y313RhQCgakoMACqRtJR1GMRw6UrXNMAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAIgIDgz1ufEEhGA+3kYC3igVzrVfCmYJfGPSfaULLOLa/AjocEpgO7TAAAIABAACAAAAAgAIAAIABAAAAAAAAACICA6njQcMtiHBwYRVEPPFjv8PS2gyoUVopvMGlAMZc+yO7HPfQQJAwAACAAQAAgAAAAIACAACAAQAAAAAAAAAiAgOyrBGAMEPA24hNzd/c/wJZkyTV50eybkI19XuAGfrgQRD30ECQAQAAAAEAAAAAAAAAAAA="
 
-        for testnet in (True, False):
-            psbt_obj = PSBT.parse_base64(mixed_psbt_b64, testnet=testnet)
-            self.assertEqual(psbt_obj.testnet, testnet)
+        for network in ("mainnet", "testnet"):
+            psbt_obj = PSBT.parse_base64(mixed_psbt_b64, network=network)
+            self.assertEqual(psbt_obj.network, network)
 
         with self.assertRaises(MixedNetwork):
-            PSBT.parse_base64(mixed_psbt_b64, testnet=None)
+            PSBT.parse_base64(mixed_psbt_b64, network=None)
 
     def test_inferring_psbt_network(self):
         # This contains only testnet paths, so it should infer as a testnet PSBT
         testnet_psbt_b64 = "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"
-        psbt_obj = PSBT.parse_base64(testnet_psbt_b64, testnet=None)
-        self.assertEqual(psbt_obj.testnet, True)
+        psbt_obj = PSBT.parse_base64(testnet_psbt_b64, network=None)
+        self.assertEqual(psbt_obj.network, "testnet")
 
         # We should obviously be able to force parse this as testnet (it is testnet!), but also as mainnet (it could be if someone was using testnet paths on mainnet)
-        for testnet in (True, False):
-            psbt_obj = PSBT.parse_base64(testnet_psbt_b64, testnet=testnet)
-            self.assertEqual(psbt_obj.testnet, testnet)
+        for network in ("mainnet", "testnet"):
+            psbt_obj = PSBT.parse_base64(testnet_psbt_b64, network=network)
+            self.assertEqual(psbt_obj.network, network)
 
     def test_psbt_singlsig_describe_sweep(self):
         wif = "cVytB45CFmG3h1qS4c7qiNVCo6t3TZm2XEmgwJvz5amaRkR8BjS6"
         want = "miZ1QCSk2WHg6kzTPXx7dZFK8bM7aXHyjR"
         privkey_obj = PrivateKey.parse(wif)
         have = privkey_obj.point.address(
-            compressed=privkey_obj.compressed, testnet=privkey_obj.testnet
+            compressed=privkey_obj.compressed, network=privkey_obj.network
         )
         self.assertEqual(have, want)
 
         psbt_obj = PSBT.parse_base64(
             "cHNidP8BAFICAAAAAWXWTGFBCWnNAD1kEfXLUBiYELkgB9NscUkYTYuzg7X5AQAAAAD9////AfAWAAAAAAAAFgAUX64ixS2sQrQyBc7bvfQzk6q+WcbLGx4AAAEA3gIAAAABznOeQeZoS2o2T4Kx3mFQIc/p7dHq2Qh7fcwCyt/UkkEBAAAAakcwRAIgSe+RDZUlOgLgfR51RI3JQfc1LDkl96dnliguKJs/SmgCIGTIWGQSeGrhTyurcaHfTVxmbX5hIHTZKzI5BFoap7KeASECowrs+fe7ulePOtNsS1JxBc/9TYVtU2QkSJKZl1tW3/79////AoQOAAAAAAAAFgAUX64ixS2sQrQyBc7bvfQzk6q+WcatFwAAAAAAABl2qRQhS81OXj+1hdUw7rmK7YgneOE1OoisyhseAAAA",
-            testnet=True,
+            network="testnet",
         )
-
         described_with_privkey = psbt_obj.describe_p2pkh_sweep(privkey_obj=privkey_obj)
         want = {
             "tx_summary_text": "PSBT sends 5,872 sats to tb1qt7hz93fd43ptgvs9emdmmapnjw4tukwx40neyv with an UNVERIFIED fee of 189 sats (3.12% of spend)",
@@ -608,7 +607,7 @@ class PSBTTest(TestCase):
             "is_rbf_able": True,
             "locktime": 1973195,
             "version": 2,
-            "is_testnet": True,
+            "network": "testnet",
             "tx_fee_sats": 189,
             "total_input_sats": 6061,
             "output_spend_sats": 5872,
@@ -636,7 +635,7 @@ class PSBTTest(TestCase):
 
         with self.assertRaises(SuspiciousTransaction):
             psbt_obj.describe_p2pkh_sweep(
-                privkey_obj=PrivateKey(secret=1, testnet=True)
+                privkey_obj=PrivateKey(secret=1, network="testnet")
             )
 
     def test_psbt_multisig_describe_1of4(self):
@@ -651,14 +650,14 @@ class PSBTTest(TestCase):
             )
 
         testnet_psbt_b64 = "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"
-        psbt_obj = PSBT.parse_base64(testnet_psbt_b64, testnet=True)
+        psbt_obj = PSBT.parse_base64(testnet_psbt_b64, network="testnet")
 
         want = {
             "txid": "523f56e8ba1c3d9223d57745cccc83ed7d49d0c0ddae48ba93d1e4d0276fd25e",
             "tx_summary_text": "PSBT sends 5,577 sats to tb1q6een5px0jrffgm9mkf5cvxtvnv0qdzepu40mqy with a fee of 423 sats (7.05% of spend)",
             "locktime": 0,
             "version": 2,
-            "is_testnet": True,
+            "network": "testnet",
             "tx_fee_sats": 423,
             "total_input_sats": 6000,
             "output_spend_sats": 5577,
@@ -841,7 +840,7 @@ class PSBTTest(TestCase):
 
         # Now sign the transaction using the given paths
         hd_priv = HDPrivateKey.from_mnemonic(
-            "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo abstract", testnet=True
+            "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo abstract", network="testnet"
         )
         private_keys = [
             hd_priv.traverse(root_path).private_key
@@ -867,7 +866,7 @@ class PSBTTest(TestCase):
 
         testnet_psbt_b64 = "cHNidP8BAH0CAAAAAT6bNrKVxX4x1wd5fat0ib7DxWrMeU9sEZQLtFMXDkt0AAAAAAD9////AnwUAAAAAAAAFgAUwF974gXWjg4xmGjPOXCZ2nYQ7XigDwAAAAAAACIAIA/p3PSR5u1hURNkIOlCIz3/vx5JgucxR/hruSeeNwVCAAAAAAABASsQJwAAAAAAACIAIH4JQ0S5ERmKhSRowZbND7l6O6r4cf4U91kvd99YnsJTAQVpUiEDCqgMJK5RzQ28mMrlMSVKEo2QmDiQxgiz7+xccBHmMaghAxmAdqj7V4YePBYufmFTOuYn8KFGn7dkd+CsNaK9VGwKIQPD54tMB3pst9d1FqFH4gN5UKFYcPOsdsH+86PvKgC/PVOuIgYDCqgMJK5RzQ28mMrlMSVKEo2QmDiQxgiz7+xccBHmMagc99BAkDAAAIABAACAAAAAgAIAAIAAAAAAAAAAACIGAxmAdqj7V4YePBYufmFTOuYn8KFGn7dkd+CsNaK9VGwKHBKYDu0wAACAAQAAgAAAAIACAACAAAAAAAAAAAAiBgPD54tMB3pst9d1FqFH4gN5UKFYcPOsdsH+86PvKgC/PRzH0GSKMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAAAABAWlSIQI2ps9CVMgpChaOyrSu53EBjTV+qHFUpbX+qe2bruJYXiEDgz1ufEEhGA+3kYC3igVzrVfCmYJfGPSfaULLOLa/AjohA6njQcMtiHBwYRVEPPFjv8PS2gyoUVopvMGlAMZc+yO7U64iAgI2ps9CVMgpChaOyrSu53EBjTV+qHFUpbX+qe2bruJYXhzH0GSKMAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAIgIDgz1ufEEhGA+3kYC3igVzrVfCmYJfGPSfaULLOLa/AjocEpgO7TAAAIABAACAAAAAgAIAAIABAAAAAAAAACICA6njQcMtiHBwYRVEPPFjv8PS2gyoUVopvMGlAMZc+yO7HPfQQJAwAACAAQAAgAAAAIACAACAAQAAAAAAAAAA"
 
-        psbt_obj = PSBT.parse_base64(testnet_psbt_b64, testnet=True)
+        psbt_obj = PSBT.parse_base64(testnet_psbt_b64, network="testnet")
 
         psbt_described = psbt_obj.describe_basic_multisig_tx(
             hdpubkey_map=hdpubkey_map, xfp_for_signing=None
@@ -877,7 +876,7 @@ class PSBTTest(TestCase):
             "tx_summary_text": "PSBT sends 5,244 sats to tb1qcp0hhcs9668quvvcdr8njuyemfmppmtcftl95r with a fee of 756 sats (7.56% of spend)",
             "locktime": 0,
             "version": 2,
-            "is_testnet": True,
+            "network": "testnet",
             "tx_fee_sats": 756,
             "total_input_sats": 10000,
             "output_spend_sats": 5244,
@@ -947,7 +946,7 @@ class PSBTTest(TestCase):
         self.assertEqual(psbt_described_with_xfp, psbt_description_expected)
 
         hd_priv = HDPrivateKey.from_mnemonic(
-            "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo abstract", testnet=True
+            "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo abstract", network="testnet"
         )
         private_keys = [
             hd_priv.traverse(root_path).private_key
