@@ -395,11 +395,11 @@ class HDPrivateKey:
         mnemonic = ShareSet.recover_mnemonic(share_mnemonics, passphrase)
         return cls.from_mnemonic(mnemonic, password, path, testnet)
 
-    def generate_p2wsh_key_record(self, bip32_path=None, use_slip132_version_byte=True):
+    def generate_p2wsh_key_record(
+        self, bip32_path=None, use_slip132_version_byte=False
+    ):
         """
         Convenience method for generating a public key_record to supply to your Coordinator software.
-
-        We default use_slip132_version_byte to unamiguously communicate the network to Specter-Desktop.
         """
         # Check that we're using the root HDPrivateKey
         if self.depth != 0:
