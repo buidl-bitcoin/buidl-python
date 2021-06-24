@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from io import BytesIO
 
-from buidl.helper import decode_base58
+from buidl.helper import decode_base58_addr
 from buidl.script import (
     P2PKHScriptPubKey,
     P2SHScriptPubKey,
@@ -39,7 +39,7 @@ class ScriptTest(TestCase):
 class P2PKHScriptPubKeyTest(TestCase):
     def test_address(self):
         address_1 = "1BenRpVUFK65JFWcQSuHnJKzc4M8ZP8Eqa"
-        h160 = decode_base58(address_1)
+        h160 = decode_base58_addr(address_1)
         p2pkh_script_pubkey = P2PKHScriptPubKey(h160)
         self.assertEqual(p2pkh_script_pubkey.address(), address_1)
         address_2 = "mrAjisaT4LXL5MzE81sfcDYKU3wqWSvf9q"
@@ -49,7 +49,7 @@ class P2PKHScriptPubKeyTest(TestCase):
 class P2SHScriptPubKeyTest(TestCase):
     def test_address(self):
         address_1 = "3CLoMMyuoDQTPRD3XYZtCvgvkadrAdvdXh"
-        h160 = decode_base58(address_1)
+        h160 = decode_base58_addr(address_1)
         p2sh_script_pubkey = P2SHScriptPubKey(h160)
         self.assertEqual(p2sh_script_pubkey.address(), address_1)
         address_2 = "2N3u1R6uwQfuobCqbCgBkpsgBxvr1tZpe7B"

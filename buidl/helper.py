@@ -153,7 +153,7 @@ def raw_decode_base58(s):
     return combined[:-4]
 
 
-def decode_base58(s):
+def decode_base58_addr(s):
     return raw_decode_base58(s)[1:]
 
 

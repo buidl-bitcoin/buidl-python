@@ -6,7 +6,7 @@ from buidl.helper import (
     bit_field_to_bytes,
     bytes_to_bit_field,
     bytes_to_str,
-    decode_base58,
+    decode_base58_addr,
     encode_base58_checksum,
     decode_golomb,
     encode_golomb,
@@ -54,13 +54,13 @@ class HelperTest(TestCase):
 
     def test_base58(self):
         addr = "mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf"
-        h160 = decode_base58(addr).hex()
+        h160 = decode_base58_addr(addr).hex()
         want = "507b27411ccf7f16f10297de6cef3f291623eddf"
         self.assertEqual(h160, want)
         got = encode_base58_checksum(b"\x6f" + bytes.fromhex(h160))
         self.assertEqual(got, addr)
         addr = "1111111111111111111114oLvT2"
-        h160 = decode_base58(addr).hex()
+        h160 = decode_base58_addr(addr).hex()
         want = "0000000000000000000000000000000000000000"
         self.assertEqual(h160, want)
         got = encode_base58_checksum(b"\x00" + bytes.fromhex(h160))

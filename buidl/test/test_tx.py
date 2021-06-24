@@ -2,7 +2,7 @@ from os.path import dirname, realpath, sep
 from unittest import TestCase
 
 from buidl.ecc import PrivateKey, Signature
-from buidl.helper import decode_base58
+from buidl.helper import decode_base58_addr
 from buidl.script import P2PKHScriptPubKey, RedeemScript, WitnessScript
 from buidl.tx import Tx, TxIn, TxOut, TxFetcher
 
@@ -155,11 +155,11 @@ class TxTest(TestCase):
         )
         tx_ins.append(TxIn(prev_tx, 0))
         tx_outs = []
-        h160 = decode_base58("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
+        h160 = decode_base58_addr("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
         tx_outs.append(
             TxOut(amount=int(0.99 * 100000000), script_pubkey=P2PKHScriptPubKey(h160))
         )
-        h160 = decode_base58("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
+        h160 = decode_base58_addr("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
         tx_outs.append(
             TxOut(amount=int(0.1 * 100000000), script_pubkey=P2PKHScriptPubKey(h160))
         )
@@ -175,7 +175,7 @@ class TxTest(TestCase):
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
         amount = tx_in.value(testnet=True) - fee
-        h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
+        h160 = decode_base58_addr("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
         t = Tx(1, [tx_in], [tx_out], 0, testnet=True, segwit=True)
         self.assertTrue(t.sign_input(0, private_key))
@@ -192,7 +192,7 @@ class TxTest(TestCase):
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
         amount = tx_in.value(testnet=True) - fee
-        h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
+        h160 = decode_base58_addr("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
         t = Tx(1, [tx_in], [tx_out], 0, testnet=True, segwit=True)
         self.assertTrue(t.sign_input(0, private_key, redeem_script=redeem_script))
@@ -207,11 +207,11 @@ class TxTest(TestCase):
         )
         tx_ins.append(TxIn(prev_tx, 0))
         tx_outs = []
-        h160 = decode_base58("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
+        h160 = decode_base58_addr("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
         tx_outs.append(
             TxOut(amount=int(0.99 * 100000000), script_pubkey=P2PKHScriptPubKey(h160))
         )
-        h160 = decode_base58("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
+        h160 = decode_base58_addr("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
         tx_outs.append(
             TxOut(amount=int(0.1 * 100000000), script_pubkey=P2PKHScriptPubKey(h160))
         )
@@ -231,7 +231,7 @@ class TxTest(TestCase):
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
         amount = tx_in.value(testnet=True) - fee
-        h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
+        h160 = decode_base58_addr("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
         t = Tx(1, [tx_in], [tx_out], 0, testnet=True, segwit=True)
         sig1 = t.get_sig_legacy(0, private_key1, redeem_script=redeem_script)
@@ -269,7 +269,7 @@ class TxTest(TestCase):
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
         amount = tx_in.value(testnet=True) - fee
-        h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
+        h160 = decode_base58_addr("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
         t = Tx(1, [tx_in], [tx_out], 0, testnet=True, segwit=True)
         sig1 = t.get_sig_segwit(0, private_key1, witness_script=witness_script)
@@ -307,7 +307,7 @@ class TxTest(TestCase):
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
         amount = tx_in.value(testnet=True) - fee
-        h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
+        h160 = decode_base58_addr("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
         t = Tx(1, [tx_in], [tx_out], 0, testnet=True, segwit=True)
         sig1 = t.get_sig_segwit(0, private_key1, witness_script=witness_script)

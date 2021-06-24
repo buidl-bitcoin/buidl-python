@@ -6,7 +6,7 @@ import json
 
 from buidl.helper import (
     big_endian_to_int,
-    decode_base58,
+    decode_base58_addr,
     hash256,
     encode_varint,
     int_to_byte,
@@ -548,7 +548,7 @@ class Tx:
 
     def find_utxos(self, address):
         """Returns transaction outputs that matches the address"""
-        h160 = decode_base58(address)
+        h160 = decode_base58_addr(address)
         # utxos are a list of tuples: (hash, index, amount)
         utxos = []
         for index, tx_out in enumerate(self.tx_outs):

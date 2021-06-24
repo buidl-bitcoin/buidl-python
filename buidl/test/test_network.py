@@ -3,7 +3,7 @@ from unittest import TestCase
 from io import BytesIO
 
 from buidl.block import Block
-from buidl.helper import decode_base58, decode_gcs
+from buidl.helper import decode_base58_addr, decode_gcs
 from buidl.network import (
     BASIC_FILTER_TYPE,
     CFCheckPointMessage,
@@ -107,7 +107,7 @@ if False:
             from buidl.bloomfilter import BloomFilter
 
             bf = BloomFilter(30, 5, 90210)
-            h160 = decode_base58("mseRGXB89UTFVkWJhTRTzzZ9Ujj4ZPbGK5")
+            h160 = decode_base58_addr("mseRGXB89UTFVkWJhTRTzzZ9Ujj4ZPbGK5")
             bf.add(h160)
             node = SimpleNode("tbtc.programmingblockchain.com", testnet=True)
             node.handshake()
