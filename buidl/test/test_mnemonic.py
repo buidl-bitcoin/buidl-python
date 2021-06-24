@@ -19,7 +19,7 @@ class MnemonicTest(TestCase):
             mnemonic = secure_mnemonic(num_bits=num_bits)
             self.assertEqual(num_words, len(mnemonic.split(" ")))
             # This is inherently non-deterministic, so we can't check the specific output
-            HDPrivateKey.from_mnemonic(mnemonic, testnet=True)
+            HDPrivateKey.from_mnemonic(mnemonic, network="testnet")
 
         for invalid_num_bits in (-1, 1, 127, 129, 257, "notanint"):
             with self.assertRaises(ValueError):
@@ -39,7 +39,7 @@ class MnemonicTest(TestCase):
             mnemonic = secure_mnemonic(num_bits=num_bits, extra_entropy=extra_entropy)
             self.assertEqual(num_words, len(mnemonic.split(" ")))
             # This is inherently non-deterministic, so we can't check the specific output
-            HDPrivateKey.from_mnemonic(mnemonic, testnet=True)
+            HDPrivateKey.from_mnemonic(mnemonic, network="testnet")
 
         with self.assertRaises(TypeError):
             secure_mnemonic(extra_entropy="not an int")

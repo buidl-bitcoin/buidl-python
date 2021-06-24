@@ -43,7 +43,8 @@ class P2PKHScriptPubKeyTest(TestCase):
         p2pkh_script_pubkey = P2PKHScriptPubKey(h160)
         self.assertEqual(p2pkh_script_pubkey.address(), address_1)
         address_2 = "mrAjisaT4LXL5MzE81sfcDYKU3wqWSvf9q"
-        self.assertEqual(p2pkh_script_pubkey.address(testnet=True), address_2)
+        self.assertEqual(p2pkh_script_pubkey.address(network="testnet"), address_2)
+        self.assertEqual(p2pkh_script_pubkey.address(network="signet"), address_2)
 
 
 class P2SHScriptPubKeyTest(TestCase):
@@ -53,7 +54,8 @@ class P2SHScriptPubKeyTest(TestCase):
         p2sh_script_pubkey = P2SHScriptPubKey(h160)
         self.assertEqual(p2sh_script_pubkey.address(), address_1)
         address_2 = "2N3u1R6uwQfuobCqbCgBkpsgBxvr1tZpe7B"
-        self.assertEqual(p2sh_script_pubkey.address(testnet=True), address_2)
+        self.assertEqual(p2sh_script_pubkey.address(network="testnet"), address_2)
+        self.assertEqual(p2sh_script_pubkey.address(network="signet"), address_2)
 
 
 class RedeemScriptTest(TestCase):
@@ -66,7 +68,8 @@ class RedeemScriptTest(TestCase):
         want = "17a91436b865d5b9664193ea1db43d159edf9edf94380287"
         self.assertEqual(redeem_script.script_pubkey().serialize().hex(), want)
         want = "2MxEZNps15dAnGX5XaVwZWgoDvjvsDE5XSx"
-        self.assertEqual(redeem_script.address(testnet=True), want)
+        self.assertEqual(redeem_script.address(network="testnet"), want)
+        self.assertEqual(redeem_script.address(network="signet"), want)
 
 
 class WitnessScriptTest(TestCase):
@@ -80,7 +83,8 @@ class WitnessScriptTest(TestCase):
         witness_script_hex = "5221026ccfb8061f235cc110697c0bfb3afb99d82c886672f6b9b5393b25a434c0cbf32103befa190c0c22e2f53720b1be9476dcf11917da4665c44c9c71c3a2d28a933c352102be46dc245f58085743b1cc37c82f0d63a960efa43b5336534275fc469b49f4ac53ae"
         witness_script = WitnessScript.convert(bytes.fromhex(witness_script_hex))
         want = "2MvVx9ccWqyYVNa5Xz9pfCEVk99zVBZh9ms"
-        self.assertEqual(witness_script.p2sh_address(testnet=True), want)
+        self.assertEqual(witness_script.p2sh_address(network="testnet"), want)
+        self.assertEqual(witness_script.p2sh_address(network="signet"), want)
 
     def test_p2wsh_with_quorum(self):
 

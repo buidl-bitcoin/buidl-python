@@ -407,12 +407,14 @@ def path_to_child(path_component):
     return child_number
 
 
-def path_is_testnet(root_path):
+def path_network(root_path):
     components = root_path.split("/")
     if len(components) < 2:
-        return False
+        return "mainnet"
+    elif components[1] in ("44'", "84'", "48'") and components[2] == "1'":
+        return "testnet"
     else:
-        return components[1] in ("44'", "84'", "48'") and components[2] == "1'"
+        return "mainnet"
 
 
 def parse_binary_path(bin_path):

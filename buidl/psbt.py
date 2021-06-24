@@ -11,7 +11,7 @@ from buidl.helper import (
     little_endian_to_int,
     op_code_to_number,
     parse_binary_path,
-    path_is_testnet,
+    path_network,
     read_varint,
     read_varstr,
     serialize_binary_path,
@@ -68,20 +68,20 @@ class NamedPublicKey(S256Point):
             self.sec().hex(), self.root_fingerprint.hex(), self.root_path
         )
 
-    def add_raw_path_data(self, raw_path, testnet=None):
+    def add_raw_path_data(self, raw_path, network=None):
         self.root_fingerprint = raw_path[:4]
         self.root_path = parse_binary_path(raw_path[4:])
         self.raw_path = raw_path
-        if testnet is None:
-            self.testnet = path_is_testnet(self.root_path)
+        if network is None:
+            self.network = path_network(self.root_path)
         else:
-            self.testnet = testnet
+            self.network = network
 
     @classmethod
-    def parse(cls, key, s, testnet=None):
+    def parse(cls, key, s, network=None):
         point = super().parse(key[1:])
         point.__class__ = cls
-        point.add_raw_path_data(read_varstr(s), testnet=testnet)
+        point.add_raw_path_data(read_varstr(s), network=network)
         return point
 
     def serialize(self, prefix):
@@ -94,16 +94,16 @@ class NamedHDPublicKey(HDPublicKey):
             super().__repr__(), self.root_fingerprint.hex(), self.root_path
         )
 
-    def add_raw_path_data(self, raw_path, testnet=None):
+    def add_raw_path_data(self, raw_path, network=None):
         self.root_fingerprint = raw_path[:4]
         bin_path = raw_path[4:]
         self.root_path = parse_binary_path(bin_path)
         if self.depth != len(bin_path) // 4:
             raise ValueError("raw path calculated depth and depth are different")
-        if testnet is None:
-            self.testnet = path_is_testnet(self.root_path)
+        if network is None:
+            self.network = path_network(self.root_path)
         else:
-            self.testnet = testnet
+            self.network = network
         self.raw_path = raw_path
         self.sync_point()
 
@@ -112,14 +112,14 @@ class NamedHDPublicKey(HDPublicKey):
         self.point.root_fingerprint = self.root_fingerprint
         self.point.root_path = self.root_path
         self.point.raw_path = self.raw_path
-        self.point.testnet = self.testnet
+        self.point.network = self.network
 
     def child(self, index):
         child = super().child(index)
         child.__class__ = self.__class__
         child.root_fingerprint = self.root_fingerprint
         child.root_path = self.root_path + child_to_path(index)
-        child.testnet = path_is_testnet(child.root_path)
+        child.network = path_network(child.root_path)
         child.raw_path = self.raw_path + int_to_little_endian(index, 4)
         child.sync_point()
         return child
@@ -168,10 +168,10 @@ class NamedHDPublicKey(HDPublicKey):
         }
 
     @classmethod
-    def parse(cls, key, s, testnet=None):
+    def parse(cls, key, s, network=None):
         hd_key = cls.raw_parse(BytesIO(key[1:]))
         hd_key.__class__ = cls
-        hd_key.add_raw_path_data(read_varstr(s), testnet=testnet)
+        hd_key.add_raw_path_data(read_varstr(s), network=network)
         return hd_key
 
     @classmethod
@@ -203,15 +203,21 @@ class NamedHDPublicKey(HDPublicKey):
 
 class PSBT:
     def __init__(
-        self, tx_obj, psbt_ins, psbt_outs, hd_pubs=None, extra_map=None, testnet=False
+        self,
+        tx_obj,
+        psbt_ins,
+        psbt_outs,
+        hd_pubs=None,
+        extra_map=None,
+        network="mainnet",
     ):
         self.tx_obj = tx_obj
         self.psbt_ins = psbt_ins
         self.psbt_outs = psbt_outs
         self.hd_pubs = hd_pubs or {}
         self.extra_map = extra_map or {}
-        self.testnet = testnet
-        self.tx_obj.testnet = testnet
+        self.network = network
+        self.tx_obj.network = network
         self.validate()
 
     def validate(self):
@@ -268,7 +274,7 @@ class PSBT:
             # validate the NamedPublicKeys
             if psbt_in.named_pubs:
                 for named_pub in psbt_in.named_pubs.values():
-                    named_pub.testnet = self.testnet
+                    named_pub.network = self.network
                     for hd_pub in self.hd_pubs.values():
                         if hd_pub.is_ancestor(named_pub):
                             if not hd_pub.verify_descendent(named_pub):
@@ -288,7 +294,7 @@ class PSBT:
             # validate the NamedPublicKeys
             if psbt_out.named_pubs:
                 for named_pub in psbt_out.named_pubs.values():
-                    named_pub.testnet = self.testnet
+                    named_pub.network = self.network
                     for hd_pub in self.hd_pubs.values():
                         if hd_pub.is_ancestor(named_pub):
                             if not hd_pub.verify_descendent(named_pub):
@@ -460,12 +466,12 @@ class PSBT:
         return tx_obj
 
     @classmethod
-    def parse_base64(cls, b64, testnet=None):
+    def parse_base64(cls, b64, network=None):
         stream = BytesIO(base64_decode(b64))
-        return cls.parse(stream, testnet=testnet)
+        return cls.parse(stream, network=network)
 
     @classmethod
-    def parse(cls, s, testnet=None):
+    def parse(cls, s, network=None):
         """Returns an instance of PSBT from a stream"""
         # prefix
         magic = s.read(4)
@@ -491,11 +497,11 @@ class PSBT:
             elif psbt_type == PSBT_GLOBAL_XPUB:
                 if len(key) != 79:
                     raise KeyError("Wrong length for the key")
-                hd_pub = NamedHDPublicKey.parse(key, s, testnet=testnet)
+                hd_pub = NamedHDPublicKey.parse(key, s, network=network)
                 hd_pubs[hd_pub.raw_serialize()] = hd_pub
-                if testnet is None:
-                    testnet = hd_pub.testnet
-                if hd_pub.testnet != testnet:
+                if network is None:
+                    network = hd_pub.network
+                if hd_pub.network != network:
                     raise MixedNetwork("PSBT Mainnet/Testnet Mixing")
             else:
                 if extra_map.get(key):
@@ -507,24 +513,24 @@ class PSBT:
         # per input data
         psbt_ins = []
         for tx_in in tx_obj.tx_ins:
-            psbt_in = PSBTIn.parse(s, tx_in, testnet=testnet)
+            psbt_in = PSBTIn.parse(s, tx_in, network=network)
             for named_pub in psbt_in.named_pubs.values():
-                if testnet is None:
-                    testnet = named_pub.testnet
-                if named_pub.testnet != testnet:
+                if network is None:
+                    network = named_pub.network
+                if named_pub.network != network:
                     raise MixedNetwork("PSBTIn Mainnet/Testnet Mixing")
             psbt_ins.append(psbt_in)
         # per output data
         psbt_outs = []
         for tx_out in tx_obj.tx_outs:
-            psbt_out = PSBTOut.parse(s, tx_out, testnet=testnet)
+            psbt_out = PSBTOut.parse(s, tx_out, network=network)
             for named_pub in psbt_out.named_pubs.values():
-                if testnet is None:
-                    testnet = named_pub.testnet
-                if named_pub.testnet != testnet:
+                if network is None:
+                    network = named_pub.network
+                if named_pub.network != network:
                     raise MixedNetwork("PSBTOut Mainnet/Testnet Mixing")
             psbt_outs.append(psbt_out)
-        return cls(tx_obj, psbt_ins, psbt_outs, hd_pubs, extra_map, testnet)
+        return cls(tx_obj, psbt_ins, psbt_outs, hd_pubs, extra_map, network)
 
     def serialize_base64(self):
         return base64_encode(self.serialize())
@@ -662,8 +668,8 @@ class PSBT:
                 "prev_idx": psbt_in.tx_in.prev_index,
                 "n_sequence": psbt_in.tx_in.sequence,
                 "sats": psbt_in.tx_in.value(),
-                "addr": psbt_in.witness_script.address(testnet=self.testnet),
-                # if adding support for p2sh in the future, the address would be: psbt_in.witness_script.p2sh_address(testnet=self.testnet),
+                "addr": psbt_in.witness_script.address(network=self.network),
+                # if adding support for p2sh in the future, the address would be: psbt_in.witness_script.p2sh_address(network=self.network),
                 "witness_script": str(psbt_in.witness_script),
             }
             inputs_desc.append(input_desc)
@@ -685,7 +691,7 @@ class PSBT:
 
             output_desc = {
                 "sats": psbt_out.tx_out.amount,
-                "addr": psbt_out.tx_out.script_pubkey.address(testnet=self.testnet),
+                "addr": psbt_out.tx_out.script_pubkey.address(network=self.network),
                 "addr_type": psbt_out.tx_out.script_pubkey.__class__.__name__.rstrip(
                     "ScriptPubKey"
                 ),
@@ -776,7 +782,7 @@ class PSBT:
             "tx_summary_text": tx_summary_text,
             "locktime": self.tx_obj.locktime,
             "version": self.tx_obj.version,
-            "is_testnet": self.testnet,
+            "network": self.network,
             "tx_fee_sats": tx_fee_sats,
             "total_input_sats": total_input_sats,
             "output_spend_sats": output_spend_sats,
@@ -853,7 +859,7 @@ class PSBT:
                 "prev_idx": psbt_in.tx_in.prev_index,
                 "n_sequence": psbt_in.tx_in.sequence,
                 "sats": psbt_prev_tx_out.amount,
-                "addr": psbt_prev_tx_out.script_pubkey.address(testnet=self.testnet),
+                "addr": psbt_prev_tx_out.script_pubkey.address(network=self.network),
             }
             inputs_desc.append(input_desc)
 
@@ -870,7 +876,7 @@ class PSBT:
         psbt_out = self.psbt_outs[0]  # this script only accepts 1 output
         psbt_out.validate()
 
-        spend_addr = psbt_out.tx_out.script_pubkey.address(testnet=self.testnet)
+        spend_addr = psbt_out.tx_out.script_pubkey.address(network=self.network)
         output_spend_sats = psbt_out.tx_out.amount
         output_addr_type = psbt_out.tx_out.script_pubkey.__class__.__name__.rstrip(
             "ScriptPubKey"
@@ -895,7 +901,7 @@ class PSBT:
             "is_rbf_able": self.tx_obj.is_rbf_able(),
             "locktime": self.tx_obj.locktime,
             "version": self.tx_obj.version,
-            "is_testnet": self.testnet,
+            "network": self.network,
             "tx_fee_sats": tx_fee_sats,
             "total_input_sats": total_input_sats,
             "output_spend_sats": output_spend_sats,
@@ -1040,7 +1046,7 @@ class PSBTIn:
         )
 
     @classmethod
-    def parse(cls, s, tx_in, testnet=None):
+    def parse(cls, s, tx_in, network=None):
         prev_tx = None
         prev_out = None
         sigs = {}
@@ -1101,7 +1107,7 @@ class PSBTIn:
             elif psbt_type == PSBT_IN_BIP32_DERIVATION:
                 if len(key) != 34:
                     raise KeyError("Wrong length for the key")
-                named_pub = NamedPublicKey.parse(key, s, testnet=testnet)
+                named_pub = NamedPublicKey.parse(key, s, network=network)
                 named_pubs[named_pub.sec()] = named_pub
             elif psbt_type == PSBT_IN_FINAL_SCRIPTSIG:
                 if len(key) != 1:
@@ -1548,7 +1554,7 @@ class PSBTOut:
         )
 
     @classmethod
-    def parse(cls, s, tx_out, testnet=None):
+    def parse(cls, s, tx_out, network=None):
         redeem_script = None
         witness_script = None
         named_pubs = {}
@@ -1571,7 +1577,7 @@ class PSBTOut:
             elif psbt_type == PSBT_OUT_BIP32_DERIVATION:
                 if len(key) != 34:
                     raise KeyError("Wrong length for the key")
-                named_pub = NamedPublicKey.parse(key, s, testnet=testnet)
+                named_pub = NamedPublicKey.parse(key, s, network=network)
                 named_pubs[named_pub.sec()] = named_pub
             else:
                 if extra_map.get(key):

@@ -22,10 +22,18 @@ from buidl.shamir import ShareSet
 
 # https://github.com/satoshilabs/slips/blob/master/slip-0132.md
 # Make default xpub/xpriv, but allow for other version bytes
-MAINNET_XPRV = bytes.fromhex("0488ade4")  # xprv
-MAINNET_XPUB = bytes.fromhex("0488b21e")  # xpub
-TESTNET_XPRV = bytes.fromhex("04358394")  # tprv
-TESTNET_XPUB = bytes.fromhex("043587cf")  # tpub
+
+XPRV = {
+    "mainnet": bytes.fromhex("0488ade4"),
+    "testnet": bytes.fromhex("04358394"),
+    "signet": bytes.fromhex("04358394"),
+}
+
+XPUB = {
+    "mainnet": bytes.fromhex("0488b21e"),
+    "testnet": bytes.fromhex("043587cf"),
+    "signet": bytes.fromhex("043587cf"),
+}
 
 # P2PKH or P2SH, P2WPKH in P2SH, P2WPKH, Multi-signature P2WSH in P2SH, Multi-signature P2WSH
 ALL_MAINNET_XPRVS = {
@@ -45,8 +53,11 @@ ALL_TESTNET_XPUBS = {
     for x in ["043587cf", "044a5262", "045f1cf6", "024289ef", "02575483"]
 }
 
-MAINNET_DEFAULT_P2WSH_PATH = "m/48h/0h/0h/2h"
-TESTNET_DEFAULT_P2WSH_PATH = "m/48h/1h/0h/2h"
+DEFAULT_P2WSH_PATH = {
+    "mainnet": "m/48h/0h/0h/2h",
+    "testnet": "m/48h/1h/0h/2h",
+    "signet": "m/48h/1h/0h/2h",
+}
 
 
 class HDPrivateKey:
@@ -57,13 +68,13 @@ class HDPrivateKey:
         depth=0,
         parent_fingerprint=b"\x00\x00\x00\x00",
         child_number=0,
-        testnet=False,
+        network="mainnet",
         priv_version=None,
         pub_version=None,
     ):
         # the main secret, should be a PrivateKey object
         self.private_key = private_key
-        self.private_key.testnet = testnet
+        self.private_key.network = network
         # the code to make derivation deterministic
         self.chain_code = chain_code
         # level the current key is at in the heirarchy
@@ -72,14 +83,11 @@ class HDPrivateKey:
         self.parent_fingerprint = parent_fingerprint
         # what order child this is
         self.child_number = child_number
-        self.testnet = testnet
+        self.network = network
 
         if priv_version is None:
             # Set priv_version based on whether or not we are testnet
-            if testnet is True:
-                priv_version = TESTNET_XPRV
-            else:
-                priv_version = MAINNET_XPRV
+            priv_version = XPRV[self.network]
         self.priv_version = priv_version
 
         # keep a copy of the corresponding public key
@@ -89,7 +97,7 @@ class HDPrivateKey:
             depth=depth,
             parent_fingerprint=parent_fingerprint,
             child_number=child_number,
-            testnet=testnet,
+            network=network,
             pub_version=pub_version,  # HDPublicKey handles the case where pub_version is None
         )
 
@@ -124,7 +132,7 @@ class HDPrivateKey:
         return self.xprv()
 
     @classmethod
-    def from_seed(cls, seed, testnet=False, priv_version=None, pub_version=None):
+    def from_seed(cls, seed, network="mainnet", priv_version=None, pub_version=None):
         # get hmac_sha512 with b'Bitcoin seed' and seed
         h = hmac_sha512(b"Bitcoin seed", seed)
         # create the private key using the first 32 bytes in big endian
@@ -135,7 +143,7 @@ class HDPrivateKey:
         return cls(
             private_key=private_key,
             chain_code=chain_code,
-            testnet=testnet,
+            network=network,
             priv_version=priv_version,
             pub_version=pub_version,
         )
@@ -177,7 +185,7 @@ class HDPrivateKey:
             depth=depth,
             parent_fingerprint=parent_fingerprint,
             child_number=child_number,
-            testnet=self.testnet,
+            network=self.network,
             priv_version=self.priv_version,
             pub_version=self.pub.pub_version,
         )
@@ -262,9 +270,9 @@ class HDPrivateKey:
         # check that the priv_version is one of the TESTNET or MAINNET
         #  private keys, if not raise a ValueError
         if priv_version in ALL_TESTNET_XPRVS:
-            testnet = True
+            network = "testnet"
         elif priv_version in ALL_MAINNET_XPRVS:
-            testnet = False
+            network = "mainnet"
         else:
             raise ValueError(f"not a valid [t-z]prv: {priv_version}")
         # the next byte is depth
@@ -287,7 +295,7 @@ class HDPrivateKey:
             depth=depth,
             parent_fingerprint=parent_fingerprint,
             child_number=child_number,
-            testnet=testnet,
+            network=network,
             priv_version=priv_version,
             # HDPublicKey will handle its own versioning:
             pub_version=None,
@@ -301,11 +309,11 @@ class HDPrivateKey:
             raise ValueError(
                 "Cannot create an address without a proper purpose: {}".format(purpose)
             )
-        # if testnet, coin is 1', otherwise 0'
-        if self.testnet:
-            coin = "1'"
-        else:
+        # if testnet/signet, coin is 1', otherwise 0'
+        if self.network == "mainnet":
             coin = "0'"
+        else:
+            coin = "1'"
         # if external, chain is 0, otherwise 1
         if external:
             chain = "0"
@@ -348,7 +356,7 @@ class HDPrivateKey:
         cls,
         password=b"",
         extra_entropy=0,
-        testnet=False,
+        network="mainnet",
         priv_version=None,
         pub_version=None,
     ):
@@ -356,7 +364,7 @@ class HDPrivateKey:
         return mnemonic, cls.from_mnemonic(
             mnemonic,
             password=password,
-            testnet=testnet,
+            network=network,
             priv_version=priv_version,
             pub_version=pub_version,
         )
@@ -367,7 +375,7 @@ class HDPrivateKey:
         mnemonic,
         password=b"",
         path="m",
-        testnet=False,
+        network="mainnet",
         priv_version=None,
         pub_version=None,
     ):
@@ -382,18 +390,18 @@ class HDPrivateKey:
         seed = hmac_sha512_kdf(normalized, salt)
         # return the HDPrivateKey at the path specified
         return cls.from_seed(
-            seed, testnet=testnet, priv_version=priv_version, pub_version=pub_version
+            seed, network=network, priv_version=priv_version, pub_version=pub_version
         ).traverse(path)
 
     @classmethod
     def from_shares(
-        cls, share_mnemonics, passphrase=b"", password=b"", path="m", testnet=False
+        cls, share_mnemonics, passphrase=b"", password=b"", path="m", network="mainnet"
     ):
         """Returns a HDPrivateKey object from SLIP39 mnemonics.
         Note passphrase is for the shares and
         password is for the mnemonic."""
         mnemonic = ShareSet.recover_mnemonic(share_mnemonics, passphrase)
-        return cls.from_mnemonic(mnemonic, password, path, testnet)
+        return cls.from_mnemonic(mnemonic, password, path, network)
 
     def generate_p2wsh_key_record(
         self, bip32_path=None, use_slip132_version_byte=False
@@ -419,18 +427,15 @@ class HDPrivateKey:
 
         if use_slip132_version_byte:
             # https://github.com/satoshilabs/slips/blob/master/slip-0132.md
-            if self.testnet:
-                version_byte = bytes.fromhex("02575483")
-            else:
+            if self.network == "mainnet":
                 version_byte = bytes.fromhex("02aa7ed3")
+            else:
+                version_byte = bytes.fromhex("02575483")
         else:
             version_byte = None  # buidl will automatically pick between xpub/tpub
 
         if bip32_path is None:
-            if self.testnet:
-                bip32_path = TESTNET_DEFAULT_P2WSH_PATH
-            else:
-                bip32_path = MAINNET_DEFAULT_P2WSH_PATH
+            bip32_path = DEFAULT_P2WSH_PATH[self.network]
         else:
             # make the standard h instead of ' for consistency
             bip32_path = bip32_path.replace("'", "h")
@@ -447,7 +452,7 @@ class HDPublicKey:
         depth,
         parent_fingerprint,
         child_number,
-        testnet=False,
+        network="mainnet",
         pub_version=None,
     ):
         self.point = point
@@ -455,13 +460,10 @@ class HDPublicKey:
         self.depth = depth
         self.parent_fingerprint = parent_fingerprint
         self.child_number = child_number
-        self.testnet = testnet
+        self.network = network
         if pub_version is None:
             # Set pub_version based on whether or not we are testnet
-            if testnet is True:
-                pub_version = TESTNET_XPUB
-            else:
-                pub_version = MAINNET_XPUB
+            pub_version = XPUB[network]
         self.pub_version = pub_version
         self._raw = None
 
@@ -484,13 +486,13 @@ class HDPublicKey:
         return self.point.p2sh_p2wpkh_script()
 
     def address(self):
-        return self.point.address(testnet=self.testnet)
+        return self.point.address(network=self.network)
 
     def bech32_address(self):
-        return self.point.bech32_address(testnet=self.testnet)
+        return self.point.bech32_address(network=self.network)
 
     def p2sh_p2wpkh_address(self):
-        return self.point.p2sh_p2wpkh_address(testnet=self.testnet)
+        return self.point.p2sh_p2wpkh_address(network=self.network)
 
     def fingerprint(self):
         """Fingerprint is the hash160's first 4 bytes"""
@@ -525,7 +527,7 @@ class HDPublicKey:
             depth=depth,
             parent_fingerprint=parent_fingerprint,
             child_number=child_number,
-            testnet=self.testnet,
+            network=self.network,
             pub_version=self.pub_version,
         )
 
@@ -554,12 +556,9 @@ class HDPublicKey:
         return current
 
     def raw_serialize(self):
-        # start with pub_version, which should be a constant depending on testnet
+        # start with pub_version, which should be a constant depending on network
         if self._raw is None:
-            if self.testnet:
-                pub_version = TESTNET_XPUB
-            else:
-                pub_version = MAINNET_XPUB
+            pub_version = XPUB[self.network]
             self._raw = self._serialize(pub_version)
         return self._raw
 
@@ -608,9 +607,9 @@ class HDPublicKey:
         # check that the pub_version is one of the TESTNET or MAINNET
         #  public keys, if not raise a ValueError
         if pub_version in ALL_TESTNET_XPUBS:
-            testnet = True
+            network = "testnet"
         elif pub_version in ALL_MAINNET_XPUBS:
-            testnet = False
+            network = "mainnet"
         else:
             raise ValueError("not a valid [t-z]pub pub_version: {pub_version}")
         # the next byte is depth
@@ -630,7 +629,7 @@ class HDPublicKey:
             depth=depth,
             parent_fingerprint=parent_fingerprint,
             child_number=child_number,
-            testnet=testnet,
+            network=network,
             pub_version=pub_version,
         )
 

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# coding: utf-8
+
 import sys
 from cmd import Cmd
 from getpass import getpass
@@ -86,7 +88,7 @@ def _get_wif():
             print_red(f"Could not parse WIF: {e}")
 
 
-def _get_psbt_obj(is_testnet):
+def _get_psbt_obj(network):
     psbt_prompt = blue_fg(
         "Paste partially signed bitcoin transaction (PSBT) in base64 form: "
     )
@@ -97,7 +99,7 @@ def _get_psbt_obj(is_testnet):
             continue
 
         try:
-            psbt_obj = PSBT.parse_base64(psbt_b64, testnet=is_testnet)
+            psbt_obj = PSBT.parse_base64(psbt_b64, network=network)
         except Exception as e:
             print_red(f"Could not parse PSBT: {e}")
             continue
@@ -140,17 +142,17 @@ class MyPrompt(Cmd):
         # We ask for this upfront so we can infer the network from it (PSBT doesn't have network info)
         # Users SHOULD only run this code on an airgap machine
         privkey_obj = _get_wif()
-        is_testnet = privkey_obj.testnet
+        network = privkey_obj.network
 
         # TODO: create a new helper method in pecc.py/cecc.py?
         expected_utxo_addr = privkey_obj.point.address(
-            compressed=privkey_obj.compressed, testnet=is_testnet
+            compressed=privkey_obj.compressed, network=network
         )
         print_yellow(
-            f'Will attempt to spend from {"TESTNET" if is_testnet else "MAINNET"} {expected_utxo_addr}'
+            f"Will attempt to spend from {network.upper()} {expected_utxo_addr}"
         )
 
-        psbt_obj = _get_psbt_obj(is_testnet=is_testnet)
+        psbt_obj = _get_psbt_obj(network=network)
         tx_obj = psbt_obj.tx_obj
 
         try:
