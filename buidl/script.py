@@ -368,7 +368,7 @@ class RedeemScript(Script):
         return cls.parse(stream)
 
     @classmethod
-    def create_p2sh(cls, quorum_m, pubkey_hex_list):
+    def create_p2sh_multisig(cls, quorum_m, pubkey_hex_list):
         """
         Create a p2sh RedeemScript using a configure threshold (quorum_m) of public keys (in hex).
 

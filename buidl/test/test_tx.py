@@ -224,7 +224,7 @@ class TxTest(TestCase):
         private_key1 = PrivateKey(secret=8675309)
         private_key2 = PrivateKey(secret=8675310)
 
-        redeem_script = RedeemScript.create_p2sh(
+        redeem_script = RedeemScript.create_p2sh_multisig(
             quorum_m=2,
             pubkey_hex_list=[
                 private_key1.point.sec().hex(),
