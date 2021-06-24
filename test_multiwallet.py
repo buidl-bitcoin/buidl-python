@@ -67,8 +67,9 @@ class MultiwalletTest(unittest.TestCase):
             self.expect("Last word: bacon")
             self.expect(expected_key_record)
 
-    def test_create_output_descriptors(self):
+    def test_create_output_descriptors_blinded(self):
         # Blinded example from https://github.com/mflaxman/blind-xpub/blob/90af581695ef4ab1b7c40324c4cd7f2ce70e3403/README.md#create-output-descriptors
+
         self.child.sendline("create_output_descriptors")
 
         # UGLY HACK
@@ -95,6 +96,36 @@ class MultiwalletTest(unittest.TestCase):
         )
 
         want = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h/2046266013/1945465733/1801020214/1402692941]tpubDNVvpMhdGTmQg1AT6muju2eUWPXWWAtUSyc1EQ2MxJ2s97fMqFZQbpzQM4gU8bwzfFM7KBpSXRJ5v2Wu8sY2GF5ZpXm3qy8GLArZZNM1Wru/0/*))#0lfdttke"
+        self.expect(want)
+
+    def test_create_output_descriptors(self):
+        # Validated 2021-06 against bitcoin core
+
+        self.child.sendline("create_output_descriptors")
+
+        # UGLY HACK
+        # Line reads:
+        #   How many signatures will be required to spend from this wallet?
+        # But Github CI uses a very narrow terminal and only picks this part up:
+        self.expect("be required to spend from this wallet?")
+        self.child.sendline("1")
+
+        # Line reads:
+        #    How many total keys will be able to sign transaction from this wallet?
+        # But Github CI uses a very narrow terminal and only picks this part up:
+        self.expect("to sign transaction from this wallet?")
+        self.child.sendline("2")
+
+        self.expect("Enter key record ")
+        self.child.sendline(
+            "[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy"
+        )
+
+        self.expect("Enter key record ")
+        self.child.sendline(
+            "[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9"
+        )
+        want = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9/0/*))#t0v98kwu"
         self.expect(want)
 
     def test_receive_addr(self):
