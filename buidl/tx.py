@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from urllib import request
+from urllib.request import Request, urlopen
 
 import json
 
@@ -25,26 +25,31 @@ from buidl.script import (
 from buidl.witness import Witness
 
 
+URL = {
+    "mainnet": "https://blockstream.info/api",
+    "testnet": "https://blockstream.info/testnet/api",
+    "signet": "https://explorer.bc-2.jp/api",
+}
+
+
 class TxFetcher:
     cache = {}
 
     @classmethod
-    def get_url(cls, testnet=False):
-        if testnet:
-            return "http://testnet.programmingbitcoin.com"
-        else:
-            return "http://mainnet.programmingbitcoin.com"
+    def get_url(cls, network="mainnet"):
+        return URL[network]
 
     @classmethod
-    def fetch(cls, tx_id, testnet=False, fresh=False):
+    def fetch(cls, tx_id, network="mainnet", fresh=False):
         if fresh or (tx_id not in cls.cache):
-            url = "{}/tx/{}.hex".format(cls.get_url(testnet), tx_id)
-            response = request.urlopen(url).read().decode("utf-8").strip()
+            url = "{}/tx/{}/hex".format(cls.get_url(network), tx_id)
+            req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            response = urlopen(req).read().decode("utf-8").strip()
             try:
                 raw = bytes.fromhex(response)
             except ValueError:
                 raise ValueError("unexpected response: {}".format(response))
-            tx = Tx.parse(BytesIO(raw), testnet=testnet)
+            tx = Tx.parse(BytesIO(raw), network=network)
             # make sure the tx we got matches to the hash we requested
             if tx.segwit:
                 computed = tx.id()
@@ -53,7 +58,7 @@ class TxFetcher:
             if computed != tx_id:
                 raise RuntimeError("server lied: {} vs {}".format(computed, tx_id))
             cls.cache[tx_id] = tx
-        cls.cache[tx_id].testnet = testnet
+        cls.cache[tx_id].network = network
         return cls.cache[tx_id]
 
     @classmethod
@@ -73,12 +78,14 @@ class TxFetcher:
 class Tx:
     command = b"tx"
 
-    def __init__(self, version, tx_ins, tx_outs, locktime, testnet=False, segwit=False):
+    def __init__(
+        self, version, tx_ins, tx_outs, locktime, network="mainnet", segwit=False
+    ):
         self.version = version
         self.tx_ins = tx_ins
         self.tx_outs = tx_outs
         self.locktime = locktime
-        self.testnet = testnet
+        self.network = network
         self.segwit = segwit
         self._hash_prevouts = None
         self._hash_sequence = None
@@ -100,7 +107,7 @@ class Tx:
         )
 
     def clone(self):
-        tx_obj = self.__class__.parse(BytesIO(self.serialize()), testnet=self.testnet)
+        tx_obj = self.__class__.parse(BytesIO(self.serialize()), network=self.network)
         for tx_in_1, tx_in_2 in zip(self.tx_ins, tx_obj.tx_ins):
             tx_in_2._value = tx_in_1._value
             tx_in_2._script_pubkey = tx_in_1._script_pubkey
@@ -115,14 +122,14 @@ class Tx:
         return hash256(self.serialize_legacy())[::-1]
 
     @classmethod
-    def parse_hex(cls, s, testnet=False):
+    def parse_hex(cls, s, network="mainnet"):
         """Parses a transaction from a hex string"""
         raw_hex = bytes.fromhex(s)
         stream = BytesIO(raw_hex)
-        return cls.parse(s=stream, testnet=testnet)
+        return cls.parse(s=stream, network=network)
 
     @classmethod
-    def parse(cls, s, testnet=False):
+    def parse(cls, s, network="mainnet"):
         """Parses a transaction from stream"""
         # we can determine whether something is segwit or legacy by looking
         # at byte 5
@@ -133,10 +140,10 @@ class Tx:
             parse_method = cls.parse_legacy
         # reset the seek to the beginning so everything can go through
         s.seek(-5, 1)
-        return parse_method(s, testnet=testnet)
+        return parse_method(s, network=network)
 
     @classmethod
-    def parse_legacy(cls, s, testnet=False):
+    def parse_legacy(cls, s, network="mainnet"):
         """Takes a byte stream and parses a legacy transaction"""
         # s.read(n) will return n bytes
         # version has 4 bytes, little-endian, interpret as int
@@ -156,10 +163,10 @@ class Tx:
         # locktime is 4 bytes, little-endian
         locktime = little_endian_to_int(s.read(4))
         # return an instance of the class (cls(...))
-        return cls(version, inputs, outputs, locktime, testnet=testnet, segwit=False)
+        return cls(version, inputs, outputs, locktime, network=network, segwit=False)
 
     @classmethod
-    def parse_segwit(cls, s, testnet=False):
+    def parse_segwit(cls, s, network="mainnet"):
         """Takes a byte stream and parses a segwit transaction"""
         # s.read(n) will return n bytes
         # version has 4 bytes, little-endian, interpret as int
@@ -188,7 +195,7 @@ class Tx:
         # locktime is 4 bytes, little-endian
         locktime = little_endian_to_int(s.read(4))
         # return an instance of the class (cls(...))
-        return cls(version, inputs, outputs, locktime, testnet=testnet, segwit=True)
+        return cls(version, inputs, outputs, locktime, network=network, segwit=True)
 
     def serialize(self):
         if self.segwit:
@@ -249,7 +256,7 @@ class Tx:
         # iterate through inputs
         for tx_in in self.tx_ins:
             # for each input get the value and add to input sum
-            input_sum += tx_in.value(self.testnet)
+            input_sum += tx_in.value(self.network)
         # iterate through outputs
         for tx_out in self.tx_outs:
             # for each output get the amount and add to output sum
@@ -274,7 +281,7 @@ class Tx:
                     script_sig = redeem_script
                 # otherwise the previous tx's ScriptPubkey is the ScriptSig
                 else:
-                    script_sig = tx_in.script_pubkey(self.testnet)
+                    script_sig = tx_in.script_pubkey(self.network)
             # Otherwise, the ScriptSig is empty
             else:
                 script_sig = None
@@ -352,8 +359,8 @@ class Tx:
             # the ScriptCode is the P2PKHScriptPubKey created using the hash160
             script_code = P2PKHScriptPubKey(h160)
         else:
-            # get the script pubkey associated with the previous output (remember testnet)
-            script_pubkey = tx_in.script_pubkey(self.testnet)
+            # get the script pubkey associated with the previous output (remember network)
+            script_pubkey = tx_in.script_pubkey(self.network)
             # next get the hash160 in the script_pubkey. for p2wpkh, it's the second command
             h160 = script_pubkey.commands[1]
             # finally the ScriptCode is the P2PKHScriptPubKey created using the hash160
@@ -361,7 +368,7 @@ class Tx:
         # add the serialized ScriptCode
         s += script_code.serialize()
         # add the value of the input in 8 bytes, little endian
-        s += int_to_little_endian(tx_in.value(testnet=self.testnet), 8)
+        s += int_to_little_endian(tx_in.value(network=self.network), 8)
         # add the sequence of the input in 4 bytes, little endian
         s += int_to_little_endian(tx_in.sequence, 4)
         # add the HashOutputs
@@ -378,7 +385,7 @@ class Tx:
         # get the relevant input
         tx_in = self.tx_ins[input_index]
         # get the script_pubkey of the input
-        script_pubkey = tx_in.script_pubkey(testnet=self.testnet)
+        script_pubkey = tx_in.script_pubkey(network=self.network)
         # grab the RedeemScript if we have a p2sh
         if script_pubkey.is_p2sh():
             # the last command of the ScriptSig is the raw RedeemScript
@@ -408,7 +415,7 @@ class Tx:
             # calculate z using legacy
             z = self.sig_hash(input_index, redeem_script)
         # combine the scripts
-        combined_script = tx_in.script_sig + tx_in.script_pubkey(self.testnet)
+        combined_script = tx_in.script_sig + tx_in.script_pubkey(self.network)
         # evaluate the combined script
         return combined_script.evaluate(z, tx_in.witness)
 
@@ -461,7 +468,7 @@ class Tx:
         # get the input
         tx_in = self.tx_ins[input_index]
         # find the previous ScriptPubKey
-        script_pubkey = tx_in.script_pubkey(testnet=self.testnet)
+        script_pubkey = tx_in.script_pubkey(network=self.network)
         # if the script_pubkey is p2pkh, send to sign_p2pkh
         if script_pubkey.is_p2pkh():
             return self.sign_p2pkh(input_index, private_key)
@@ -561,7 +568,7 @@ class Tx:
         for all the input transactions."""
         tx_lookup = {}
         for tx_in in self.tx_ins:
-            tx_obj = TxFetcher.fetch(tx_in.prev_tx.hex(), testnet=self.testnet)
+            tx_obj = TxFetcher.fetch(tx_in.prev_tx.hex(), network=self.network)
             tx_lookup[tx_obj.hash()] = tx_obj
         return tx_lookup
 
@@ -616,27 +623,27 @@ class TxIn:
         result += int_to_little_endian(self.sequence, 4)
         return result
 
-    def fetch_tx(self, testnet=False):
-        return TxFetcher.fetch(self.prev_tx.hex(), testnet=testnet)
+    def fetch_tx(self, network="mainnet"):
+        return TxFetcher.fetch(self.prev_tx.hex(), network=network)
 
-    def value(self, testnet=False):
+    def value(self, network="mainnet"):
         """Get the outpoint value by looking up the tx hash
         Returns the amount in satoshi
         """
         if self._value is None:
             # use self.fetch_tx to get the transaction
-            tx = self.fetch_tx(testnet=testnet)
+            tx = self.fetch_tx(network=network)
             # get the output at self.prev_index
             self._value = tx.tx_outs[self.prev_index].amount
         return self._value
 
-    def script_pubkey(self, testnet=False):
+    def script_pubkey(self, network="mainnet"):
         """Get the scriptPubKey by looking up the tx hash
         Returns a Script object
         """
         if self._script_pubkey is None:
             # use self.fetch_tx to get the transaction
-            tx = self.fetch_tx(testnet=testnet)
+            tx = self.fetch_tx(network=network)
             # get the output at self.prev_index
             self._script_pubkey = tx.tx_outs[self.prev_index].script_pubkey
         return self._script_pubkey

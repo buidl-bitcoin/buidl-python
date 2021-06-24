@@ -27,20 +27,26 @@ COMPACT_BLOCK_DATA_TYPE = 4
 WITNESS_TX_DATA_TYPE = (1 << 30) + TX_DATA_TYPE
 WITNESS_BLOCK_DATA_TYPE = (1 << 30) + BLOCK_DATA_TYPE
 
-NETWORK_MAGIC = b"\xf9\xbe\xb4\xd9"
-TESTNET_NETWORK_MAGIC = b"\x0b\x11\x09\x07"
+MAGIC = {
+    "mainnet": b"\xf9\xbe\xb4\xd9",
+    "testnet": b"\x0b\x11\x09\x07",
+    "signet": b"\x0a\x03\xcf\x40",
+}
+PORT = {
+    "mainnet": 8333,
+    "testnet": 18333,
+    "signet": 38333,
+}
+
 
 BASIC_FILTER_TYPE = 0
 
 
 class NetworkEnvelope:
-    def __init__(self, command, payload, testnet=False):
+    def __init__(self, command, payload, network="mainnet"):
         self.command = command
         self.payload = payload
-        if testnet:
-            self.magic = TESTNET_NETWORK_MAGIC
-        else:
-            self.magic = NETWORK_MAGIC
+        self.magic = MAGIC[network]
 
     def __repr__(self):
         return "{}: {}".format(
@@ -49,16 +55,13 @@ class NetworkEnvelope:
         )
 
     @classmethod
-    def parse(cls, s, testnet=False):
+    def parse(cls, s, network="mainnet"):
         """Takes a stream and creates a NetworkEnvelope"""
         # check the network magic
         magic = s.read(4)
         if magic == b"":
             raise RuntimeError("Connection reset!")
-        if testnet:
-            expected_magic = TESTNET_NETWORK_MAGIC
-        else:
-            expected_magic = NETWORK_MAGIC
+        expected_magic = MAGIC[network]
         if magic != expected_magic:
             raise RuntimeError(
                 "magic is not right {} vs {}".format(magic.hex(), expected_magic.hex())
@@ -75,7 +78,7 @@ class NetworkEnvelope:
         calculated_checksum = hash256(payload)[:4]
         if calculated_checksum != checksum:
             raise RuntimeError("checksum does not match")
-        return cls(command, payload, testnet=testnet)
+        return cls(command, payload, network=network)
 
     def serialize(self):
         """Returns the byte serialization of the entire network message"""
@@ -436,13 +439,10 @@ class GenericMessage:
 
 
 class SimpleNode:
-    def __init__(self, host, port=None, testnet=False, logging=False):
+    def __init__(self, host, port=None, network="mainnet", logging=False):
         if port is None:
-            if testnet:
-                port = 18333
-            else:
-                port = 8333
-        self.testnet = testnet
+            port = PORT[network]
+        self.network = network
         self.logging = logging
         # connect to socket
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -463,7 +463,7 @@ class SimpleNode:
         """Send a message to the connected node"""
         # create a network envelope
         envelope = NetworkEnvelope(
-            message.command, message.serialize(), testnet=self.testnet
+            message.command, message.serialize(), network=self.network
         )
         if self.logging:
             print("sending: {}".format(envelope))
@@ -472,7 +472,7 @@ class SimpleNode:
 
     def read(self):
         """Read a message from the socket"""
-        envelope = NetworkEnvelope.parse(self.stream, testnet=self.testnet)
+        envelope = NetworkEnvelope.parse(self.stream, network=self.network)
         if self.logging:
             print("receiving: {}".format(envelope))
         return envelope
@@ -500,7 +500,7 @@ class SimpleNode:
 
     def get_filtered_txs(self, block_hashes):
         """Returns transactions that match the bloom filter"""
-        from merkleblock import MerkleBlock
+        from buidl.merkleblock import MerkleBlock
 
         # create a getdata message
         getdata = GetDataMessage()

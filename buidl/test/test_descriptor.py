@@ -19,7 +19,7 @@ class P2WSHMultiTest(TestCase):
         # Should recreate itself
         self.assertEqual(str(p2wsh_sortedmulti_obj), valid_output_record)
 
-        self.assertTrue(p2wsh_sortedmulti_obj.is_testnet)
+        self.assertEqual(p2wsh_sortedmulti_obj.network, "testnet")
         self.assertEqual(p2wsh_sortedmulti_obj.quorum_m, 1)
 
         self.assertEqual(p2wsh_sortedmulti_obj.checksum, "tatkmj5q")
@@ -110,7 +110,7 @@ class P2WSHMultiTest(TestCase):
         # Should recreate itself
         self.assertEqual(str(p2wsh_sortedmulti_obj), valid_output_record)
 
-        self.assertTrue(p2wsh_sortedmulti_obj.is_testnet)
+        self.assertEqual(p2wsh_sortedmulti_obj.network, "testnet")
         self.assertEqual(p2wsh_sortedmulti_obj.checksum, "0stzl64e")
         self.assertEqual(
             p2wsh_sortedmulti_obj.get_address(),
@@ -226,7 +226,7 @@ class P2WSHMultiTest(TestCase):
             P2WSHSortedMulti.parse(output_record)
 
         self.assertIn(
-            "Network mismatch: testnet is set to True but ", str(fail.exception)
+            "Network mismatch: network is set to testnet but ", str(fail.exception)
         )
 
 
@@ -240,7 +240,7 @@ class ParseTest(TestCase):
             "xpub_parent": "tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr",
             "xpub_child": "tpubDHXhgZEb9KfoFAuPQ5X6nayFrgifHEb3EUAbbs3EvwboxjttP4ekmPPz4NPRDE7p3q87DQH2TbNyxUmYGf2GNiSTfXj4Q5CfVgrpZuDEsak",
             "account_index": 0,
-            "is_testnet": True,
+            "network": "testnet",
         }
         self.assertEqual(results, want)
 
@@ -252,7 +252,7 @@ class ParseTest(TestCase):
             "xfp": "2a77e0a6",
             "path": "m/48h/1h/0h/2h",
             "xpub": "Vpub5mvQbnmqKfpPjWfAZEw5Xjdr6UjnjyZEirzrhNMSuKjL8Qfd3nqLBkrBrVXNeMgKCjPXbyLnSCn6qcD8fHQCkNnNLnkpQtY3sh4MHmywvbe",
-            "is_testnet": True,
+            "network": "testnet",
         }
         self.assertEqual(results, want)
 

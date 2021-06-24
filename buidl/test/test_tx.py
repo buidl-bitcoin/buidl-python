@@ -104,10 +104,12 @@ class TxTest(TestCase):
 
     def test_sig_hash_bip143(self):
         raw_tx = "0100000000010115e180dc28a2327e687facc33f10f2a20da717e5548406f7ae8b4c811072f8560100000000ffffffff0100b4f505000000001976a9141d7cd6c75c2e86f4cbf98eaed221b30bd9a0b92888ac02483045022100df7b7e5cda14ddf91290e02ea10786e03eb11ee36ec02dd862fe9a326bbcb7fd02203f5b4496b667e6e281cc654a2da9e4f08660c620a1051337fa8965f727eb19190121038262a6c6cec93c2d3ecd6c6072efea86d02ff8e3328bbd0242b20af3425990ac00000000"
-        tx = Tx.parse_hex(raw_tx, testnet=True)
+        tx = Tx.parse_hex(raw_tx, network="testnet")
         want = int(
             "12bb9e0988736b8d1c3a180acd828b8a7eddae923a6a4bf0b4c14c40cd7327d1", 16
         )
+        self.assertEqual(tx.sig_hash(0), want)
+        tx = Tx.parse_hex(raw_tx, network="signet")
         self.assertEqual(tx.sig_hash(0), want)
 
     def test_verify_p2pkh(self):
@@ -117,7 +119,7 @@ class TxTest(TestCase):
         self.assertTrue(tx.verify())
         tx = TxFetcher.fetch(
             "5418099cc755cb9dd3ebc6cf1a7888ad53a1a3beb5a025bce89eb1bf7f1650a2",
-            testnet=True,
+            network="testnet",
         )
         self.assertTrue(tx.verify())
 
@@ -130,7 +132,7 @@ class TxTest(TestCase):
     def test_verify_p2wpkh(self):
         tx = TxFetcher.fetch(
             "d869f854e1f8788bcff294cc83b280942a8c728de71eb709a2c29d10bfe21b7c",
-            testnet=True,
+            network="testnet",
         )
         self.assertTrue(tx.verify())
 
@@ -143,7 +145,7 @@ class TxTest(TestCase):
     def test_verify_p2wsh(self):
         tx = TxFetcher.fetch(
             "78457666f82c28aa37b74b506745a7c7684dc7842a52a457b09f09446721e11c",
-            testnet=True,
+            network="testnet",
         )
         self.assertTrue(tx.verify())
 
@@ -163,7 +165,7 @@ class TxTest(TestCase):
         tx_outs.append(
             TxOut(amount=int(0.1 * 100000000), script_pubkey=P2PKHScriptPubKey(h160))
         )
-        tx = Tx(1, tx_ins, tx_outs, 0, testnet=True)
+        tx = Tx(1, tx_ins, tx_outs, 0, network="testnet")
         self.assertTrue(tx.sign_p2pkh(0, private_key))
 
     def test_sign_p2wpkh(self):
@@ -174,10 +176,10 @@ class TxTest(TestCase):
         prev_index = 0
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
-        amount = tx_in.value(testnet=True) - fee
+        amount = tx_in.value(network="testnet") - fee
         h160 = decode_base58_addr("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
-        t = Tx(1, [tx_in], [tx_out], 0, testnet=True, segwit=True)
+        t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
         self.assertTrue(t.sign_input(0, private_key))
         want = "0100000000010197ad6fb37f5764c85b375639cbd07dfafd94c2ed18f2fb6cad9fdd329507fa6b0000000000ffffffff014c400f00000000001976a9146e13971913b9aa89659a9f53d327baa8826f2d7588ac02483045022100feab5b8feefd5e774bdfdc1dc23525b40f1ffaa25a376f8453158614f00fa6cb02204456493d0bc606ebeb3fa008e056bbc96a67cb0c11abcc871bfc2bec60206bf0012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b6700000000"
         self.assertEqual(t.serialize().hex(), want)
@@ -191,10 +193,10 @@ class TxTest(TestCase):
         prev_index = 1
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
-        amount = tx_in.value(testnet=True) - fee
+        amount = tx_in.value(network="testnet") - fee
         h160 = decode_base58_addr("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
-        t = Tx(1, [tx_in], [tx_out], 0, testnet=True, segwit=True)
+        t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
         self.assertTrue(t.sign_input(0, private_key, redeem_script=redeem_script))
         want = "01000000000101e92e1c1d29218348f8ec9463a9fc94670f675a7f82ae100f3e8a5cbd63b4192e0100000017160014d52ad7ca9b3d096a38e752c2018e6fbc40cdf26fffffffff014c400f00000000001976a9146e13971913b9aa89659a9f53d327baa8826f2d7588ac0247304402205e3ae5ac9a0e0a16ae04b0678c5732973ce31051ba9f42193e69843e600d84f2022060a91cbd48899b1bf5d1ffb7532f69ab74bc1701a253a415196b38feb599163b012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b6700000000"
         self.assertEqual(t.serialize().hex(), want)
@@ -215,7 +217,7 @@ class TxTest(TestCase):
         tx_outs.append(
             TxOut(amount=int(0.1 * 100000000), script_pubkey=P2PKHScriptPubKey(h160))
         )
-        tx = Tx(1, tx_ins, tx_outs, 0, testnet=True)
+        tx = Tx(1, tx_ins, tx_outs, 0, network="testnet")
         self.assertTrue(tx.sign_input(0, private_key))
 
     def test_sign_p2sh_multisig(self):
@@ -230,10 +232,10 @@ class TxTest(TestCase):
         prev_index = 1
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
-        amount = tx_in.value(testnet=True) - fee
+        amount = tx_in.value(network="testnet") - fee
         h160 = decode_base58_addr("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
-        t = Tx(1, [tx_in], [tx_out], 0, testnet=True, segwit=True)
+        t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
         sig1 = t.get_sig_legacy(0, private_key1, redeem_script=redeem_script)
         sig2 = t.get_sig_legacy(0, private_key2, redeem_script=redeem_script)
         self.assertTrue(
@@ -268,10 +270,10 @@ class TxTest(TestCase):
         prev_index = 1
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
-        amount = tx_in.value(testnet=True) - fee
+        amount = tx_in.value(network="testnet") - fee
         h160 = decode_base58_addr("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
-        t = Tx(1, [tx_in], [tx_out], 0, testnet=True, segwit=True)
+        t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
         sig1 = t.get_sig_segwit(0, private_key1, witness_script=witness_script)
         sig2 = t.get_sig_segwit(0, private_key2, witness_script=witness_script)
         self.assertTrue(
@@ -306,10 +308,10 @@ class TxTest(TestCase):
         prev_index = 0
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
-        amount = tx_in.value(testnet=True) - fee
+        amount = tx_in.value(network="testnet") - fee
         h160 = decode_base58_addr("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
-        t = Tx(1, [tx_in], [tx_out], 0, testnet=True, segwit=True)
+        t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
         sig1 = t.get_sig_segwit(0, private_key1, witness_script=witness_script)
         sig2 = t.get_sig_segwit(0, private_key2, witness_script=witness_script)
         self.assertTrue(
