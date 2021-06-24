@@ -342,10 +342,8 @@ def _get_bip39_seed(is_testnet):
         return hd_priv
 
 
-def _get_key_record():
-    key_record_prompt = blue_fg(
-        "Enter an xpub key record to blind in the format [deadbeef/path]xpub (any path will do): "
-    )
+def _get_key_record(prompt):
+    key_record_prompt = blue_fg(prompt)
     while True:
         key_record_str = input(key_record_prompt).strip()
         try:
@@ -492,6 +490,49 @@ class MultiWallet(Cmd):
         print_yellow("Copy-paste this into Specter-Desktop:")
         print_green(key_record)
 
+    def do_create_output_descriptors(self, arg):
+        """Combine m-of-n key records to create an output descriptor (account map)"""
+
+        if not self.ADVANCED_MODE:
+            _print_footgun_warning(
+                "This will enable custom account indices (instead of just defaulting to 0)."
+            )
+
+        m_int = _get_int(
+            prompt="How many signatures will be required to spend from this wallet?",
+            default=2,
+            minimum=1,
+            maximum=15,
+        )
+        n_int = _get_int(
+            prompt="How many total keys will be able to sign transaction from this wallet?",
+            default=3,
+            minimum=m_int,
+            maximum=15,
+        )
+        key_records = []
+        for cnt in range(n_int):
+            prompt = f"Enter key record #{cnt+1} (of {n_int}) in the format [deadbeef/path]xpub: "
+            key_record_dict = _get_key_record(prompt)
+            key_record_dict["xpub_parent"] = key_record_dict.pop("xpub")
+            if self.ADVANCED_MODE:
+                account_index = _get_int(
+                    prompt="Enter account index for this key record?",
+                    default=0,
+                    minimum=0,
+                    maximum=100,
+                )
+                key_record_dict["account_index"] = account_index
+            else:
+                key_record_dict["account_index"] = 0
+            key_records.append(key_record_dict)
+
+        p2wsh_sortedmulti_obj = P2WSHSortedMulti(
+            quorum_m=m_int, key_records=key_records
+        )
+        print_yellow("Your output descriptors are:\n")
+        print_green(str(p2wsh_sortedmulti_obj))
+
     def do_blind_xpub(self, arg):
         """Blind an XPUB using a random BIP32 path. Experts only!"""
 
@@ -505,7 +546,9 @@ class MultiWallet(Cmd):
             _print_footgun_warning(warning_msg)
             return
 
-        key_record_dict = _get_key_record()
+        key_record_dict = _get_key_record(
+            "Enter an xpub key record to blind in the format [deadbeef/path]xpub (any path will do): "
+        )
         xfp_hex = key_record_dict["xfp"]
         starting_xpub = key_record_dict["xpub"]
         starting_path = key_record_dict["path"]
