@@ -147,12 +147,12 @@ def encode_bech32(nums):
     return result
 
 
-def encode_bech32_checksum(s, testnet=False):
+def encode_bech32_checksum(s, network="mainnet"):
     """Convert a segwit ScriptPubKey to a bech32 address"""
-    if testnet:
-        prefix = "tb"
-    else:
+    if network == "mainnet":
         prefix = "bc"
+    else:
+        prefix = "tb"
     version = s[0]
     if version > 0:
         version -= 0x50
@@ -164,12 +164,12 @@ def encode_bech32_checksum(s, testnet=False):
 
 
 def decode_bech32(s):
-    """Returns whether it's testnet, segwit version and the hash from the bech32 address"""
+    """Returns network, segwit version and the hash from the bech32 address"""
     hrp, raw_data = s.split("1")
-    if hrp == "tb":
-        testnet = True
-    elif hrp == "bc":
-        testnet = False
+    if hrp == "bc":
+        network = "mainnet"
+    elif hrp == "tb":
+        network = "testnet"
     else:
         raise ValueError("unknown human readable part: {}".format(hrp))
     data = [BECH32_ALPHABET.index(c) for c in raw_data]
@@ -185,4 +185,4 @@ def decode_bech32(s):
     hash = int_to_big_endian(number, num_bytes)
     if num_bytes < 2 or num_bytes > 40:
         raise ValueError("bytes out of range: {}".format(num_bytes))
-    return [testnet, version, hash]
+    return [network, version, hash]

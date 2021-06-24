@@ -89,7 +89,7 @@ def parse_full_key_record(key_record_str):
 
     try:
         parent_pubkey_obj = HDPublicKey.parse(s=xpub)
-        is_testnet = parent_pubkey_obj.testnet
+        network = parent_pubkey_obj.network
         xpub_child = parent_pubkey_obj.child(index=index_int).xpub()
     except ValueError:
         raise ValueError(f"Invalid xpub {xpub} in key record: {key_record_str}")
@@ -100,7 +100,7 @@ def parse_full_key_record(key_record_str):
         "xpub_parent": xpub,
         "account_index": index_int,
         "xpub_child": xpub_child,
-        "is_testnet": is_testnet,
+        "network": network,
     }
 
 
@@ -126,7 +126,7 @@ def parse_partial_key_record(key_record_str):
 
     try:
         pubkey_obj = HDPublicKey.parse(s=xpub)
-        is_testnet = pubkey_obj.testnet
+        network = pubkey_obj.network
     except ValueError:
         raise ValueError(f"Invalid xpub {xpub} in key record: {key_record_str}")
 
@@ -134,7 +134,7 @@ def parse_partial_key_record(key_record_str):
         "xfp": xfp,
         "path": path,
         "xpub": xpub,
-        "is_testnet": is_testnet,
+        "network": network,
     }
 
 
@@ -155,7 +155,7 @@ class P2WSHSortedMulti:
         if not key_records:
             raise ValueError("No key_records supplied")
 
-        key_records_to_save, is_testnet = [], None
+        key_records_to_save, network = [], None
         descriptor_text = f"wsh(sortedmulti({quorum_m}"
         for key_record in key_records:
             # TODO: does bitcoin core have a standard to enforce for h vs ' in bip32 path?
@@ -190,14 +190,14 @@ class P2WSHSortedMulti:
                     f"Invalid xpub_parent `{xpub_parent}` in key record: {key_record}"
                 )
 
-            if is_testnet is None:
+            if network is None:
                 # This is the first key_record in our loop
-                is_testnet = hdpubkey_obj.testnet
+                network = hdpubkey_obj.network
             else:
                 # Validate that we haven't changed networks
-                if hdpubkey_obj.testnet != is_testnet:
+                if hdpubkey_obj.network != network:
                     raise ValueError(
-                        f"Network mismatch: testnet is set to {is_testnet} but xpub_parent is {xpub_parent}"
+                        f"Network mismatch: network is set to {network} but xpub_parent is {xpub_parent}"
                     )
 
             key_records_to_save.append(
@@ -214,7 +214,7 @@ class P2WSHSortedMulti:
         descriptor_text += "))"
         self.descriptor_text = descriptor_text
         self.key_records = key_records_to_save
-        self.is_testnet = is_testnet
+        self.network = network
 
         calculated_checksum = calc_core_checksum(descriptor_text)
         if checksum:
@@ -307,7 +307,7 @@ class P2WSHSortedMulti:
         commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
         witness_script = WitnessScript(commands)
         redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
-        return redeem_script.address(testnet=self.is_testnet)
+        return redeem_script.address(network=self.network)
 
     def caravan_export(self, wallet_name="p2wsh", key_record_names=[]):
         if key_record_names and len(key_record_names) != len(self.key_records):
@@ -318,7 +318,7 @@ class P2WSHSortedMulti:
         to_return = {
             "name": wallet_name,
             "addressType": "P2WSH",
-            "network": "testnet" if self.is_testnet else "mainnet",
+            "network": self.network,
             "client": {"type": "public"},  # node connection instructions
             "quorum": {
                 "requiredSigners": self.quorum_m,

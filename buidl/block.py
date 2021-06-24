@@ -9,12 +9,17 @@ from buidl.helper import (
 from buidl.tx import Tx
 
 
-GENESIS_BLOCK_HASH = bytes.fromhex(
-    "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
-)
-TESTNET_GENESIS_BLOCK_HASH = bytes.fromhex(
-    "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"
-)
+GENESIS_BLOCK_HASH = {
+    "mainnet": bytes.fromhex(
+        "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+    ),
+    "testnet": bytes.fromhex(
+        "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"
+    ),
+    "signet": bytes.fromhex(
+        "00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6"
+    ),
+}
 
 
 class Block:
@@ -40,6 +45,17 @@ class Block:
         self.txs = txs
         self.tx_hashes = tx_hashes
         self.merkle_tree = None
+
+    def __repr__(self):
+        return f"""
+Version: {self.version}
+Previous: {self.prev_block.hex()}
+Merkle Root: {self.merkle_root.hex()}
+Timestamp: {self.timestamp}
+Bits: {self.bits[::-1].hex()}
+Nonce: {self.nonce.hex()}
+Num txs: {"unknown" if self.txs is None else len(self.txs)}
+"""
 
     @classmethod
     def parse_header(cls, s):

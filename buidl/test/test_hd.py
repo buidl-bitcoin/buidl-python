@@ -15,37 +15,67 @@ from buidl.mnemonic import BIP39, InvalidBIP39Length, InvalidChecksumWordsError
 class HDTest(TestCase):
     def test_from_seed(self):
         seed = b"jimmy@programmingblockchain.com Jimmy Song"
-        priv = HDPrivateKey.from_seed(seed, testnet=True)
-        addr = priv.bech32_address()
-        self.assertEqual(addr, "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg")
+        tests = {
+            "testnet": "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg",
+            "signet": "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg",
+            "mainnet": "bc1q7kn55vf3mmd40gyj46r245lw87dc6us5ej5vcm",
+        }
+        for network, want in tests.items():
+            priv = HDPrivateKey.from_seed(seed, network=network)
+            addr = priv.bech32_address()
+            self.assertEqual(addr, want)
 
     def test_child(self):
         seed = b"jimmy@programmingblockchain.com Jimmy Song"
-        priv = HDPrivateKey.from_seed(seed, testnet=True)
-        pub = priv.pub
-        want = "tb1qu6mnnk54hxfhy4aj58v0w6e7q8hghtv8wcdl7g"
-        addr = priv.child(0).bech32_address()
-        self.assertEqual(addr, want)
-        addr = pub.child(0).bech32_address()
-        self.assertEqual(addr, want)
-        addr = priv.child(0x80000002).bech32_address()
-        self.assertEqual(addr, "tb1qscu8evdlqsucj7p84xwnrf63h4jsdr5yqga8zq")
-        with self.assertRaises(ValueError):
-            pub.child(0x80000002)
+        tests = (
+            (
+                "testnet",
+                "tb1qu6mnnk54hxfhy4aj58v0w6e7q8hghtv8wcdl7g",
+                "tb1qscu8evdlqsucj7p84xwnrf63h4jsdr5yqga8zq",
+            ),
+            (
+                "signet",
+                "tb1qu6mnnk54hxfhy4aj58v0w6e7q8hghtv8wcdl7g",
+                "tb1qscu8evdlqsucj7p84xwnrf63h4jsdr5yqga8zq",
+            ),
+            (
+                "mainnet",
+                "bc1qu6mnnk54hxfhy4aj58v0w6e7q8hghtv8y7kv9m",
+                "bc1qscu8evdlqsucj7p84xwnrf63h4jsdr5y2wx5en",
+            ),
+        )
+        for network, want1, want2 in tests:
+            priv = HDPrivateKey.from_seed(seed, network=network)
+            pub = priv.pub
+            addr = priv.child(0).bech32_address()
+            self.assertEqual(addr, want1)
+            addr = pub.child(0).bech32_address()
+            self.assertEqual(addr, want1)
+            addr = priv.child(0x80000002).bech32_address()
+            self.assertEqual(addr, want2)
+            with self.assertRaises(ValueError):
+                pub.child(0x80000002)
 
     def test_traverse(self):
         seed = b"jimmy@programmingblockchain.com Jimmy Song"
-        priv = HDPrivateKey.from_seed(seed, testnet=True)
-        pub = priv.pub
-        path = "m/1/2/3/4"
-        self.assertEqual(
-            priv.traverse(path).bech32_address(), pub.traverse(path).bech32_address()
+        tests = (
+            ("testnet", "tb1q423gz8cenqt6vfw987vlyxql0rh2jgh4sy0tue"),
+            ("signet", "tb1q423gz8cenqt6vfw987vlyxql0rh2jgh4sy0tue"),
+            ("mainnet", "bc1q423gz8cenqt6vfw987vlyxql0rh2jgh46z5c82"),
         )
-        path = "m/0/1'/2/3'"
-        self.assertEqual(
-            priv.traverse(path).bech32_address(),
-            "tb1q423gz8cenqt6vfw987vlyxql0rh2jgh4sy0tue",
-        )
+        for network, want in tests:
+            priv = HDPrivateKey.from_seed(seed, network=network)
+            pub = priv.pub
+            path = "m/1/2/3/4"
+            self.assertEqual(
+                priv.traverse(path).bech32_address(),
+                pub.traverse(path).bech32_address(),
+            )
+            path = "m/0/1'/2/3'"
+            self.assertEqual(
+                priv.traverse(path).bech32_address(),
+                want,
+            )
 
     def test_prv_pub(self):
         tests = [
@@ -160,7 +190,8 @@ class HDTest(TestCase):
     def test_get_address(self):
         seedphrase = b"jimmy@programmingblockchain.com Jimmy Song"
         mainnet_priv = HDPrivateKey.from_seed(seedphrase)
-        testnet_priv = HDPrivateKey.from_seed(seedphrase, testnet=True)
+        testnet_priv = HDPrivateKey.from_seed(seedphrase, network="testnet")
+        signet_priv = HDPrivateKey.from_seed(seedphrase, network="signet")
         tests = [
             [
                 mainnet_priv.get_p2pkh_receiving_address,
@@ -175,7 +206,19 @@ class HDTest(TestCase):
                 "n4EiCRsEEPaJ73HWA6zYEaHwo45BrP5MHb",
             ],
             [
+                signet_priv.get_p2pkh_change_address,
+                1,
+                0,
+                "n4EiCRsEEPaJ73HWA6zYEaHwo45BrP5MHb",
+            ],
+            [
                 testnet_priv.get_p2sh_p2wpkh_receiving_address,
+                0,
+                2,
+                "2NGKoo11UopXBWLC7qqj9BjgH9F3gvLdapz",
+            ],
+            [
+                signet_priv.get_p2sh_p2wpkh_receiving_address,
                 0,
                 2,
                 "2NGKoo11UopXBWLC7qqj9BjgH9F3gvLdapz",
@@ -194,6 +237,12 @@ class HDTest(TestCase):
             ],
             [
                 testnet_priv.get_p2wpkh_change_address,
+                1,
+                1,
+                "tb1qecjwdw5uwwdfezzntec7m4kc8zkyjcamlz7dv9",
+            ],
+            [
+                signet_priv.get_p2wpkh_change_address,
                 1,
                 1,
                 "tb1qecjwdw5uwwdfezzntec7m4kc8zkyjcamlz7dv9",
@@ -385,7 +434,12 @@ class HDTest(TestCase):
         password = b""
         path = "m"
         hd_private_key = HDPrivateKey.from_mnemonic(
-            mnemonic, password, path=path, testnet=True
+            mnemonic, password, path=path, network="testnet"
+        )
+        want = "tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd"
+        self.assertEqual(hd_private_key.xprv(), want)
+        hd_private_key = HDPrivateKey.from_mnemonic(
+            mnemonic, password, path=path, network="signet"
         )
         want = "tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd"
         self.assertEqual(hd_private_key.xprv(), want)
@@ -412,7 +466,7 @@ class HDTest(TestCase):
         password = b""
         path = "m/84'/0'/0'"
         account = HDPrivateKey.from_mnemonic(
-            mnemonic, password, path=path, testnet=False
+            mnemonic, password, path=path, network="mainnet"
         )
         want = "zprvAdG4iTXWBoARxkkzNpNh8r6Qag3irQB8PzEMkAFeTRXxHpbF9z4QgEvBRmfvqWvGp42t42nvgGpNgYSJA9iefm1yYNZKEm7z6qUWCroSQnE"
         self.assertEqual(account.xprv(version=bytes.fromhex("04b2430c")), want)
@@ -432,7 +486,18 @@ class HDTest(TestCase):
         self.assertTrue(zpub.startswith("zpub"))
         derived = HDPrivateKey.parse(zprv)
         self.assertEqual(zprv, derived.xprv(bytes.fromhex("04b2430c")))
-        mnemonic, priv = HDPrivateKey.generate(testnet=True)
+        mnemonic, priv = HDPrivateKey.generate(network="testnet")
+        zprv = priv.xprv(bytes.fromhex("045f18bc"))
+        self.assertTrue(zprv.startswith("vprv"))
+        zpub = priv.pub.xpub(bytes.fromhex("045f1cf6"))
+        self.assertTrue(zpub.startswith("vpub"))
+        xpub = priv.pub.xpub(bytes.fromhex("043587cf"))
+        self.assertTrue(xpub.startswith("tpub"))
+        derived = HDPrivateKey.parse(zprv)
+        self.assertEqual(zprv, derived.xprv(bytes.fromhex("045f18bc")))
+        derived_pub = HDPublicKey.parse(zpub)
+        self.assertEqual(zpub, derived_pub.xpub(bytes.fromhex("045f1cf6")))
+        mnemonic, priv = HDPrivateKey.generate(network="signet")
         zprv = priv.xprv(bytes.fromhex("045f18bc"))
         self.assertTrue(zprv.startswith("vprv"))
         zpub = priv.pub.xpub(bytes.fromhex("045f1cf6"))
@@ -514,20 +579,21 @@ class HDTest(TestCase):
 
     def test_xpub_version(self):
         mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-        hd_obj = HDPrivateKey.from_mnemonic(mnemonic, testnet=True)
+        hd_obj = HDPrivateKey.from_mnemonic(mnemonic, network="testnet")
         tprv = "tprv8ZgxMBicQKsPe5YMU9gHen4Ez3ApihUfykaqUorj9t6FDqy3nP6eoXiAo2ssvpAjoLroQxHqr3R5nE3a5dU3DHTjTgJDd7zrbniJr6nrCzd"
         tpub = "tpubD6NzVbkrYhZ4XYa9MoLt4BiMZ4gkt2faZ4BcmKu2a9te4LDpQmvEz2L2yDERivHxFPnxXXhqDRkUNnQCpZggCyEZLBktV7VaSmwayqMJy1s"
-
         self.assertEqual(hd_obj.xprv(), tprv)
         self.assertEqual(hd_obj.xpub(), tpub)
-
+        hd_obj = HDPrivateKey.from_mnemonic(mnemonic, network="signet")
+        self.assertEqual(hd_obj.xprv(), tprv)
+        self.assertEqual(hd_obj.xpub(), tpub)
         # parse this same HDPrivateKey from the tprv (assume we no longer have the mnemonic)
         recreated_obj = HDPrivateKey.parse(tprv)
         self.assertEqual(recreated_obj.xpub(), tpub)
         # Confirm the version bytes have passed through correctly to the HDPublicKey object:
         self.assertEqual(recreated_obj.pub.xpub(), tpub)
 
-        hd_obj = HDPrivateKey.from_mnemonic(mnemonic, testnet=False)
+        hd_obj = HDPrivateKey.from_mnemonic(mnemonic, network="mainnet")
         xprv = "xprv9s21ZrQH143K3GJpoapnV8SFfukcVBSfeCficPSGfubmSFDxo1kuHnLisriDvSnRRuL2Qrg5ggqHKNVpxR86QEC8w35uxmGoggxtQTPvfUu"
         xpub = "xpub661MyMwAqRbcFkPHucMnrGNzDwb6teAX1RbKQmqtEF8kK3Z7LZ59qafCjB9eCRLiTVG3uxBxgKvRgbubRhqSKXnGGb1aoaqLrpMBDrVxga8"
         self.assertEqual(hd_obj.xprv(), xprv)
@@ -551,9 +617,16 @@ class HDTest(TestCase):
         )
         want = "[5436d724/48h/0h/0h/2h]xpub6E79FaRWLSJCAgA2jDHRvyrWKwT6aSmR685zptzyYPvmUd44omcxZ1NAzDtbdFBvEADjcVbV4NzTDwQeU6oiSV9KGiMSWhjANZjbfUHkm3Y"
         self.assertEqual(hdpriv_obj.generate_p2wsh_key_record(), want)
-
         # testnet
-        hdpriv_obj = HDPrivateKey.from_mnemonic(seed_phrase, testnet=True)
+        hdpriv_obj = HDPrivateKey.from_mnemonic(seed_phrase, network="testnet")
+        want = "[5436d724/48h/1h/0h/2h]Vpub5ncJ4gVToMcTWjG4shBZHeeCUXhX5r86W9cwggqw1m6aojbrHxr9yJFsoXaiXrBfAzV3TaVyxCB6EYUW21SVayfcAhiVc9XRJS1WL4Gh9td"
+        self.assertEqual(
+            hdpriv_obj.generate_p2wsh_key_record(use_slip132_version_byte=True), want
+        )
+        want = "[5436d724/48h/1h/0h/2h]tpubDFkN51vYF36W4Yfn3wGv5fpmRo3ok7vZZjc1gmRJjumq33L776e6GkP4HGdCVjDqYiBahXCrXQKja8aUZ2xovQNS8WkF46MdY7TLHJLYD7H"
+        self.assertEqual(hdpriv_obj.generate_p2wsh_key_record(), want)
+        # signet
+        hdpriv_obj = HDPrivateKey.from_mnemonic(seed_phrase, network="signet")
         want = "[5436d724/48h/1h/0h/2h]Vpub5ncJ4gVToMcTWjG4shBZHeeCUXhX5r86W9cwggqw1m6aojbrHxr9yJFsoXaiXrBfAzV3TaVyxCB6EYUW21SVayfcAhiVc9XRJS1WL4Gh9td"
         self.assertEqual(
             hdpriv_obj.generate_p2wsh_key_record(use_slip132_version_byte=True), want

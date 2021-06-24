@@ -318,11 +318,11 @@ class P2PKHScriptPubKey(ScriptPubKey):
     def hash160(self):
         return self.commands[2]
 
-    def address(self, testnet=False):
-        if testnet:
-            prefix = b"\x6f"
-        else:
+    def address(self, network="mainnet"):
+        if network == "mainnet":
             prefix = b"\x00"
+        else:
+            prefix = b"\x6f"
         # return the encode_base58_checksum the prefix and h160
         return encode_base58_checksum(prefix + self.hash160())
 
@@ -337,11 +337,11 @@ class P2SHScriptPubKey(ScriptPubKey):
     def hash160(self):
         return self.commands[1]
 
-    def address(self, testnet=False):
-        if testnet:
-            prefix = b"\xc4"
-        else:
+    def address(self, network="mainnet"):
+        if network == "mainnet":
             prefix = b"\x05"
+        else:
+            prefix = b"\xc4"
         # return the encode_base58_checksum the prefix and h160
         return encode_base58_checksum(prefix + self.hash160())
 
@@ -357,9 +357,9 @@ class RedeemScript(Script):
         """Returns the ScriptPubKey that this RedeemScript corresponds to"""
         return P2SHScriptPubKey(self.hash160())
 
-    def address(self, testnet=False):
+    def address(self, network="mainnet"):
         """Returns the p2sh address for this RedeemScript"""
-        return self.script_pubkey().address(testnet)
+        return self.script_pubkey().address(network)
 
     @classmethod
     def convert(cls, raw_redeem_script):
@@ -368,16 +368,16 @@ class RedeemScript(Script):
 
 
 class SegwitPubKey(ScriptPubKey):
-    def address(self, testnet=False):
+    def address(self, network="mainnet"):
         """return the bech32 address for the p2wpkh"""
         # witness program is the raw serialization
         witness_program = self.raw_serialize()
         # convert to bech32 address using encode_bech32_checksum
-        return encode_bech32_checksum(witness_program, testnet)
+        return encode_bech32_checksum(witness_program, network)
 
-    def p2sh_address(self, testnet=False):
+    def p2sh_address(self, network="mainnet"):
         # get the RedeemScript equivalent and get its address
-        return self.redeem_script().address(testnet)
+        return self.redeem_script().address(network)
 
 
 class P2WPKHScriptPubKey(SegwitPubKey):
@@ -415,19 +415,19 @@ class WitnessScript(Script):
         # return new p2wsh script using p2wsh_script
         return P2WSHScriptPubKey(s256)
 
-    def address(self, testnet=False):
+    def address(self, network="mainnet"):
         """Generates a p2wsh address"""
         # grab the entire witness program
         witness_program = self.script_pubkey().raw_serialize()
         # convert to bech32 address using encode_bech32_checksum
-        return encode_bech32_checksum(witness_program, testnet)
+        return encode_bech32_checksum(witness_program, network)
 
-    def p2sh_address(self, testnet=False):
+    def p2sh_address(self, network="mainnet"):
         """Generates a p2sh-p2wsh address"""
         # the RedeemScript is the p2wsh ScriptPubKey
         redeem_script = self.script_pubkey().redeem_script()
-        # return the p2sh address of the RedeemScript (remember testnet)
-        return redeem_script.address(testnet)
+        # return the p2sh address of the RedeemScript (remember network)
+        return redeem_script.address(network)
 
     def is_p2wsh_multisig(self):
         return (

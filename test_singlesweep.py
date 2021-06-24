@@ -50,10 +50,10 @@ class SinglesweepTest(unittest.TestCase):
     def test_send_compressed(self):
         # This isn't strictly neccesary, just shows how this was generated
         privkey_obj = PrivateKey(
-            secret=314159265358979323846, testnet=True, compressed=True
+            secret=314159265358979323846, network="testnet", compressed=True
         )
         self.assertEqual(
-            privkey_obj.point.address(compressed=True, testnet=True),
+            privkey_obj.point.address(compressed=True, network="testnet"),
             "mxgA6BsDLcv4vooLx4j6MfHQRihbrdwV5P",
         )
         self.assertEqual(
@@ -92,10 +92,10 @@ class SinglesweepTest(unittest.TestCase):
     def test_send_uncompressed(self):
         # This isn't strictly neccesary, just shows how this was generated
         privkey_obj = PrivateKey(
-            secret=314159265358979323846, testnet=True, compressed=False
+            secret=314159265358979323846, network="testnet", compressed=False
         )
         self.assertEqual(
-            privkey_obj.point.address(compressed=False, testnet=True),
+            privkey_obj.point.address(compressed=False, network="testnet"),
             "mzJtwV9LL6B3Nvm1uc1Z5NK3mqqaZyn9w1",
         )
         self.assertEqual(
