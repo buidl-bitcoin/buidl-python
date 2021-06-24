@@ -17,6 +17,7 @@ from buidl.op import (
     op_verify,
     OP_CODE_FUNCTIONS,
     OP_CODE_NAMES,
+    OP_CODE_NAMES_LOOKUP,
 )
 
 
@@ -365,6 +366,31 @@ class RedeemScript(Script):
     def convert(cls, raw_redeem_script):
         stream = BytesIO(encode_varstr(raw_redeem_script))
         return cls.parse(stream)
+
+    @classmethod
+    def create_p2sh(cls, quorum_m, pubkey_hex_list):
+        """
+        Create a p2sh RedeemScript using a configure threshold (quorum_m) of public keys (in hex).
+
+        Note that the order of the pubkeys is essential (unlike p2wsh sortedmulti which gets sorted)
+        """
+        # safety checks
+        if type(quorum_m) is not int:
+            raise ValueError(f"quorum_m must be of type int: {quorum_m}")
+        if quorum_m < 1 or quorum_m > len(pubkey_hex_list):
+            raise ValueError(f"Invalid m-of-n: {quorum_m}-of-{len(pubkey_hex_list)}")
+
+        commands = [OP_CODE_NAMES_LOOKUP[f"OP_{quorum_m}"]]
+
+        for pubkey_hex in pubkey_hex_list:
+            # we want these in binary (not hex)
+            commands.append(bytes.fromhex(pubkey_hex))
+
+        quorum_n = len(pubkey_hex_list)
+        commands.append(OP_CODE_NAMES_LOOKUP[f"OP_{quorum_n}"])
+        commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
+
+        return cls(commands)
 
 
 class SegwitPubKey(ScriptPubKey):
