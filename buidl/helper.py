@@ -399,14 +399,6 @@ def child_to_path(child_number):
     return "/{}{}".format(index, hardened)
 
 
-def path_to_child(path_component):
-    if path_component[-1:] == "'":
-        child_number = 0x80000000 + int(path_component[:-1])
-    else:
-        child_number = int(path_component)
-    return child_number
-
-
 def path_network(root_path):
     components = root_path.split("/")
     if len(components) < 2:
@@ -427,13 +419,6 @@ def parse_binary_path(bin_path):
         path += child_to_path(child_number)
         path_data = path_data[4:]
     return path
-
-
-def serialize_binary_path(path):
-    bin_path = b""
-    for component in path.split("/")[1:]:
-        bin_path += int_to_little_endian(path_to_child(component), 4)
-    return bin_path
 
 
 def bits_to_target(bits):
