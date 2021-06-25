@@ -2,9 +2,15 @@ import unittest
 
 import pexpect
 
+from os import getenv
+
 from buidl import PrivateKey
 
 
+@unittest.skipIf(
+    getenv("SKIP_SLOW_TESTS"),
+    reason="This test takes a while",
+)
 class SinglesweepTest(unittest.TestCase):
     def expect(self, text):
         """

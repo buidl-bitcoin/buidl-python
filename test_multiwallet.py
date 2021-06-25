@@ -1,8 +1,13 @@
 import unittest
-
 import pexpect
 
+from os import getenv
 
+
+@unittest.skipIf(
+    getenv("SKIP_SLOW_TESTS"),
+    reason="This test takes a while",
+)
 class MultiwalletTest(unittest.TestCase):
     def expect(self, text):
         """
