@@ -368,11 +368,11 @@ class RedeemScript(Script):
         return cls.parse(stream)
 
     @classmethod
-    def create_p2sh_multisig(cls, quorum_m, pubkey_hex_list):
+    def create_p2sh_multisig(cls, quorum_m, pubkey_hex_list, sort_keys=True):
         """
-        Create a p2sh RedeemScript using a configure threshold (quorum_m) of public keys (in hex).
+        Create a p2sh RedeemScript using a configure threshold (quorum_m) of child public keys (in hex).
 
-        Note that the order of the pubkeys is essential (unlike p2wsh sortedmulti which gets sorted)
+        To use a custom order of pubkeys, feed them in order and set sort_keys=False
         """
         # safety checks
         if type(quorum_m) is not int:
@@ -382,7 +382,12 @@ class RedeemScript(Script):
 
         commands = [OP_CODE_NAMES_LOOKUP[f"OP_{quorum_m}"]]
 
-        for pubkey_hex in pubkey_hex_list:
+        if sort_keys:
+            pubkey_hexes = sorted(pubkey_hex_list)
+        else:
+            pubkey_hexes = pubkey_hex_list
+
+        for pubkey_hex in pubkey_hexes:
             # we want these in binary (not hex)
             commands.append(bytes.fromhex(pubkey_hex))
 

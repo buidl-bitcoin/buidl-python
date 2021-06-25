@@ -230,6 +230,7 @@ class TxTest(TestCase):
                 private_key1.point.sec().hex(),
                 private_key2.point.sec().hex(),
             ],
+            sort_keys=False,
         )
 
         prev_tx = bytes.fromhex(
