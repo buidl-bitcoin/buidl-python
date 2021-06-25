@@ -6,8 +6,14 @@ from io import BytesIO
 from buidl.ecc import PrivateKey
 from buidl.descriptor import P2WSHSortedMulti
 from buidl.hd import HDPrivateKey, HDPublicKey
-from buidl.helper import serialize_binary_path, encode_varstr, SIGHASH_ALL, read_varstr
-from buidl.psbt import PSBT, MixedNetwork, NamedHDPublicKey, SuspiciousTransaction
+from buidl.helper import encode_varstr, SIGHASH_ALL, read_varstr
+from buidl.psbt import (
+    PSBT,
+    MixedNetwork,
+    NamedHDPublicKey,
+    serialize_binary_path,
+    SuspiciousTransaction,
+)
 from buidl.script import RedeemScript, Script, WitnessScript
 from buidl.tx import Tx, TxIn, TxOut, TxFetcher
 

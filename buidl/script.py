@@ -12,6 +12,7 @@ from buidl.helper import (
     sha256,
 )
 from buidl.op import (
+    number_to_op_code,
     op_equal,
     op_hash160,
     op_verify,
@@ -365,6 +366,36 @@ class RedeemScript(Script):
     def convert(cls, raw_redeem_script):
         stream = BytesIO(encode_varstr(raw_redeem_script))
         return cls.parse(stream)
+
+    @classmethod
+    def create_p2sh_multisig(cls, quorum_m, pubkey_hex_list, sort_keys=True):
+        """
+        Create a p2sh RedeemScript using a configure threshold (quorum_m) of child public keys (in hex).
+
+        To use a custom order of pubkeys, feed them in order and set sort_keys=False
+        """
+        # safety checks
+        if type(quorum_m) is not int:
+            raise ValueError(f"quorum_m must be of type int: {quorum_m}")
+        if quorum_m < 1 or quorum_m > len(pubkey_hex_list):
+            raise ValueError(f"Invalid m-of-n: {quorum_m}-of-{len(pubkey_hex_list)}")
+
+        commands = [number_to_op_code(quorum_m)]
+
+        if sort_keys:
+            pubkey_hexes = sorted(pubkey_hex_list)
+        else:
+            pubkey_hexes = pubkey_hex_list
+
+        for pubkey_hex in pubkey_hexes:
+            # we want these in binary (not hex)
+            commands.append(bytes.fromhex(pubkey_hex))
+
+        quorum_n = len(pubkey_hex_list)
+        commands.append(number_to_op_code(quorum_n))
+        commands.append(174)  # OP_CHECKMULTISIG
+
+        return cls(commands)
 
 
 class SegwitPubKey(ScriptPubKey):

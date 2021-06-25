@@ -9,14 +9,13 @@ from buidl.helper import (
     encode_varstr,
     int_to_little_endian,
     little_endian_to_int,
-    op_code_to_number,
     parse_binary_path,
     path_network,
     read_varint,
     read_varstr,
-    serialize_binary_path,
     serialize_key_value,
 )
+from buidl.op import op_code_to_number
 from buidl.script import (
     RedeemScript,
     Script,
@@ -60,6 +59,22 @@ class SuspiciousTransaction(Exception):
     """
 
     pass
+
+
+def path_to_child(path_component):
+    if path_component[-1:] == "'":
+        child_number = 0x80000000 + int(path_component[:-1])
+    else:
+        child_number = int(path_component)
+    return child_number
+
+
+def serialize_binary_path(path):
+    path = path.lower().replace("h", "'")
+    bin_path = b""
+    for component in path.split("/")[1:]:
+        bin_path += int_to_little_endian(path_to_child(component), 4)
+    return bin_path
 
 
 class NamedPublicKey(S256Point):

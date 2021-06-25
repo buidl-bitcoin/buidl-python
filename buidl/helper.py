@@ -321,48 +321,6 @@ def murmur3(data, seed=0):
     return h1 & 0xFFFFFFFF
 
 
-def number_to_op_code_byte(n):
-    """Returns the OP code for a particular number"""
-    if n < -1 or n > 16:
-        raise ValueError("Not a valid OP code")
-    if n > 0:
-        return bytes([0x50 + n])
-    elif n == 0:
-        return b"\x00"
-    elif n == -1:
-        return b"\x4f"
-
-
-def op_code_to_number(op_code):
-    """Returns the n for a particular OP code"""
-    if op_code not in (
-        0,
-        79,
-        80,
-        81,
-        82,
-        83,
-        84,
-        85,
-        86,
-        87,
-        88,
-        89,
-        90,
-        91,
-        92,
-        93,
-        94,
-        95,
-        96,
-    ):
-        raise ValueError("Not a valid OP code")
-    if op_code == 0:
-        return 0
-    else:
-        return op_code - 80
-
-
 def hmac_sha512(key, msg):
     return hmac.HMAC(key=key, msg=msg, digestmod=hashlib.sha512).digest()
 
@@ -399,14 +357,6 @@ def child_to_path(child_number):
     return "/{}{}".format(index, hardened)
 
 
-def path_to_child(path_component):
-    if path_component[-1:] == "'":
-        child_number = 0x80000000 + int(path_component[:-1])
-    else:
-        child_number = int(path_component)
-    return child_number
-
-
 def path_network(root_path):
     components = root_path.split("/")
     if len(components) < 2:
@@ -427,13 +377,6 @@ def parse_binary_path(bin_path):
         path += child_to_path(child_number)
         path_data = path_data[4:]
     return path
-
-
-def serialize_binary_path(path):
-    bin_path = b""
-    for component in path.split("/")[1:]:
-        bin_path += int_to_little_endian(path_to_child(component), 4)
-    return bin_path
 
 
 def bits_to_target(bits):

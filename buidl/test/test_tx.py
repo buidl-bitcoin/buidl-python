@@ -223,16 +223,24 @@ class TxTest(TestCase):
     def test_sign_p2sh_multisig(self):
         private_key1 = PrivateKey(secret=8675309)
         private_key2 = PrivateKey(secret=8675310)
-        redeem_script = RedeemScript(
-            [0x52, private_key1.point.sec(), private_key2.point.sec(), 0x52, 0xAE]
+
+        redeem_script = RedeemScript.create_p2sh_multisig(
+            quorum_m=2,
+            pubkey_hex_list=[
+                private_key1.point.sec().hex(),
+                private_key2.point.sec().hex(),
+            ],
+            sort_keys=False,
         )
+
         prev_tx = bytes.fromhex(
             "ded9b3c8b71032d42ea3b2fd5211d75b39a90637f967e637b64dfdb887dd11d7"
         )
         prev_index = 1
-        fee = 500
+        fee_sats = 500
         tx_in = TxIn(prev_tx, prev_index)
-        amount = tx_in.value(network="testnet") - fee
+        tx_in_sats = 1000000
+        amount = tx_in_sats - fee_sats
         h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
         tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
         t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
