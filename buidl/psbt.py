@@ -9,13 +9,13 @@ from buidl.helper import (
     encode_varstr,
     int_to_little_endian,
     little_endian_to_int,
-    op_code_to_number,
     parse_binary_path,
     path_network,
     read_varint,
     read_varstr,
     serialize_key_value,
 )
+from buidl.op import op_code_to_number
 from buidl.script import (
     RedeemScript,
     Script,

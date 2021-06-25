@@ -2,7 +2,7 @@ import re
 
 from buidl.hd import HDPublicKey, is_valid_bip32_path
 from buidl.helper import sha256, uses_only_hex_chars
-from buidl.op import OP_CODE_NAMES_LOOKUP
+from buidl.op import number_to_op_code
 from buidl.script import P2WSHScriptPubKey, WitnessScript
 
 import json
@@ -296,15 +296,16 @@ class P2WSHSortedMulti:
             leaf_xpub = hdpubkey.child(account).child(offset)
             sec_hexes_to_use.append(leaf_xpub.sec().hex())
 
-        commands = [OP_CODE_NAMES_LOOKUP[f"OP_{self.quorum_m}"]]
+        commands = [number_to_op_code(self.quorum_m)]
         if sort_keys:
             # BIP67 lexicographical sorting for sortedmulti
             commands.extend([bytes.fromhex(x) for x in sorted(sec_hexes_to_use)])
         else:
             commands.extend([bytes.fromhex(x) for x in sec_hexes_to_use])
 
-        commands.append(OP_CODE_NAMES_LOOKUP[f"OP_{len(self.key_records)}"])
-        commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
+        commands.append(number_to_op_code(len(self.key_records)))
+        commands.append(174)  # OP_CHECKMULTISIG
+
         witness_script = WitnessScript(commands)
         redeem_script = P2WSHScriptPubKey(sha256(witness_script.raw_serialize()))
         return redeem_script.address(network=self.network)

@@ -12,12 +12,12 @@ from buidl.helper import (
     sha256,
 )
 from buidl.op import (
+    number_to_op_code,
     op_equal,
     op_hash160,
     op_verify,
     OP_CODE_FUNCTIONS,
     OP_CODE_NAMES,
-    OP_CODE_NAMES_LOOKUP,
 )
 
 
@@ -380,7 +380,7 @@ class RedeemScript(Script):
         if quorum_m < 1 or quorum_m > len(pubkey_hex_list):
             raise ValueError(f"Invalid m-of-n: {quorum_m}-of-{len(pubkey_hex_list)}")
 
-        commands = [OP_CODE_NAMES_LOOKUP[f"OP_{quorum_m}"]]
+        commands = [number_to_op_code(quorum_m)]
 
         if sort_keys:
             pubkey_hexes = sorted(pubkey_hex_list)
@@ -392,8 +392,8 @@ class RedeemScript(Script):
             commands.append(bytes.fromhex(pubkey_hex))
 
         quorum_n = len(pubkey_hex_list)
-        commands.append(OP_CODE_NAMES_LOOKUP[f"OP_{quorum_n}"])
-        commands.append(OP_CODE_NAMES_LOOKUP["OP_CHECKMULTISIG"])
+        commands.append(number_to_op_code(quorum_n))
+        commands.append(174)  # OP_CHECKMULTISIG
 
         return cls(commands)
 
