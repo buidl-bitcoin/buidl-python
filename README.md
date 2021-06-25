@@ -73,14 +73,17 @@ You can speed this library up ~100x by using C-bindings to [bitcoin core's `libs
 
 #### `libsec256k1` Dependency Installation
 
-On Ubuntu:
-```bash
-$ sudo apt install libsecp256k1-dev
-```
+Note that you'll have to compile libsecp256k1 from scratch with experimental modules enabled to make Schnorr signatures work.
 
-On MacOS (HT [cuber](https://github.com/cuber/homebrew-libsecp256k1)):
+Here are the instructions on Linux/Mac:
+
 ```bash
-$ brew tap cuber/homebrew-libsecp256k1 && brew install pkg-config libffi libsecp256k1
+$ git clone https://github.com/bitcoin-core/secp256k1
+$ cd secp256k1
+$ ./autogen.sh
+$ ./configure --enable-module-extrakeys --enable-module-schnorrsig --enable-experimental
+$ make
+$ sudo make install
 ```
 
 #### `buidl` Installation
