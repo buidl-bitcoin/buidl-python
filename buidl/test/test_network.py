@@ -1,6 +1,8 @@
 from unittest import TestCase
+import unittest  # for skipunless
 
 from io import BytesIO
+from os import getenv
 
 from buidl.block import Block
 from buidl.helper import decode_base58, decode_gcs
@@ -94,6 +96,10 @@ class GetDataMessageTest(TestCase):
         self.assertEqual(get_data.serialize().hex(), hex_msg)
 
 
+@unittest.skipUnless(
+    getenv("INCLUDE_NETWORK_TESTS"),
+    reason="Requires network connection, so may not be unreliable",
+)
 class SimpleNodeTest(TestCase):
     def test_handshake(self):
         node = SimpleNode("testnet.programmingbitcoin.com", network="testnet")
