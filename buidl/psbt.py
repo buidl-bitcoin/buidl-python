@@ -194,7 +194,7 @@ class NamedHDPublicKey(HDPublicKey):
         hd_key = child_hd_pub
         hd_key.__class__ = cls
         hd_key.add_raw_path_data(
-            bytes.fromhex(fingerprint_hex) + serialize_binary_path(path)
+            bytes.fromhex(fingerprint_hex) + serialize_binary_path(full_path)
         )
         return hd_key
 

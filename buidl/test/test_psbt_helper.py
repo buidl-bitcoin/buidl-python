@@ -1,7 +1,6 @@
 from unittest import TestCase
 
 from buidl.hd import HDPrivateKey
-from buidl.psbt import PSBT
 from buidl.psbt_helper import create_ps2sh_multisig_psbt
 from buidl.script import RedeemScript
 
