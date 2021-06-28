@@ -4,8 +4,11 @@ from io import BytesIO
 
 from buidl.helper import decode_base58
 from buidl.script import (
+    address_to_script_pubkey,
     P2PKHScriptPubKey,
     P2SHScriptPubKey,
+    P2WPKHScriptPubKey,
+    P2WSHScriptPubKey,
     RedeemScript,
     Script,
     WitnessScript,
@@ -95,3 +98,36 @@ class WitnessScriptTest(TestCase):
         self.assertEqual(str(witness_script), want)
         self.assertTrue(witness_script.is_p2wsh_multisig())
         self.assertEqual(witness_script.get_quorum(), (1, 5))  # 1-of-5
+
+
+class AddressToScriptPubKey(TestCase):
+    def test_addr_to_script_pubkey(self):
+        tests = (
+            # scriptpubkey_type, addr, network
+            (
+                P2WPKHScriptPubKey,
+                "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+                "testnet",
+            ),
+            (
+                P2WPKHScriptPubKey,
+                "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+                "mainnet",
+            ),
+            (
+                P2WSHScriptPubKey,
+                "tb1qlrjv2ek09g9aplga83j9mfvelnt6qymen9gd49kpezdz2g5pgwnsfmrucp",
+                "testnet",
+            ),
+            (
+                P2WSHScriptPubKey,
+                "bc1qwqdg6squsna38e46795at95yu9atm8azzmyvckulcc7kytlcckxswvvzej",
+                "mainnet",
+            ),
+            (P2SHScriptPubKey, "2MvVx9ccWqyYVNa5Xz9pfCEVk99zVBZh9ms", "testnet"),
+            (P2PKHScriptPubKey, "1BenRpVUFK65JFWcQSuHnJKzc4M8ZP8Eqa", "mainnet"),
+        )
+        for scriptpubkey_type, addr, network in tests:
+            res = address_to_script_pubkey(addr)
+            self.assertEqual(scriptpubkey_type, type(res))
+            self.assertEqual(res.address(network=network), addr)
