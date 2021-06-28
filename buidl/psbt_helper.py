@@ -39,7 +39,7 @@ def create_ps2sh_multisig_psbt(
         else:
             # Confirm it hasn't changed
             if network != hd_pubkey_obj.network:
-                raise MixedNetwork(f"Mixed networks in xpubs: {xpub_dict_list}")
+                raise MixedNetwork(f"Mixed networks in xpubs: {xpubs_dict}")
 
     tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}
 
@@ -64,7 +64,7 @@ def create_ps2sh_multisig_psbt(
         for xfp_hex, bip32_child_path in input_dict["path_dict"].items():
             if xfp_hex not in xfp_dict:
                 raise ValueError(
-                    f"xfp_hex {xfp_hex} from input #{cnt} not supplied in xpub_dict_list:  {xpub_dict_list}"
+                    f"xfp_hex {xfp_hex} from input #{cnt} not supplied in xpubs_dict:  {xpubs_dict}"
                 )
 
             child_hd_pubkey = xfp_dict[xfp_hex]["xpub_obj"].traverse(bip32_child_path)
