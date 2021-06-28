@@ -1,0 +1,139 @@
+from buidl.blinding import combine_bip32_paths
+from buidl.hd import HDPublicKey
+from buidl.helper import decode_base58
+from buidl.psbt import NamedHDPublicKey, PSBT
+from buidl.tx import Tx, TxIn, TxOut
+from buidl.script import P2PKHScriptPubKey, RedeemScript
+
+
+def create_ps2sh_multisig_psbt(
+    quorum_m,
+    xpub_dict_list,
+    inputs_dict_list,
+    outputs_dict_list,
+    fee_sats,
+    network="main",
+):
+
+    # This at the parent child pubkey lookup (the inputs will traverse off of this)
+    xfp_dict = {}
+    for cnt, xpub_dict in enumerate(xpub_dict_list):
+
+        hd_pubkey_obj = HDPublicKey.parse(xpub_dict["xpub_hex"])
+
+        # We will use this dict on each input below
+        xfp_dict[xpub_dict["fingerprint_hex"]] = {
+            "xpub_obj": hd_pubkey_obj,
+            "base_path": xpub_dict["base_path"],
+        }
+
+    tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}
+
+    tx_ins = []
+    for cnt, input_dict in enumerate(inputs_dict_list):
+        # TODO: is there a way to only require the prev_hash/idx/ammount and not the full tx hex?
+        # This could get unwieldy for TXs with a large number of inputs, especially ones that were the result of large (batched) transactions
+
+        # Prev tx stuff
+        prev_tx_dict = input_dict["prev_tx_dict"]
+        prev_tx_obj = Tx.parse_hex(prev_tx_dict["hex"])
+        tx_lookup[prev_tx_obj.hash()] = prev_tx_obj
+
+        if prev_tx_dict["hash_hex"] != prev_tx_obj.hash().hex():
+            raise ValueError(
+                f"Hash digest mismatch for input #{cnt}: {prev_tx_dict['hash_hex']} != {prev_tx_obj.hash().hex()}"
+            )
+
+        # pubkey lookups needed for validation
+        pubkey_hex_list = []
+        total_input_sats = 0
+        for xfp_hex, bip32_child_path in input_dict["path_dict"].items():
+            if xfp_hex not in xfp_dict:
+                raise ValueError(
+                    f"xfp_hex {xfp_hex} from input #{cnt} not supplied in xpub_dict_list:  {xpub_dict_list}"
+                )
+
+            child_hd_pubkey = xfp_dict[xfp_hex]["xpub_obj"].traverse(bip32_child_path)
+            pubkey_hex = child_hd_pubkey.sec().hex()
+            pubkey_hex_list.append(pubkey_hex)
+
+            full_path = combine_bip32_paths(
+                first_path=xfp_dict[xfp_hex]["base_path"], second_path=bip32_child_path
+            )
+
+            # Enhance the PSBT
+            named_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
+                child_hd_pub=child_hd_pubkey,
+                fingerprint_hex=xfp_hex,
+                full_path=full_path,
+            )
+            pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
+
+        redeem_script = RedeemScript.create_p2sh_multisig(
+            quorum_m=quorum_m,
+            # Electrum sorts lexographically:
+            # TODO: allow for trying multiple combinations
+            pubkey_hex_list=sorted(pubkey_hex_list),
+        )
+
+        utxo = prev_tx_obj.tx_outs[prev_tx_dict["output_idx"]]
+
+        # Grab amount as developer safety check
+        if prev_tx_dict["output_sats"] != utxo.amount:
+            raise ValueError(
+                f"Wrong number of sats for input #{cnt}! Expecting {prev_tx_dict['output_sats']} but got {utxo.amount}"
+            )
+        total_input_sats += utxo.amount
+
+        # Confirm address matches previous ouput
+        if redeem_script.address(network=network) != utxo.script_pubkey.address(
+            network=network
+        ):
+            raise ValueError(
+                f"Invalid redeem script for input #{cnt}. Expecting {redeem_script.address(network=network)} but got {utxo.script_pubkey.address(network=network)}"
+            )
+
+        tx_in = TxIn(prev_tx=prev_tx_obj.hash(), prev_index=prev_tx_dict["output_idx"])
+        tx_ins.append(tx_in)
+
+        # For enhancing the PSBT for HWWs:
+        redeem_lookup[redeem_script.hash160()] = redeem_script
+
+    tx_outs = []
+    for cnt, output_dict in enumerate(outputs_dict_list):
+        tx_out = TxOut(
+            amount=output_dict["sats"],
+            # FIXME: support other output types
+            script_pubkey=P2PKHScriptPubKey(decode_base58(output_dict["address"])),
+        )
+        tx_outs.append(tx_out)
+
+    tx_obj = Tx(
+        version=1,
+        tx_ins=tx_ins,
+        tx_outs=tx_outs,
+        locktime=0,
+        network=network,
+        segwit=True,
+    )
+
+    # Safety check to try and prevent footgun
+
+    calculated_fee_sats = total_input_sats - sum([tx_out.amount for tx_out in tx_outs])
+    if fee_sats != calculated_fee_sats:
+        raise ValueError(
+            f"TX fee of {fee_sats} sats supplied != {calculated_fee_sats} sats calculated"
+        )
+
+    psbt_obj = PSBT.create(tx_obj)
+    psbt_obj.update(
+        tx_lookup=tx_lookup,
+        pubkey_lookup=pubkey_lookup,
+        redeem_lookup=redeem_lookup,
+        witness_lookup=None,
+    )
+
+    if psbt_obj.validate() is not True:
+        raise ValueError(f"PSBT does not validate: {psbt_obj.serialize_base64()}")
+
+    return psbt_obj

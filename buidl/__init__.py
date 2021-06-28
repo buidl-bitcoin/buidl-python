@@ -14,6 +14,7 @@ from .network import *
 from .op import *
 from .pbkdf2 import *
 from .psbt import *
+from .psbt_helper import *
 from .script import *
 from .shamir import *
 from .tx import *
