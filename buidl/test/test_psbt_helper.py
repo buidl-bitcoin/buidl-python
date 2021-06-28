@@ -93,22 +93,20 @@ class P2SHTest(TestCase):
         # d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490 is the one that was broadcast to the testnet blockchain:
         # https://blockstream.info/testnet/tx/d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490
 
-        psbt_instructions = {
+        kwargs = {
             "quorum_m": 1,
-            "xpub_dict_list": [
-                {
+            "xpubs_dict": {
+                "e0c595c5": {
                     # action x12
                     "xpub_hex": "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
-                    "fingerprint_hex": "e0c595c5",
                     "base_path": "m/45h/0",
                 },
-                {
+                "838f3ff9": {
                     # agent x12
                     "xpub_hex": "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
-                    "fingerprint_hex": "838f3ff9",
                     "base_path": "m/45h/0",
                 },
-            ],
+            },
             "inputs_dict_list": [
                 {
                     "path_dict": {
@@ -150,10 +148,11 @@ class P2SHTest(TestCase):
 
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
-            psbt_obj = create_ps2sh_multisig_psbt(**psbt_instructions)
+            psbt_obj = create_ps2sh_multisig_psbt(**kwargs)
             self.assertEqual(psbt_obj.serialize().hex(), expected_unsigned_psbt_hex)
 
             hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
+
             private_keys = [hdpriv.traverse("m/45h/0/0/0").private_key]
 
             assert psbt_obj.sign_with_private_keys(private_keys=private_keys) is True

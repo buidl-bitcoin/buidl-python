@@ -7,7 +7,7 @@ from buidl.script import RedeemScript, address_to_script_pubkey
 
 def create_ps2sh_multisig_psbt(
     quorum_m,
-    xpub_dict_list,
+    xpubs_dict,
     inputs_dict_list,
     outputs_dict_list,
     fee_sats,
@@ -23,14 +23,14 @@ def create_ps2sh_multisig_psbt(
     # This at the child pubkey lookup that each input will traverse off of
     xfp_dict = {}
     network = None
-    for cnt, xpub_dict in enumerate(xpub_dict_list):
+    for xfp_hex, xpub_values in xpubs_dict.items():
 
-        hd_pubkey_obj = HDPublicKey.parse(xpub_dict["xpub_hex"])
+        hd_pubkey_obj = HDPublicKey.parse(xpub_values["xpub_hex"])
 
         # We will use this dict on each input below
-        xfp_dict[xpub_dict["fingerprint_hex"]] = {
+        xfp_dict[xfp_hex] = {
             "xpub_obj": hd_pubkey_obj,
-            "base_path": xpub_dict["base_path"],
+            "base_path": xpub_values["base_path"],
         }
 
         if network is None:
