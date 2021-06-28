@@ -1,9 +1,8 @@
 from buidl.blinding import combine_bip32_paths
 from buidl.hd import HDPublicKey
-from buidl.helper import decode_base58
-from buidl.psbt import NamedHDPublicKey, PSBT
+from buidl.psbt import MixedNetwork, NamedHDPublicKey, PSBT
 from buidl.tx import Tx, TxIn, TxOut
-from buidl.script import P2PKHScriptPubKey, RedeemScript
+from buidl.script import RedeemScript, address_to_script_pubkey
 
 
 def create_ps2sh_multisig_psbt(
@@ -12,11 +11,18 @@ def create_ps2sh_multisig_psbt(
     inputs_dict_list,
     outputs_dict_list,
     fee_sats,
-    network="main",
 ):
+    """
+    Helper method to create a p2sh multisig PSBT.
 
-    # This at the parent child pubkey lookup (the inputs will traverse off of this)
+    network (testnet/mainnet) will be inferred from xpubs/tpubs.
+
+    TODO: add change detection logic
+    """
+
+    # This at the child pubkey lookup that each input will traverse off of
     xfp_dict = {}
+    network = None
     for cnt, xpub_dict in enumerate(xpub_dict_list):
 
         hd_pubkey_obj = HDPublicKey.parse(xpub_dict["xpub_hex"])
@@ -27,12 +33,20 @@ def create_ps2sh_multisig_psbt(
             "base_path": xpub_dict["base_path"],
         }
 
+        if network is None:
+            # Set the initial value
+            network = hd_pubkey_obj.network
+        else:
+            # Confirm it hasn't changed
+            if network != hd_pubkey_obj.network:
+                raise MixedNetwork(f"Mixed networks in xpubs: {xpub_dict_list}")
+
     tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}
 
     tx_ins = []
     for cnt, input_dict in enumerate(inputs_dict_list):
-        # TODO: is there a way to only require the prev_hash/idx/ammount and not the full tx hex?
         # This could get unwieldy for TXs with a large number of inputs, especially ones that were the result of large (batched) transactions
+        # TODO: is there a way to only require the prev_hash/idx/ammount and not the full tx hex?
 
         # Prev tx stuff
         prev_tx_dict = input_dict["prev_tx_dict"]
@@ -71,9 +85,10 @@ def create_ps2sh_multisig_psbt(
 
         redeem_script = RedeemScript.create_p2sh_multisig(
             quorum_m=quorum_m,
-            # Electrum sorts lexographically:
             # TODO: allow for trying multiple combinations
-            pubkey_hex_list=sorted(pubkey_hex_list),
+            pubkey_hex_list=pubkey_hex_list,
+            # Electrum sorts lexicographically:
+            sort_keys=True,
         )
 
         utxo = prev_tx_obj.tx_outs[prev_tx_dict["output_idx"]]
@@ -103,8 +118,7 @@ def create_ps2sh_multisig_psbt(
     for cnt, output_dict in enumerate(outputs_dict_list):
         tx_out = TxOut(
             amount=output_dict["sats"],
-            # FIXME: support other output types
-            script_pubkey=P2PKHScriptPubKey(decode_base58(output_dict["address"])),
+            script_pubkey=address_to_script_pubkey(output_dict["address"]),
         )
         tx_outs.append(tx_out)
 
