@@ -1,7 +1,8 @@
 from io import BytesIO
 
-from buidl.bech32 import encode_bech32_checksum
+from buidl.bech32 import decode_bech32, encode_bech32_checksum
 from buidl.helper import (
+    decode_base58,
     encode_base58_checksum,
     encode_varstr,
     hash160,
@@ -479,3 +480,23 @@ class WitnessScript(Script):
         quorum_n = OP_CODE_NAMES[self.commands[-2]].split("OP_")[1]
 
         return int(quorum_m), int(quorum_n)
+
+
+def address_to_script_pubkey(s):
+    if s[:1] in ("1", "m", "n"):
+        # p2pkh
+        h160 = decode_base58(s)
+        return P2PKHScriptPubKey(h160)
+    elif s[:1] in ("2", "3"):
+        # p2sh
+        h160 = decode_base58(s)
+        return P2SHScriptPubKey(h160)
+    elif s[:3] in ("bc1", "tb1"):
+        if len(s) == 42:
+            # p2wpkh
+            return P2WPKHScriptPubKey(decode_bech32(s)[2])
+        elif len(s) == 62:
+            # p2wskh
+            return P2WSHScriptPubKey(decode_bech32(s)[2])
+
+    raise RuntimeError("unknown type of address: {}".format(s))
