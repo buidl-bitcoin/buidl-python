@@ -153,7 +153,24 @@ class P2SHTest(TestCase):
 
             hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
 
-            private_keys = [hdpriv.traverse("m/45h/0/0/0").private_key]
+            full_path_to_use = None
+            for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
+
+                self.assertEqual(psbt_in.redeem_script.get_quorum(), (1, 2))
+
+                # For this TX there is only one psbt_in (1 input)
+                for child_pubkey in psbt_in.redeem_script.signing_pubkeys():
+                    named_pubkey = psbt_in.named_pubs[child_pubkey]
+                    if (
+                        named_pubkey.root_fingerprint.hex()
+                        == hdpriv.fingerprint().hex()
+                    ):
+                        full_path_to_use = named_pubkey.root_path
+
+                # In this example, the path is the same regardless of which key we sign with:
+                self.assertEqual(full_path_to_use, "m/45'/0/0/0")
+
+            private_keys = [hdpriv.traverse(full_path_to_use).private_key]
 
             assert psbt_obj.sign_with_private_keys(private_keys=private_keys) is True
 

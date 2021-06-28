@@ -14,6 +14,7 @@ from buidl.helper import (
 )
 from buidl.op import (
     number_to_op_code,
+    op_code_to_number,
     op_equal,
     op_hash160,
     op_verify,
@@ -397,6 +398,22 @@ class RedeemScript(Script):
         commands.append(174)  # OP_CHECKMULTISIG
 
         return cls(commands)
+
+    def get_quorum(self):
+        """
+        Return the m-of-n of this multisig, as in 2-of-3 or 3-of-5
+        """
+        if self.commands[-1] != 174:
+            raise ValueError(f"Not OP_CHECKMULTISIG: {self}")
+        quorum_m = op_code_to_number(self.commands[0])
+        quorum_n = len(self.commands) - 3
+        return quorum_m, quorum_n
+
+    def signing_pubkeys(self):
+        """
+        The pubkeys needed to sign this transaction, typically children derived from xpubs
+        """
+        return self.commands[1:-2]
 
 
 class SegwitPubKey(ScriptPubKey):
