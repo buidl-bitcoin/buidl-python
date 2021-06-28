@@ -115,7 +115,7 @@ def create_ps2sh_multisig_psbt(
         redeem_lookup[redeem_script.hash160()] = redeem_script
 
     tx_outs = []
-    for cnt, output_dict in enumerate(outputs_dict_list):
+    for output_dict in outputs_dict_list:
         tx_out = TxOut(
             amount=output_dict["sats"],
             script_pubkey=address_to_script_pubkey(output_dict["address"]),
