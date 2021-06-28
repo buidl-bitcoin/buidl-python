@@ -7,7 +7,7 @@ from buidl.script import RedeemScript
 
 class P2SHTest(TestCase):
     def test_receive_1of2(self):
-        # This test is not strictly neccesary, it just provs/shows how I generated the testnet address that received these coins
+        # This test is not strictly neccesary, it just proves/shows how I generated the testnet address that received these coins
         # In the next test, I'll show to spend them
         BASE_PATH = "m/45h/0"
 
