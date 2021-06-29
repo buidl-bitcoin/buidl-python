@@ -8,8 +8,8 @@ from buidl.script import RedeemScript, address_to_script_pubkey
 def create_ps2sh_multisig_psbt(
     quorum_m,
     xpubs_dict,
-    inputs_dict_list,
-    outputs_dict_list,
+    input_dicts,
+    output_dicts,
     fee_sats,
 ):
     """
@@ -42,7 +42,7 @@ def create_ps2sh_multisig_psbt(
     tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}
 
     tx_ins = []
-    for cnt, input_dict in enumerate(inputs_dict_list):
+    for cnt, input_dict in enumerate(input_dicts):
         # This could get unwieldy for TXs with a large number of inputs, especially ones that were the result of large (batched) transactions
         # TODO: is there a way to only require the prev_hash/idx/ammount and not the full tx hex?
 
@@ -112,7 +112,7 @@ def create_ps2sh_multisig_psbt(
         redeem_lookup[redeem_script.hash160()] = redeem_script
 
     tx_outs = []
-    for output_dict in outputs_dict_list:
+    for output_dict in output_dicts:
         tx_out = TxOut(
             amount=output_dict["sats"],
             script_pubkey=address_to_script_pubkey(output_dict["address"]),

@@ -107,7 +107,7 @@ class P2SHTest(TestCase):
                     "base_path": "m/45h/0",
                 },
             },
-            "inputs_dict_list": [
+            "input_dicts": [
                 {
                     "path_dict": {
                         # xfp: child_path
@@ -122,7 +122,7 @@ class P2SHTest(TestCase):
                     },
                 },
             ],
-            "outputs_dict_list": [
+            "output_dicts": [
                 {
                     "sats": 999500,
                     "address": "mkHS9ne12qx9pS9VojpwU5xtRd4T7X7ZUt",
@@ -180,7 +180,7 @@ class P2SHTest(TestCase):
 
         # TODO fresh test with broadcast to blockchain
 
-        kwargs["outputs_dict_list"] = [
+        kwargs["output_dicts"] = [
             {
                 "sats": 999500,
                 "address": "2ND4qfpdHyeXJboAUkKZqJsyiKyXvHRKhbi",
