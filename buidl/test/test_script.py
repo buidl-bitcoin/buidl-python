@@ -138,8 +138,8 @@ class RedeemScriptTest(TestCase):
         # For recovery only (unsorted pubkeys), do not use this method unless you know what you're doing
         misordered_pubkeys_addr = "2NFzScjC9jaMbo5ST4M1WVeeWgSaVT7xS1W"
         pubkey_hex_list = [
-            child_xpriv_1.traverse(f"m/0/0").pub.sec().hex(),
-            child_xpriv_2.traverse(f"m/0/0").pub.sec().hex(),
+            child_xpriv_1.traverse("m/0/0").pub.sec().hex(),
+            child_xpriv_2.traverse("m/0/0").pub.sec().hex(),
         ]
         misordered_redeem_script = RedeemScript.create_p2sh_multisig_unsorted(
             quorum_m=1,
@@ -147,10 +147,13 @@ class RedeemScriptTest(TestCase):
             target_address=misordered_pubkeys_addr,
             network="testnet",
         )
+        self.assertEqual(
+            misordered_redeem_script.address("testnet"), misordered_pubkeys_addr
+        )
 
         with self.assertRaises(ValueError):
             fake_addr = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
-            misordered_redeem_script = RedeemScript.create_p2sh_multisig_unsorted(
+            RedeemScript.create_p2sh_multisig_unsorted(
                 quorum_m=1,
                 pubkey_hex_list=pubkey_hex_list,
                 target_address=fake_addr,
