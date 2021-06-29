@@ -87,7 +87,7 @@ class P2SHTest(TestCase):
         # Faucet TX I sent myself to this address:
         # https://blockstream.info/testnet/tx/4412d2a7664d01bb784a0a359e9aacf160ee436067c6a42dca355da4817ca7da
 
-    def test_spend_1of2_p2sh(self):
+    def test_sweep_1of2_p2sh(self):
 
         # This test will produce a validly signed TX for the 1-of-2 p2sh using either key, which will result in a different TX ID
         # d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490 is the one that was broadcast to the testnet blockchain:
@@ -178,32 +178,74 @@ class P2SHTest(TestCase):
 
             self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
 
-        # TODO fresh test with broadcast to blockchain
+    def test_spend_1of2_with_change(self):
 
-        kwargs["output_dicts"] = [
-            {
-                "sats": 999500,
-                "address": "2ND4qfpdHyeXJboAUkKZqJsyiKyXvHRKhbi",
-                "path_dict": {
-                    # xfp: child_path (m/1/* is receiving addr branch)
-                    "e0c595c5": "m/1/0",
-                    "838f3ff9": "m/1/0",
+        kwargs = {
+            # this part is unchanged from the previous
+            "quorum_m": 1,
+            "xpubs_dict": {
+                "e0c595c5": {
+                    # action x12
+                    "xpub_hex": "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
+                    "base_path": "m/45h/0",
                 },
-            }
-        ]
+                "838f3ff9": {
+                    # agent x12
+                    "xpub_hex": "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
+                    "base_path": "m/45h/0",
+                },
+            },
+            # this part is changed:
+            "input_dicts": [
+                {
+                    "path_dict": {
+                        # xfp: child_path
+                        "e0c595c5": "m/0/1",
+                        "838f3ff9": "m/0/1",
+                    },
+                    "prev_tx_dict": {
+                        "hex": "020000000001012c40a6810f7a670913d171e1f5b203ca01ed45ed3bf68b649850491eecb560080100000000feffffff02a7e50941010000001600147b3af2253632c3000f9cdd531747107fe249c7d1102700000000000017a91459fb638aaa55a7119a09faf5e8b2ce8a879cce338702473044022004666d885310990e1b0a61e93b1490acb172d43200d6fcfa22e89905b7f3094d02204a705e4a4fc8cab97f7d146f481e70718ee4567486796536d14c7808be3fd866012102cc3b01d2192b5275d3fda7f82eaf593dfb8ca9333f7296f93da401f8d1821335619f1e00",
+                        "hash_hex": "3bbc91c1de188528d254ed145b1aabbb68b9050f7c660b345fc9feba73ff94a2",
+                        "output_idx": 1,
+                        "output_sats": 10000,
+                    },
+                },
+            ],
+            "output_dicts": [
+                {
+                    # this should be change:
+                    "sats": 1000,
+                    "address": "2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8",
+                    "path_dict": {
+                        # xfp: child_path (m/1/* is receiving addr branch)
+                        "e0c595c5": "m/1/0",
+                        "838f3ff9": "m/1/0",
+                    },
+                },
+                {
+                    # testnet faucet:
+                    "sats": 5000,
+                    "address": "tb1ql7w62elx9ucw4pj5lgw4l028hmuw80sndtntxt",
+                },
+            ],
+            "fee_sats": 4000,
+        }
 
-        expected_unsigned_psbt_hex = "70736274ff01005601000000000101daa77c81a45d35ca2da4c6676043ee60f1ac9a9e350a4a78bb014d66a7d212440000000000ffffffff014c400f000000000017a914d96bb9c5888f473dbd077d77009fb49ba2fda242870000000000000100e002000000000101380bff9db676d159ad34849079c77e0d5c1df9c841b6a6640cba9bfc15077eea0100000000feffffff02008312000000000017a914d96bb9c5888f473dbd077d77009fb49ba2fda24287611c92a00100000017a9148722f07fbcf0fc506ea4ba9daa811d11396bbcfd870247304402202fe3c2f18e1486407bf0baabd2b3376102f0844a754d8e2fb8de71b39b3f76c702200c1fe8f7f9ef5165929ed51bf754edd7dd3e591921979cf5b891c841a1fd19d80121037c8fe1fa1ae4dfff522c532917c73c4884469e3b6a284e9a039ec612dca78eefd29c1e00010447512102139f7167f17da94d24df6fe2868cdb5edabd0cff83ab487c942ea2f07570d9f021023cb71c699990768c018df17a366c4eb74bde169f29e884261c10c973ec26ad3a52ae220602139f7167f17da94d24df6fe2868cdb5edabd0cff83ab487c942ea2f07570d9f014838f3ff92d0000800000000000000000000000002206023cb71c699990768c018df17a366c4eb74bde169f29e884261c10c973ec26ad3a14e0c595c52d00008000000000000000000000000000010047512102139f7167f17da94d24df6fe2868cdb5edabd0cff83ab487c942ea2f07570d9f021023cb71c699990768c018df17a366c4eb74bde169f29e884261c10c973ec26ad3a52ae220202139f7167f17da94d24df6fe2868cdb5edabd0cff83ab487c942ea2f07570d9f014838f3ff92d0000800000000000000000000000002202023cb71c699990768c018df17a366c4eb74bde169f29e884261c10c973ec26ad3a14e0c595c52d00008000000000000000000000000000"
+        expected_unsigned_psbt_hex = "70736274ff01007501000000000101a294ff73bafec95f340b667c0f05b968bbab1a5b14ed54d2288518dec191bc3b0100000000ffffffff02e80300000000000017a9144e939ddfe567971692d19559f1f92d4fae5aa056878813000000000000160014ff9da567e62f30ea8654fa1d5fbd47bef8e3be130000000000000100df020000000001012c40a6810f7a670913d171e1f5b203ca01ed45ed3bf68b649850491eecb560080100000000feffffff02a7e50941010000001600147b3af2253632c3000f9cdd531747107fe249c7d1102700000000000017a91459fb638aaa55a7119a09faf5e8b2ce8a879cce338702473044022004666d885310990e1b0a61e93b1490acb172d43200d6fcfa22e89905b7f3094d02204a705e4a4fc8cab97f7d146f481e70718ee4567486796536d14c7808be3fd866012102cc3b01d2192b5275d3fda7f82eaf593dfb8ca9333f7296f93da401f8d1821335619f1e0001044751210226e53c7ab615da468364ca9f59879f51bd94278c26a39cac59a235a7cf8145932102d221e17bb80cf130bb0931434afac5e55f377ed9b2b003519a529ce02862444752ae22060226e53c7ab615da468364ca9f59879f51bd94278c26a39cac59a235a7cf81459314838f3ff92d000080000000000000000001000000220602d221e17bb80cf130bb0931434afac5e55f377ed9b2b003519a529ce02862444714e0c595c52d000080000000000000000001000000000000"
 
+        # With p2sh, txid changes depending on which key signs
         tests = (
             # (seed_word repeated x12, signed_tx_hash_hex),
             (
-                # FIXME: this is the one we broadcasted
+                # this one we did not broadcast
                 "action ",
-                "f2dac805ff54a1ef95cda8a506ee059d7f3f5fb876efb12d388e95d691d160a2",
+                "0eefb9c614abff0fe859c2dd524a5cfc9582389c9ec938c02f2afb36c64a8e69",
             ),
             (
+                # this is the one we did broadcast
+                # https://blockstream.info/testnet/tx/5b7f81bbef354a48097d429cc6e5b7aad1a1b6940faa4aba284a8913fff643dc
                 "agent ",
-                "02e2232c5394fb57b22c161edb05a6632a20354b5f1ff24a8355768b877c54bb",
+                "5b7f81bbef354a48097d429cc6e5b7aad1a1b6940faa4aba284a8913fff643dc",
             ),
         )
 
@@ -229,7 +271,7 @@ class P2SHTest(TestCase):
                         full_path_to_use = named_pubkey.root_path
 
                 # In this example, the path is the same regardless of which key we sign with:
-                self.assertEqual(full_path_to_use, "m/45'/0/0/0")
+                self.assertEqual(full_path_to_use, "m/45'/0/0/1")
 
             private_keys = [hdpriv.traverse(full_path_to_use).private_key]
 
@@ -238,3 +280,21 @@ class P2SHTest(TestCase):
             psbt_obj.finalize()
 
             self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
+
+        # Demonstrate that we will throw an error if the change address doesn't validate:
+
+        # Confirm that swapping out the change address throws an error
+        modified_kwargs = kwargs.copy()
+        # nonsense address corresponding to secret exponent = 1
+        fake_addr = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
+        modified_kwargs["output_dicts"][0]["address"] = fake_addr
+        with self.assertRaises(ValueError):
+            create_ps2sh_multisig_psbt(**modified_kwargs)
+
+        # Confirm that changing the change paths (so that they no longer match the change address) throws an error
+        modified_kwargs = kwargs.copy()
+        # Change the path used to validate the change address
+        # We don't bother altering 838f3ff9's path as well because changing anything will already throw this error
+        modified_kwargs["output_dicts"][0]["path_dict"]["e0c595c5"] = "m/999"
+        with self.assertRaises(ValueError):
+            create_ps2sh_multisig_psbt(**modified_kwargs)

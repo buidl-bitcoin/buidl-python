@@ -122,11 +122,11 @@ def create_ps2sh_multisig_psbt(
         if output_dict.get("path_dict"):
             # Confirm change
             output_pubkey_hexes = []
-            for xfp_hex, bip32_child_path in input_dict["path_dict"].items():
+            for xfp_hex, bip32_child_path in output_dict["path_dict"].items():
 
                 if xfp_hex not in xfp_dict:
                     raise ValueError(
-                        f"xfp_hex {xfp_hex} from input #{cnt} not supplied in xpubs_dict:  {xpubs_dict}"
+                        f"xfp_hex {xfp_hex} from output #{cnt} not supplied in xpubs_dict:  {xpubs_dict}"
                     )
 
                 child_hd_pubkey = xfp_dict[xfp_hex]["xpub_obj"].traverse(
