@@ -43,8 +43,6 @@ def create_ps2sh_multisig_psbt(
 
     tx_ins = []
     for cnt, input_dict in enumerate(input_dicts):
-        # This could get unwieldy for TXs with a large number of inputs, especially ones that were the result of large (batched) transactions
-        # TODO: is there a way to only require the prev_hash/idx/ammount and not the full tx hex?
 
         # Prev tx stuff
         prev_tx_dict = input_dict["prev_tx_dict"]
@@ -80,14 +78,6 @@ def create_ps2sh_multisig_psbt(
             )
             pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
 
-        redeem_script = RedeemScript.create_p2sh_multisig(
-            quorum_m=quorum_m,
-            # TODO: allow for trying multiple combinations
-            pubkey_hex_list=input_pubkey_hexes,
-            # Electrum sorts lexicographically:
-            sort_keys=True,
-        )
-
         utxo = prev_tx_obj.tx_outs[prev_tx_dict["output_idx"]]
 
         # Grab amount as developer safety check
@@ -96,6 +86,14 @@ def create_ps2sh_multisig_psbt(
                 f"Wrong number of sats for input #{cnt}! Expecting {prev_tx_dict['output_sats']} but got {utxo.amount}"
             )
         total_input_sats += utxo.amount
+
+        # This allows us to spend from a redeem script with pubkeys out of order
+        redeem_script = RedeemScript.create_p2sh_multisig_unsorted(
+            quorum_m=quorum_m,
+            pubkey_hex_list=input_pubkey_hexes,
+            target_address=utxo.script_pubkey.address(network=network),
+            network=network,
+        )
 
         # Confirm address matches previous ouput
         if redeem_script.address(network=network) != utxo.script_pubkey.address(
