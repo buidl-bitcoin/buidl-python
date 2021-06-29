@@ -3,6 +3,7 @@ from unittest import TestCase
 from io import BytesIO
 
 from buidl.helper import decode_base58
+from buidl.hd import HDPrivateKey
 from buidl.script import (
     address_to_script_pubkey,
     P2PKHScriptPubKey,
@@ -73,6 +74,88 @@ class RedeemScriptTest(TestCase):
         want = "2MxEZNps15dAnGX5XaVwZWgoDvjvsDE5XSx"
         self.assertEqual(redeem_script.address(network="testnet"), want)
         self.assertEqual(redeem_script.address(network="signet"), want)
+
+    def test_create_p2sh_multisig(self):
+        BASE_PATH = "m/45h/0"
+
+        # Insecure testing BIP39 mnemonics
+        hdpriv_root_1 = HDPrivateKey.from_mnemonic("action " * 12, network="testnet")
+        hdpriv_root_2 = HDPrivateKey.from_mnemonic("agent " * 12, network="testnet")
+
+        child_xpriv_1 = hdpriv_root_1.traverse(BASE_PATH)
+        child_xpriv_2 = hdpriv_root_2.traverse(BASE_PATH)
+
+        # xpubs from electrum:
+        self.assertEqual(
+            child_xpriv_1.xpub(),
+            "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
+        )
+        self.assertEqual(
+            child_xpriv_2.xpub(),
+            "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
+        )
+
+        # addresses from electrum
+        expected_receive_addrs = [
+            "2ND4qfpdHyeXJboAUkKZqJsyiKyXvHRKhbi",
+            "2N1T1HAC9TnNvhEDG4oDEuKNnmdsXs2HNwq",
+            "2N7fdTu5JkQihTpo2mZ3QYudrfU2xMdgh3M",
+        ]
+        expected_change_addrs = [
+            "2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8",
+            "2Msk2ckm2Ee4kJnzQuyQtpYDpMZrXf5XtKD",
+            "2N5wXpJBKtAKSCiAZLwdh2sPwt5k2HBGtGC",
+        ]
+
+        # validate receive addrs match electrum
+        for cnt, expected_receive_addr in enumerate(expected_receive_addrs):
+            redeem_script = RedeemScript.create_p2sh_multisig(
+                quorum_m=1,
+                pubkey_hex_list=[
+                    child_xpriv_1.traverse(f"m/0/{cnt}").pub.sec().hex(),
+                    child_xpriv_2.traverse(f"m/0/{cnt}").pub.sec().hex(),
+                ],
+                # Electrum sorts child pubkeys lexicographically:
+                sort_keys=True,
+            )
+            derived_addr = redeem_script.address(network="testnet")
+            self.assertEqual(derived_addr, expected_receive_addr)
+
+        # validate change addrs match electrum
+        for cnt, expected_change_addr in enumerate(expected_change_addrs):
+            redeem_script = RedeemScript.create_p2sh_multisig(
+                quorum_m=1,
+                pubkey_hex_list=[
+                    child_xpriv_1.traverse(f"m/1/{cnt}").pub.sec().hex(),
+                    child_xpriv_2.traverse(f"m/1/{cnt}").pub.sec().hex(),
+                ],
+                # Electrum sorts lexicographically:
+                sort_keys=True,
+            )
+            derived_addr = redeem_script.address(network="testnet")
+            self.assertEqual(derived_addr, expected_change_addr)
+
+        # For recovery only (unsorted pubkeys), do not use this method unless you know what you're doing
+        misordered_pubkeys_addr = "2NFzScjC9jaMbo5ST4M1WVeeWgSaVT7xS1W"
+        pubkey_hex_list = [
+            child_xpriv_1.traverse(f"m/0/0").pub.sec().hex(),
+            child_xpriv_2.traverse(f"m/0/0").pub.sec().hex(),
+        ]
+        misordered_redeem_script = RedeemScript.create_p2sh_multisig_unsorted(
+            quorum_m=1,
+            pubkey_hex_list=pubkey_hex_list,
+            target_address=misordered_pubkeys_addr,
+            network="testnet",
+        )
+
+        with self.assertRaises(ValueError):
+            fake_addr = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
+            misordered_redeem_script = RedeemScript.create_p2sh_multisig_unsorted(
+                quorum_m=1,
+                pubkey_hex_list=pubkey_hex_list,
+                target_address=fake_addr,
+                network="testnet",
+            )
 
 
 class WitnessScriptTest(TestCase):

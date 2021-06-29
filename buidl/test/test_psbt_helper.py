@@ -9,82 +9,32 @@ class P2SHTest(TestCase):
     def test_receive_1of2(self):
         # This test is not strictly neccesary, it just proves/shows how I generated the testnet address that received these coins
         # In the next test, I'll show to spend them
-        BASE_PATH = "m/45h/0"
+
+        # For full details, see test_create_p2sh_multisig in test_script.py
 
         # Insecure testing BIP39 mnemonics
-        hdpriv_root_1 = HDPrivateKey.from_mnemonic("action " * 12, network="testnet")
-        hdpriv_root_2 = HDPrivateKey.from_mnemonic("agent " * 12, network="testnet")
-
-        child_xpriv_1 = hdpriv_root_1.traverse(BASE_PATH)
-        child_xpriv_2 = hdpriv_root_2.traverse(BASE_PATH)
-
-        # xpubs from electrum:
-        self.assertEqual(
-            child_xpriv_1.xpub(),
-            "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
-        )
-        self.assertEqual(
-            child_xpriv_2.xpub(),
-            "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
-        )
-
-        # addresses from electrum
-        expected_receive_addrs = [
-            "2ND4qfpdHyeXJboAUkKZqJsyiKyXvHRKhbi",
-            "2N1T1HAC9TnNvhEDG4oDEuKNnmdsXs2HNwq",
-            "2N7fdTu5JkQihTpo2mZ3QYudrfU2xMdgh3M",
+        full_path = "m/45h/0/0/0"
+        hdprivs = [
+            HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
+            for seed_word in ("action ", "agent ")
         ]
-        expected_change_addrs = [
-            "2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8",
-            "2Msk2ckm2Ee4kJnzQuyQtpYDpMZrXf5XtKD",
-            "2N5wXpJBKtAKSCiAZLwdh2sPwt5k2HBGtGC",
-        ]
-
-        # validate receive addrs match electrum
-        for cnt, expected_receive_addr in enumerate(expected_receive_addrs):
-            redeem_script = RedeemScript.create_p2sh_multisig(
-                quorum_m=1,
-                pubkey_hex_list=[
-                    child_xpriv_1.traverse(f"m/0/{cnt}").pub.sec().hex(),
-                    child_xpriv_2.traverse(f"m/0/{cnt}").pub.sec().hex(),
-                ],
-                # Electrum sorts child pubkeys lexicographically:
-                sort_keys=True,
-            )
-            derived_addr = redeem_script.address(network="testnet")
-            self.assertEqual(derived_addr, expected_receive_addr)
-
-        # validate change addrs match electrum
-        for cnt, expected_change_addr in enumerate(expected_change_addrs):
-            redeem_script = RedeemScript.create_p2sh_multisig(
-                quorum_m=1,
-                pubkey_hex_list=[
-                    child_xpriv_1.traverse(f"m/1/{cnt}").pub.sec().hex(),
-                    child_xpriv_2.traverse(f"m/1/{cnt}").pub.sec().hex(),
-                ],
-                # Electrum sorts lexicographically:
-                sort_keys=True,
-            )
-            derived_addr = redeem_script.address(network="testnet")
-            self.assertEqual(derived_addr, expected_change_addr)
 
         # Validate the 0th receive address for m/45'/0
         expected_spending_addr = "2ND4qfpdHyeXJboAUkKZqJsyiKyXvHRKhbi"
-        child_path_to_use = "m/0/0"
         pubkey_hex_list = [
-            child_xpriv.traverse(child_path_to_use).pub.sec().hex()
-            for child_xpriv in (child_xpriv_1, child_xpriv_2)
+            hdpriv.traverse(full_path).pub.sec().hex() for hdpriv in hdprivs
         ]
-        pubkey_hex_list.sort()
 
         redeem_script_to_use = RedeemScript.create_p2sh_multisig(
-            quorum_m=1, pubkey_hex_list=pubkey_hex_list
+            quorum_m=1,
+            pubkey_hex_list=pubkey_hex_list,
+            sort_keys=True,
         )
         self.assertEqual(
             expected_spending_addr, redeem_script_to_use.address(network="testnet")
         )
 
-        # Faucet TX I sent myself to this address:
+        # Faucet TX sent to this address:
         # https://blockstream.info/testnet/tx/4412d2a7664d01bb784a0a359e9aacf160ee436067c6a42dca355da4817ca7da
 
     def test_sweep_1of2_p2sh(self):
