@@ -172,11 +172,11 @@ class P2SHTest(TestCase):
 
             private_keys = [hdpriv.traverse(full_path_to_use).private_key]
 
-            assert psbt_obj.sign_with_private_keys(private_keys=private_keys) is True
+            self.assertTrue(psbt_obj.sign_with_private_keys(private_keys=private_keys))
 
             psbt_obj.finalize()
 
-            assert psbt_obj.final_tx().hash().hex() == signed_tx_hash_hex
+            self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
 
         # TODO fresh test with broadcast to blockchain
 
@@ -233,8 +233,8 @@ class P2SHTest(TestCase):
 
             private_keys = [hdpriv.traverse(full_path_to_use).private_key]
 
-            assert psbt_obj.sign_with_private_keys(private_keys=private_keys) is True
+            self.assertTrue(psbt_obj.sign_with_private_keys(private_keys=private_keys))
 
             psbt_obj.finalize()
 
-            assert psbt_obj.final_tx().hash().hex() == signed_tx_hash_hex
+            self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
