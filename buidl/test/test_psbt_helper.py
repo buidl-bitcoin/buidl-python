@@ -177,3 +177,64 @@ class P2SHTest(TestCase):
             psbt_obj.finalize()
 
             assert psbt_obj.final_tx().hash().hex() == signed_tx_hash_hex
+
+        # TODO fresh test with broadcast to blockchain
+
+        kwargs["outputs_dict_list"] = [
+            {
+                "sats": 999500,
+                "address": "2ND4qfpdHyeXJboAUkKZqJsyiKyXvHRKhbi",
+                "path_dict": {
+                    # xfp: child_path (m/1/* is receiving addr branch)
+                    "e0c595c5": "m/1/0",
+                    "838f3ff9": "m/1/0",
+                },
+            }
+        ]
+
+        expected_unsigned_psbt_hex = "70736274ff01005601000000000101daa77c81a45d35ca2da4c6676043ee60f1ac9a9e350a4a78bb014d66a7d212440000000000ffffffff014c400f000000000017a914d96bb9c5888f473dbd077d77009fb49ba2fda242870000000000000100e002000000000101380bff9db676d159ad34849079c77e0d5c1df9c841b6a6640cba9bfc15077eea0100000000feffffff02008312000000000017a914d96bb9c5888f473dbd077d77009fb49ba2fda24287611c92a00100000017a9148722f07fbcf0fc506ea4ba9daa811d11396bbcfd870247304402202fe3c2f18e1486407bf0baabd2b3376102f0844a754d8e2fb8de71b39b3f76c702200c1fe8f7f9ef5165929ed51bf754edd7dd3e591921979cf5b891c841a1fd19d80121037c8fe1fa1ae4dfff522c532917c73c4884469e3b6a284e9a039ec612dca78eefd29c1e00010447512102139f7167f17da94d24df6fe2868cdb5edabd0cff83ab487c942ea2f07570d9f021023cb71c699990768c018df17a366c4eb74bde169f29e884261c10c973ec26ad3a52ae220602139f7167f17da94d24df6fe2868cdb5edabd0cff83ab487c942ea2f07570d9f014838f3ff92d0000800000000000000000000000002206023cb71c699990768c018df17a366c4eb74bde169f29e884261c10c973ec26ad3a14e0c595c52d00008000000000000000000000000000010047512102139f7167f17da94d24df6fe2868cdb5edabd0cff83ab487c942ea2f07570d9f021023cb71c699990768c018df17a366c4eb74bde169f29e884261c10c973ec26ad3a52ae220202139f7167f17da94d24df6fe2868cdb5edabd0cff83ab487c942ea2f07570d9f014838f3ff92d0000800000000000000000000000002202023cb71c699990768c018df17a366c4eb74bde169f29e884261c10c973ec26ad3a14e0c595c52d00008000000000000000000000000000"
+
+        tests = (
+            # (seed_word repeated x12, signed_tx_hash_hex),
+            (
+                # FIXME: this is the one we broadcasted
+                "action ",
+                "f2dac805ff54a1ef95cda8a506ee059d7f3f5fb876efb12d388e95d691d160a2",
+            ),
+            (
+                "agent ",
+                "02e2232c5394fb57b22c161edb05a6632a20354b5f1ff24a8355768b877c54bb",
+            ),
+        )
+
+        # Now we prove we can sign this with either key
+        for seed_word, signed_tx_hash_hex in tests:
+            psbt_obj = create_ps2sh_multisig_psbt(**kwargs)
+            self.assertEqual(psbt_obj.serialize().hex(), expected_unsigned_psbt_hex)
+
+            hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
+
+            full_path_to_use = None
+            for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
+
+                self.assertEqual(psbt_in.redeem_script.get_quorum(), (1, 2))
+
+                # For this TX there is only one psbt_in (1 input)
+                for child_pubkey in psbt_in.redeem_script.signing_pubkeys():
+                    named_pubkey = psbt_in.named_pubs[child_pubkey]
+                    if (
+                        named_pubkey.root_fingerprint.hex()
+                        == hdpriv.fingerprint().hex()
+                    ):
+                        full_path_to_use = named_pubkey.root_path
+
+                # In this example, the path is the same regardless of which key we sign with:
+                self.assertEqual(full_path_to_use, "m/45'/0/0/0")
+
+            private_keys = [hdpriv.traverse(full_path_to_use).private_key]
+
+            assert psbt_obj.sign_with_private_keys(private_keys=private_keys) is True
+
+            psbt_obj.finalize()
+
+            assert psbt_obj.final_tx().hash().hex() == signed_tx_hash_hex

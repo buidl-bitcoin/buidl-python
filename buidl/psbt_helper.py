@@ -16,8 +16,6 @@ def create_ps2sh_multisig_psbt(
     Helper method to create a p2sh multisig PSBT.
 
     network (testnet/mainnet) will be inferred from xpubs/tpubs.
-
-    TODO: add change detection logic
     """
 
     # This at the child pubkey lookup that each input will traverse off of
@@ -59,7 +57,7 @@ def create_ps2sh_multisig_psbt(
             )
 
         # pubkey lookups needed for validation
-        pubkey_hex_list = []
+        input_pubkey_hexes = []
         total_input_sats = 0
         for xfp_hex, bip32_child_path in input_dict["path_dict"].items():
             if xfp_hex not in xfp_dict:
@@ -68,8 +66,7 @@ def create_ps2sh_multisig_psbt(
                 )
 
             child_hd_pubkey = xfp_dict[xfp_hex]["xpub_obj"].traverse(bip32_child_path)
-            pubkey_hex = child_hd_pubkey.sec().hex()
-            pubkey_hex_list.append(pubkey_hex)
+            input_pubkey_hexes.append(child_hd_pubkey.sec().hex())
 
             full_path = combine_bip32_paths(
                 first_path=xfp_dict[xfp_hex]["base_path"], second_path=bip32_child_path
@@ -86,7 +83,7 @@ def create_ps2sh_multisig_psbt(
         redeem_script = RedeemScript.create_p2sh_multisig(
             quorum_m=quorum_m,
             # TODO: allow for trying multiple combinations
-            pubkey_hex_list=pubkey_hex_list,
+            pubkey_hex_list=input_pubkey_hexes,
             # Electrum sorts lexicographically:
             sort_keys=True,
         )
@@ -121,6 +118,47 @@ def create_ps2sh_multisig_psbt(
             script_pubkey=address_to_script_pubkey(output_dict["address"]),
         )
         tx_outs.append(tx_out)
+
+        if output_dict.get("path_dict"):
+            # Confirm change
+            output_pubkey_hexes = []
+            for xfp_hex, bip32_child_path in input_dict["path_dict"].items():
+
+                if xfp_hex not in xfp_dict:
+                    raise ValueError(
+                        f"xfp_hex {xfp_hex} from input #{cnt} not supplied in xpubs_dict:  {xpubs_dict}"
+                    )
+
+                child_hd_pubkey = xfp_dict[xfp_hex]["xpub_obj"].traverse(
+                    bip32_child_path
+                )
+                output_pubkey_hexes.append(child_hd_pubkey.sec().hex())
+
+                full_path = combine_bip32_paths(
+                    first_path=xfp_dict[xfp_hex]["base_path"],
+                    second_path=bip32_child_path,
+                )
+
+                # Enhance the PSBT
+                named_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
+                    child_hd_pub=child_hd_pubkey,
+                    fingerprint_hex=xfp_hex,
+                    full_path=full_path,
+                )
+                pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
+
+            redeem_script = RedeemScript.create_p2sh_multisig(
+                quorum_m=quorum_m,
+                # TODO: allow for trying multiple combinations
+                pubkey_hex_list=output_pubkey_hexes,
+                # Electrum sorts lexicographically:
+                sort_keys=True,
+            )
+            # Confirm address matches previous ouput
+            if redeem_script.address(network=network) != output_dict["address"]:
+                raise ValueError(
+                    f"Invalid redeem script for output #{cnt}. Expecting {redeem_script.address(network=network)} but got {output_dict['address']}"
+                )
 
     tx_obj = Tx(
         version=1,
