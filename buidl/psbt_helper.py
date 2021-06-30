@@ -6,7 +6,6 @@ from buidl.script import RedeemScript, address_to_script_pubkey
 
 
 def create_ps2sh_multisig_psbt(
-    quorum_m,
     xpubs_dict,
     input_dicts,
     output_dicts,
@@ -89,7 +88,7 @@ def create_ps2sh_multisig_psbt(
 
         # This allows us to spend from a redeem script with pubkeys out of order
         redeem_script = RedeemScript.create_p2sh_multisig_unsorted(
-            quorum_m=quorum_m,
+            quorum_m=input_dict["quorum_m"],
             pubkey_hex_list=input_pubkey_hexes,
             target_address=utxo.script_pubkey.address(network=network),
             network=network,
@@ -146,7 +145,7 @@ def create_ps2sh_multisig_psbt(
                 pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
 
             redeem_script = RedeemScript.create_p2sh_multisig(
-                quorum_m=quorum_m,
+                quorum_m=output_dict["quorum_m"],
                 # TODO: allow for trying multiple combinations
                 pubkey_hex_list=output_pubkey_hexes,
                 # Electrum sorts lexicographically:

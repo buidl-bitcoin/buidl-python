@@ -44,7 +44,6 @@ class P2SHTest(TestCase):
         # https://blockstream.info/testnet/tx/d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490
 
         kwargs = {
-            "quorum_m": 1,
             "xpubs_dict": {
                 "e0c595c5": {
                     # action x12
@@ -59,6 +58,7 @@ class P2SHTest(TestCase):
             },
             "input_dicts": [
                 {
+                    "quorum_m": 1,
                     "path_dict": {
                         # xfp: child_path
                         "e0c595c5": "m/0/0",
@@ -132,7 +132,6 @@ class P2SHTest(TestCase):
 
         kwargs = {
             # this part is unchanged from the previous
-            "quorum_m": 1,
             "xpubs_dict": {
                 "e0c595c5": {
                     # action x12
@@ -148,6 +147,7 @@ class P2SHTest(TestCase):
             # this part is changed:
             "input_dicts": [
                 {
+                    "quorum_m": 1,
                     "path_dict": {
                         # xfp: child_path
                         "e0c595c5": "m/0/1",
@@ -166,6 +166,7 @@ class P2SHTest(TestCase):
                     # this should be change:
                     "sats": 1000,
                     "address": "2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8",
+                    "quorum_m": 1,
                     "path_dict": {
                         # xfp: child_path (m/1/* is receiving addr branch)
                         "e0c595c5": "m/1/0",
