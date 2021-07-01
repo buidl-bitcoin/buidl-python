@@ -176,7 +176,7 @@ class P2SHTest(TestCase):
                     "address": "2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8",
                     "quorum_m": 1,
                     "path_dict": {
-                        # xfp: root_path (m/1/* is receiving addr branch)
+                        # xfp: root_path (m/.../1/*/{idx} is receiving addr branch)
                         "e0c595c5": "m/45h/0/1/0",
                         "838f3ff9": "m/45h/0/1/0",
                     },

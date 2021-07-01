@@ -14,7 +14,7 @@ def _append(mydict, key, val):
 
 def _get_child_hdpubkey(xpub_dicts, root_path):
     """
-    Iterate through a list of
+    Iterate through a list of xpub_dicts to find one that can traverse to the given root_path
     """
     for xpub_dict in xpub_dicts:
         child_path = get_unhardened_child_path(
