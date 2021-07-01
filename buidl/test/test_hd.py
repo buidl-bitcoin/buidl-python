@@ -3,6 +3,7 @@ from unittest import TestCase
 from buidl.hd import (
     calc_num_valid_seedpicker_checksums,
     calc_valid_seedpicker_checksums,
+    get_unhardened_child_path,
     HDPublicKey,
     HDPrivateKey,
     is_valid_bip32_path,
@@ -668,3 +669,14 @@ class BIP32PathsTest(TestCase):
 
         with self.assertRaises(ValueError):
             ltrim_path("m/", 1)
+
+    def test_child_path_calc(self):
+        self.assertEqual(get_unhardened_child_path("m/45h/0", "m/45h/0/0/1"), "m/0/1")
+        self.assertEqual(get_unhardened_child_path("m/45h/0", "m/45h/0/0/1"), "m/0/1")
+        self.assertEqual(get_unhardened_child_path("m/45h/0", "m/45h/0"), "m")
+
+        # Hardened derivation after base (m/0h/1)
+        self.assertIsNone(get_unhardened_child_path("m/45h/0", "m/45h/0/0'/1"))
+
+        # Doesn't share a base
+        self.assertIsNone(get_unhardened_child_path("m/0/1", "m/45h/0/0"))

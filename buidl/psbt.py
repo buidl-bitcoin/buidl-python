@@ -190,19 +190,21 @@ class NamedHDPublicKey(HDPublicKey):
         return hd_key
 
     @classmethod
-    def from_hd_pub(cls, child_hd_pub, fingerprint_hex, full_path):
+    def from_hd_pub(cls, child_hd_pub, fingerprint_hex, root_path):
         hd_key = child_hd_pub
         hd_key.__class__ = cls
         hd_key.add_raw_path_data(
-            bytes.fromhex(fingerprint_hex) + serialize_binary_path(full_path)
+            bytes.fromhex(fingerprint_hex) + serialize_binary_path(root_path)
         )
         return hd_key
 
     @classmethod
-    def from_hd_priv(cls, hd_priv, path):
-        hd_key = hd_priv.traverse(path).pub
+    def from_hd_priv(cls, hd_priv, root_path):
+        hd_key = hd_priv.traverse(root_path).pub
         hd_key.__class__ = cls
-        hd_key.add_raw_path_data(hd_priv.fingerprint() + serialize_binary_path(path))
+        hd_key.add_raw_path_data(
+            hd_priv.fingerprint() + serialize_binary_path(root_path)
+        )
         return hd_key
 
     def serialize(self):

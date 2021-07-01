@@ -13,7 +13,7 @@ class P2SHTest(TestCase):
         # For full details, see test_create_p2sh_multisig in test_script.py
 
         # Insecure testing BIP39 mnemonics
-        full_path = "m/45h/0/0/0"
+        root_path = "m/45h/0/0/0"
         hdprivs = [
             HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
             for seed_word in ("action ", "agent ")
@@ -22,7 +22,7 @@ class P2SHTest(TestCase):
         # Validate the 0th receive address for m/45'/0
         expected_spending_addr = "2ND4qfpdHyeXJboAUkKZqJsyiKyXvHRKhbi"
         pubkey_hex_list = [
-            hdpriv.traverse(full_path).pub.sec().hex() for hdpriv in hdprivs
+            hdpriv.traverse(root_path).pub.sec().hex() for hdpriv in hdprivs
         ]
 
         redeem_script_to_use = RedeemScript.create_p2sh_multisig(
@@ -45,24 +45,28 @@ class P2SHTest(TestCase):
 
         kwargs = {
             "xpubs_dict": {
-                "e0c595c5": {
-                    # action x12
-                    "xpub_hex": "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
-                    "base_path": "m/45h/0",
-                },
-                "838f3ff9": {
-                    # agent x12
-                    "xpub_hex": "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
-                    "base_path": "m/45h/0",
-                },
+                "e0c595c5": [
+                    {
+                        # action x12
+                        "xpub_hex": "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
+                        "base_path": "m/45h/0",
+                    }
+                ],
+                "838f3ff9": [
+                    {
+                        # agent x12
+                        "xpub_hex": "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
+                        "base_path": "m/45h/0",
+                    }
+                ],
             },
             "input_dicts": [
                 {
                     "quorum_m": 1,
                     "path_dict": {
-                        # xfp: child_path
-                        "e0c595c5": "m/0/0",
-                        "838f3ff9": "m/0/0",
+                        # xfp: root_path
+                        "e0c595c5": "m/45'/0/0/0",
+                        "838f3ff9": "m/45'/0/0/0",
                     },
                     "prev_tx_dict": {
                         "hex": "02000000000101380bff9db676d159ad34849079c77e0d5c1df9c841b6a6640cba9bfc15077eea0100000000feffffff02008312000000000017a914d96bb9c5888f473dbd077d77009fb49ba2fda24287611c92a00100000017a9148722f07fbcf0fc506ea4ba9daa811d11396bbcfd870247304402202fe3c2f18e1486407bf0baabd2b3376102f0844a754d8e2fb8de71b39b3f76c702200c1fe8f7f9ef5165929ed51bf754edd7dd3e591921979cf5b891c841a1fd19d80121037c8fe1fa1ae4dfff522c532917c73c4884469e3b6a284e9a039ec612dca78eefd29c1e00",
@@ -103,7 +107,7 @@ class P2SHTest(TestCase):
 
             hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
 
-            full_path_to_use = None
+            root_path_to_use = None
             for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
 
                 self.assertEqual(psbt_in.redeem_script.get_quorum(), (1, 2))
@@ -115,12 +119,12 @@ class P2SHTest(TestCase):
                         named_pubkey.root_fingerprint.hex()
                         == hdpriv.fingerprint().hex()
                     ):
-                        full_path_to_use = named_pubkey.root_path
+                        root_path_to_use = named_pubkey.root_path
 
                 # In this example, the path is the same regardless of which key we sign with:
-                self.assertEqual(full_path_to_use, "m/45'/0/0/0")
+                self.assertEqual(root_path_to_use, "m/45'/0/0/0")
 
-            private_keys = [hdpriv.traverse(full_path_to_use).private_key]
+            private_keys = [hdpriv.traverse(root_path_to_use).private_key]
 
             self.assertTrue(psbt_obj.sign_with_private_keys(private_keys=private_keys))
 
@@ -133,25 +137,29 @@ class P2SHTest(TestCase):
         kwargs = {
             # this part is unchanged from the previous
             "xpubs_dict": {
-                "e0c595c5": {
-                    # action x12
-                    "xpub_hex": "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
-                    "base_path": "m/45h/0",
-                },
-                "838f3ff9": {
-                    # agent x12
-                    "xpub_hex": "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
-                    "base_path": "m/45h/0",
-                },
+                "e0c595c5": [
+                    {
+                        # action x12
+                        "xpub_hex": "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
+                        "base_path": "m/45h/0",
+                    }
+                ],
+                "838f3ff9": [
+                    {
+                        # agent x12
+                        "xpub_hex": "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
+                        "base_path": "m/45h/0",
+                    }
+                ],
             },
             # this part is changed:
             "input_dicts": [
                 {
                     "quorum_m": 1,
                     "path_dict": {
-                        # xfp: child_path
-                        "e0c595c5": "m/0/1",
-                        "838f3ff9": "m/0/1",
+                        # xfp: root_path
+                        "e0c595c5": "m/45h/0/0/1",
+                        "838f3ff9": "m/45h/0/0/1",
                     },
                     "prev_tx_dict": {
                         "hex": "020000000001012c40a6810f7a670913d171e1f5b203ca01ed45ed3bf68b649850491eecb560080100000000feffffff02a7e50941010000001600147b3af2253632c3000f9cdd531747107fe249c7d1102700000000000017a91459fb638aaa55a7119a09faf5e8b2ce8a879cce338702473044022004666d885310990e1b0a61e93b1490acb172d43200d6fcfa22e89905b7f3094d02204a705e4a4fc8cab97f7d146f481e70718ee4567486796536d14c7808be3fd866012102cc3b01d2192b5275d3fda7f82eaf593dfb8ca9333f7296f93da401f8d1821335619f1e00",
@@ -168,9 +176,9 @@ class P2SHTest(TestCase):
                     "address": "2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8",
                     "quorum_m": 1,
                     "path_dict": {
-                        # xfp: child_path (m/1/* is receiving addr branch)
-                        "e0c595c5": "m/1/0",
-                        "838f3ff9": "m/1/0",
+                        # xfp: root_path (m/1/* is receiving addr branch)
+                        "e0c595c5": "m/45h/0/1/0",
+                        "838f3ff9": "m/45h/0/1/0",
                     },
                 },
                 {
@@ -207,7 +215,7 @@ class P2SHTest(TestCase):
 
             hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
 
-            full_path_to_use = None
+            root_path_to_use = None
             for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
 
                 self.assertEqual(psbt_in.redeem_script.get_quorum(), (1, 2))
@@ -219,12 +227,12 @@ class P2SHTest(TestCase):
                         named_pubkey.root_fingerprint.hex()
                         == hdpriv.fingerprint().hex()
                     ):
-                        full_path_to_use = named_pubkey.root_path
+                        root_path_to_use = named_pubkey.root_path
 
                 # In this example, the path is the same regardless of which key we sign with:
-                self.assertEqual(full_path_to_use, "m/45'/0/0/1")
+                self.assertEqual(root_path_to_use, "m/45'/0/0/1")
 
-            private_keys = [hdpriv.traverse(full_path_to_use).private_key]
+            private_keys = [hdpriv.traverse(root_path_to_use).private_key]
 
             self.assertTrue(psbt_obj.sign_with_private_keys(private_keys=private_keys))
 

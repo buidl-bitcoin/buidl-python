@@ -1,8 +1,28 @@
-from buidl.blinding import combine_bip32_paths
-from buidl.hd import HDPublicKey
+from buidl.hd import get_unhardened_child_path, HDPublicKey
 from buidl.psbt import MixedNetwork, NamedHDPublicKey, PSBT
 from buidl.tx import Tx, TxIn, TxOut
 from buidl.script import RedeemScript, address_to_script_pubkey
+
+
+def _append(mydict, key, val):
+    # append a key/val to a dict
+    if key in mydict:
+        mydict[key].append(val)
+    else:
+        mydict[key] = [val]
+
+
+def _get_child_hdpubkey(xpub_dicts, root_path):
+    """
+    Iterate through a list of
+    """
+    for xpub_dict in xpub_dicts:
+        child_path = get_unhardened_child_path(
+            root_path=root_path,
+            base_path=xpub_dict["base_path"],
+        )
+        if child_path:
+            return xpub_dict["xpub_obj"].traverse(child_path)
 
 
 def create_ps2sh_multisig_psbt(
@@ -17,28 +37,32 @@ def create_ps2sh_multisig_psbt(
     network (testnet/mainnet) will be inferred from xpubs/tpubs.
     """
 
-    # This at the child pubkey lookup that each input will traverse off of
-    xfp_dict = {}
+    xfp_dict, tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}, {}
     network = None
-    for xfp_hex, xpub_values in xpubs_dict.items():
 
-        hd_pubkey_obj = HDPublicKey.parse(xpub_values["xpub_hex"])
+    # This at the child pubkey lookup that each input will traverse off of
+    for xfp_hex, base_paths in xpubs_dict.items():
+        for base_path in base_paths:
 
-        # We will use this dict on each input below
-        xfp_dict[xfp_hex] = {
-            "xpub_obj": hd_pubkey_obj,
-            "base_path": xpub_values["base_path"],
-        }
+            hd_pubkey_obj = HDPublicKey.parse(base_path["xpub_hex"])
 
-        if network is None:
-            # Set the initial value
-            network = hd_pubkey_obj.network
-        else:
-            # Confirm it hasn't changed
-            if network != hd_pubkey_obj.network:
-                raise MixedNetwork(f"Mixed networks in xpubs: {xpubs_dict}")
+            # We will use this dict/list structure for each input/ouput in the for-lopps below
+            _append(
+                xfp_dict,
+                key=xfp_hex,
+                val={
+                    "xpub_obj": hd_pubkey_obj,
+                    "base_path": base_path["base_path"],
+                },
+            )
 
-    tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}
+            if network is None:
+                # Set the initial value
+                network = hd_pubkey_obj.network
+            else:
+                # Confirm it hasn't changed
+                if network != hd_pubkey_obj.network:
+                    raise MixedNetwork(f"Mixed networks in xpubs: {xpubs_dict}")
 
     tx_ins = []
     for cnt, input_dict in enumerate(input_dicts):
@@ -54,26 +78,24 @@ def create_ps2sh_multisig_psbt(
             )
 
         # pubkey lookups needed for validation
-        input_pubkey_hexes = []
-        total_input_sats = 0
-        for xfp_hex, bip32_child_path in input_dict["path_dict"].items():
-            if xfp_hex not in xfp_dict:
+        input_pubkey_hexes, total_input_sats = [], 0
+        for xfp_hex, root_path in input_dict["path_dict"].items():
+            # Get the correct xpub/path
+            child_hd_pubkey = _get_child_hdpubkey(
+                xpub_dicts=xfp_dict.get(xfp_hex, []),
+                root_path=root_path,
+            )
+            if child_hd_pubkey is None:
                 raise ValueError(
                     f"xfp_hex {xfp_hex} from input #{cnt} not supplied in xpubs_dict:  {xpubs_dict}"
                 )
-
-            child_hd_pubkey = xfp_dict[xfp_hex]["xpub_obj"].traverse(bip32_child_path)
             input_pubkey_hexes.append(child_hd_pubkey.sec().hex())
-
-            full_path = combine_bip32_paths(
-                first_path=xfp_dict[xfp_hex]["base_path"], second_path=bip32_child_path
-            )
 
             # Enhance the PSBT
             named_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
                 child_hd_pub=child_hd_pubkey,
                 fingerprint_hex=xfp_hex,
-                full_path=full_path,
+                root_path=root_path,
             )
             pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
 
@@ -117,38 +139,31 @@ def create_ps2sh_multisig_psbt(
         tx_outs.append(tx_out)
 
         if output_dict.get("path_dict"):
-            # Confirm change
+            # This output claims to be change, so we must validate it here
             output_pubkey_hexes = []
-            for xfp_hex, bip32_child_path in output_dict["path_dict"].items():
-
-                if xfp_hex not in xfp_dict:
+            for xfp_hex, root_path in output_dict["path_dict"].items():
+                child_hd_pubkey = _get_child_hdpubkey(
+                    xpub_dicts=xfp_dict.get(xfp_hex, []),
+                    root_path=root_path,
+                )
+                if child_hd_pubkey is None:
                     raise ValueError(
-                        f"xfp_hex {xfp_hex} from output #{cnt} not supplied in xpubs_dict:  {xpubs_dict}"
+                        f"xfp_hex {xfp_hex} from output #{cnt} not supplied in xpubs_dict: {xpubs_dict}"
                     )
-
-                child_hd_pubkey = xfp_dict[xfp_hex]["xpub_obj"].traverse(
-                    bip32_child_path
-                )
                 output_pubkey_hexes.append(child_hd_pubkey.sec().hex())
-
-                full_path = combine_bip32_paths(
-                    first_path=xfp_dict[xfp_hex]["base_path"],
-                    second_path=bip32_child_path,
-                )
 
                 # Enhance the PSBT
                 named_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
                     child_hd_pub=child_hd_pubkey,
                     fingerprint_hex=xfp_hex,
-                    full_path=full_path,
+                    root_path=root_path,
                 )
                 pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
 
             redeem_script = RedeemScript.create_p2sh_multisig(
                 quorum_m=output_dict["quorum_m"],
-                # TODO: allow for trying multiple combinations
                 pubkey_hex_list=output_pubkey_hexes,
-                # Electrum sorts lexicographically:
+                # We intentionally only allow change addresses (output addresses) to be lexicographically sorted
                 sort_keys=True,
             )
             # Confirm address matches previous ouput
