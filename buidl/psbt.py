@@ -92,6 +92,12 @@ class NamedPublicKey(S256Point):
         else:
             self.network = network
 
+    def replace_xfp(self, new_xfp):
+        self.add_raw_path_data(
+            raw_path=bytes.fromhex(new_xfp) + serialize_binary_path(self.root_path),
+            network=self.network,
+        )
+
     @classmethod
     def parse(cls, key, s, network=None):
         point = super().parse(key[1:])
@@ -581,6 +587,37 @@ class PSBT:
         for psbt_out in self.psbt_outs:
             result += psbt_out.serialize()
         return result
+
+    def replace_root_xfps(self, xfp_map):
+        """
+        Can be used for extra privacy to blind an XFP not relevant to that signer.
+
+        Supply an xfp_map of the following form:
+        {
+            # to_hide: to_replace
+            "deadbeef": "00000000",
+            "ab01ab01": "ffffffff",
+        }
+        """
+        for xfp_to_hide, xfp_to_replace in xfp_map.items():
+            was_replaced = False
+
+            # replace from inputs
+            for psbt_in in self.psbt_ins:
+                for named_pub in psbt_in.named_pubs.values():
+                    if named_pub.root_fingerprint.hex() == xfp_to_hide:
+                        named_pub.replace_xfp(new_xfp=xfp_to_replace)
+                        was_replaced = True
+
+            # replace from outputs
+            for psbt_out in self.psbt_outs:
+                for named_pub in psbt_out.named_pubs.values():
+                    if named_pub.root_fingerprint.hex() == xfp_to_hide:
+                        named_pub.replace_xfp(new_xfp=xfp_to_replace)
+                        was_replaced = True
+
+            if not was_replaced:
+                raise ValueError(f"xfp_hex {xfp_to_hide} not found in psbt")
 
     def describe_basic_multisig_tx(self, hdpubkey_map, xfp_for_signing=None):
         """

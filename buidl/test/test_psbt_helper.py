@@ -1,4 +1,5 @@
 from unittest import TestCase
+from copy import deepcopy
 
 from buidl.hd import HDPrivateKey
 from buidl.psbt_helper import create_ps2sh_multisig_psbt
@@ -190,6 +191,7 @@ class P2SHTest(TestCase):
             "fee_sats": 4000,
         }
 
+        # FIXME: this PSBT doesn't appear to parse!?
         expected_unsigned_psbt_hex = "70736274ff01007501000000000101a294ff73bafec95f340b667c0f05b968bbab1a5b14ed54d2288518dec191bc3b0100000000ffffffff02e80300000000000017a9144e939ddfe567971692d19559f1f92d4fae5aa056878813000000000000160014ff9da567e62f30ea8654fa1d5fbd47bef8e3be130000000000000100df020000000001012c40a6810f7a670913d171e1f5b203ca01ed45ed3bf68b649850491eecb560080100000000feffffff02a7e50941010000001600147b3af2253632c3000f9cdd531747107fe249c7d1102700000000000017a91459fb638aaa55a7119a09faf5e8b2ce8a879cce338702473044022004666d885310990e1b0a61e93b1490acb172d43200d6fcfa22e89905b7f3094d02204a705e4a4fc8cab97f7d146f481e70718ee4567486796536d14c7808be3fd866012102cc3b01d2192b5275d3fda7f82eaf593dfb8ca9333f7296f93da401f8d1821335619f1e0001044751210226e53c7ab615da468364ca9f59879f51bd94278c26a39cac59a235a7cf8145932102d221e17bb80cf130bb0931434afac5e55f377ed9b2b003519a529ce02862444752ae22060226e53c7ab615da468364ca9f59879f51bd94278c26a39cac59a235a7cf81459314838f3ff92d000080000000000000000001000000220602d221e17bb80cf130bb0931434afac5e55f377ed9b2b003519a529ce02862444714e0c595c52d000080000000000000000001000000000000"
 
         # With p2sh, txid changes depending on which key signs
@@ -240,20 +242,36 @@ class P2SHTest(TestCase):
 
             self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
 
-        # Demonstrate that we will throw an error if the change address doesn't validate:
+        # Replace xfps
+        psbt_obj = create_ps2sh_multisig_psbt(**kwargs)
+        with self.assertRaises(ValueError) as cm:
+            # deadbeef  not in psbt
+            psbt_obj.replace_root_xfps({"deadbeef": "00000000"})
+        self.assertEqual(str(cm.exception), "xfp_hex deadbeef not found in psbt")
+
+        psbt_obj.replace_root_xfps({"e0c595c5": "00000000"})
+        self.assertNotEqual(psbt_obj.serialize().hex(), expected_unsigned_psbt_hex)
 
         # Confirm that swapping out the change address throws an error
-        modified_kwargs = kwargs.copy()
         # nonsense address corresponding to secret exponent = 1
+        modified_kwargs = deepcopy(kwargs)
         fake_addr = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
         modified_kwargs["output_dicts"][0]["address"] = fake_addr
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as cm:
             create_ps2sh_multisig_psbt(**modified_kwargs)
+        self.assertEqual(
+            "Invalid redeem script for output #0. Expecting 2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8 but got tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
+            str(cm.exception),
+        )
 
         # Confirm that changing the change paths (so that they no longer match the change address) throws an error
-        modified_kwargs = kwargs.copy()
         # Change the path used to validate the change address
         # We don't bother altering 838f3ff9's path as well because changing anything will already throw this error
+        modified_kwargs = deepcopy(kwargs)
         modified_kwargs["output_dicts"][0]["path_dict"]["e0c595c5"] = "m/999"
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as cm:
             create_ps2sh_multisig_psbt(**modified_kwargs)
+        self.assertIn(
+            "xfp_hex e0c595c5 for m/999 from output #0 not supplied in xpubs_dict",
+            str(cm.exception),
+        )

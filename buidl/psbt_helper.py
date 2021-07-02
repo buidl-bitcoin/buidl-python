@@ -1,28 +1,26 @@
+from collections import defaultdict
+
 from buidl.hd import get_unhardened_child_path, HDPublicKey
 from buidl.psbt import MixedNetwork, NamedHDPublicKey, PSBT
 from buidl.tx import Tx, TxIn, TxOut
 from buidl.script import RedeemScript, address_to_script_pubkey
 
 
-def _append(mydict, key, val):
-    # append a key/val to a dict
-    if key in mydict:
-        mydict[key].append(val)
-    else:
-        mydict[key] = [val]
-
-
-def _get_child_hdpubkey(xpub_dicts, root_path):
+def _get_child_hdpubkey(xpub_dict, root_path):
     """
-    Iterate through a list of xpub_dicts to find one that can traverse to the given root_path
+    Iterate through an xpub_dict to find one that can traverse to the given root_path
     """
-    for xpub_dict in xpub_dicts:
-        child_path = get_unhardened_child_path(
-            root_path=root_path,
-            base_path=xpub_dict["base_path"],
-        )
-        if child_path:
-            return xpub_dict["xpub_obj"].traverse(child_path)
+    if xpub_dict:
+        for base_path, xpub_obj in xpub_dict.items():
+            child_path = get_unhardened_child_path(
+                root_path=root_path,
+                base_path=base_path,
+            )
+            if child_path:
+                if base_path.count("/") != xpub_obj.depth:
+                    msg = f"base_path {base_path} depth != {xpub_obj.depth} for {xpub_obj}"
+                    raise ValueError(msg)
+                return xpub_obj.traverse(child_path)
 
 
 def create_ps2sh_multisig_psbt(
@@ -37,7 +35,12 @@ def create_ps2sh_multisig_psbt(
     network (testnet/mainnet) will be inferred from xpubs/tpubs.
     """
 
-    xfp_dict, tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}, {}
+    tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}
+    # Use a nested default dict
+    # https://stackoverflow.com/a/19189356
+    recursive_defaultdict = lambda: defaultdict(recursive_defaultdict)  # noqa: E731
+    xfp_dict = recursive_defaultdict()
+
     network = None
 
     # This at the child pubkey lookup that each input will traverse off of
@@ -46,15 +49,8 @@ def create_ps2sh_multisig_psbt(
 
             hd_pubkey_obj = HDPublicKey.parse(base_path["xpub_hex"])
 
-            # We will use this dict/list structure for each input/ouput in the for-lopps below
-            _append(
-                xfp_dict,
-                key=xfp_hex,
-                val={
-                    "xpub_obj": hd_pubkey_obj,
-                    "base_path": base_path["base_path"],
-                },
-            )
+            # We will use this dict/list structure for each input/ouput in the for-loops below
+            xfp_dict[xfp_hex][base_path["base_path"]] = hd_pubkey_obj
 
             if network is None:
                 # Set the initial value
@@ -82,12 +78,12 @@ def create_ps2sh_multisig_psbt(
         for xfp_hex, root_path in input_dict["path_dict"].items():
             # Get the correct xpub/path
             child_hd_pubkey = _get_child_hdpubkey(
-                xpub_dicts=xfp_dict.get(xfp_hex, []),
+                xpub_dict=xfp_dict.get(xfp_hex),
                 root_path=root_path,
             )
             if child_hd_pubkey is None:
                 raise ValueError(
-                    f"xfp_hex {xfp_hex} from input #{cnt} not supplied in xpubs_dict:  {xpubs_dict}"
+                    f"xfp_hex {xfp_hex} for {root_path} from input #{cnt} not supplied in xpubs_dict:  {xpubs_dict}"
                 )
             input_pubkey_hexes.append(child_hd_pubkey.sec().hex())
 
@@ -143,12 +139,12 @@ def create_ps2sh_multisig_psbt(
             output_pubkey_hexes = []
             for xfp_hex, root_path in output_dict["path_dict"].items():
                 child_hd_pubkey = _get_child_hdpubkey(
-                    xpub_dicts=xfp_dict.get(xfp_hex, []),
+                    xpub_dict=xfp_dict.get(xfp_hex),
                     root_path=root_path,
                 )
                 if child_hd_pubkey is None:
                     raise ValueError(
-                        f"xfp_hex {xfp_hex} from output #{cnt} not supplied in xpubs_dict: {xpubs_dict}"
+                        f"xfp_hex {xfp_hex} for {root_path} from output #{cnt} not supplied in xpubs_dict: {xpubs_dict}"
                     )
                 output_pubkey_hexes.append(child_hd_pubkey.sec().hex())
 
