@@ -205,13 +205,13 @@ class NamedHDPublicKey(HDPublicKey):
         return hd_key
 
     @classmethod
-    def from_hd_priv(cls, hd_priv, root_path):
-        hd_key = hd_priv.traverse(root_path).pub
-        hd_key.__class__ = cls
-        hd_key.add_raw_path_data(
-            hd_priv.fingerprint() + serialize_binary_path(root_path)
+    def from_hd_priv(cls, root_hd_priv, root_path):
+        child_hd_pub = root_hd_priv.traverse(root_path).pub
+        return cls.from_hd_pub(
+            child_hd_pub=child_hd_pub,
+            fingerprint_hex=root_hd_priv.fingerprint().hex(),
+            root_path=root_path,
         )
-        return hd_key
 
     def serialize(self):
         return serialize_key_value(
