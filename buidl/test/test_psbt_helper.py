@@ -22,13 +22,13 @@ class P2SHTest(TestCase):
 
         # Validate the 0th receive address for m/45'/0
         expected_spending_addr = "2ND4qfpdHyeXJboAUkKZqJsyiKyXvHRKhbi"
-        pubkey_hex_list = [
+        pubkey_hexes = [
             hdpriv.traverse(root_path).pub.sec().hex() for hdpriv in hdprivs
         ]
 
         redeem_script_to_use = RedeemScript.create_p2sh_multisig(
             quorum_m=1,
-            pubkey_hex_list=pubkey_hex_list,
+            pubkey_hexes=pubkey_hexes,
             sort_keys=True,
         )
         self.assertEqual(
@@ -86,7 +86,7 @@ class P2SHTest(TestCase):
             "fee_sats": 213684,
         }
 
-        expected_unsigned_psbt_hex = "70736274ff01005801000000000101daa77c81a45d35ca2da4c6676043ee60f1ac9a9e350a4a78bb014d66a7d212440000000000ffffffff014c400f00000000001976a914344a0f48ca150ec2b903817660b9b68b13a6702688ac0000000000000100e002000000000101380bff9db676d159ad34849079c77e0d5c1df9c841b6a6640cba9bfc15077eea0100000000feffffff02008312000000000017a914d96bb9c5888f473dbd077d77009fb49ba2fda24287611c92a00100000017a9148722f07fbcf0fc506ea4ba9daa811d11396bbcfd870247304402202fe3c2f18e1486407bf0baabd2b3376102f0844a754d8e2fb8de71b39b3f76c702200c1fe8f7f9ef5165929ed51bf754edd7dd3e591921979cf5b891c841a1fd19d80121037c8fe1fa1ae4dfff522c532917c73c4884469e3b6a284e9a039ec612dca78eefd29c1e00010447512102139f7167f17da94d24df6fe2868cdb5edabd0cff83ab487c942ea2f07570d9f021023cb71c699990768c018df17a366c4eb74bde169f29e884261c10c973ec26ad3a52ae220602139f7167f17da94d24df6fe2868cdb5edabd0cff83ab487c942ea2f07570d9f014838f3ff92d0000800000000000000000000000002206023cb71c699990768c018df17a366c4eb74bde169f29e884261c10c973ec26ad3a14e0c595c52d0000800000000000000000000000000000"
+        expected_unsigned_psbt_b64 = "cHNidP8BAFUBAAAAAdqnfIGkXTXKLaTGZ2BD7mDxrJqeNQpKeLsBTWan0hJEAAAAAAD/////AUxADwAAAAAAGXapFDRKD0jKFQ7CuQOBdmC5tosTpnAmiKwAAAAAAAEA4AIAAAAAAQE4C/+dtnbRWa00hJB5x34NXB35yEG2pmQMupv8FQd+6gEAAAAA/v///wIAgxIAAAAAABepFNlrucWIj0c9vQd9dwCftJui/aJCh2EckqABAAAAF6kUhyLwf7zw/FBupLqdqoEdETlrvP2HAkcwRAIgL+PC8Y4UhkB78Lqr0rM3YQLwhEp1TY4vuN5xs5s/dscCIAwf6Pf571Flkp7VG/dU7dfdPlkZIZec9biRyEGh/RnYASEDfI/h+hrk3/9SLFMpF8c8SIRGnjtqKE6aA57GEtynju/SnB4AAQRHUSECE59xZ/F9qU0k32/ihozbXtq9DP+Dq0h8lC6i8HVw2fAhAjy3HGmZkHaMAY3xejZsTrdL3hafKeiEJhwQyXPsJq06Uq4iBgITn3Fn8X2pTSTfb+KGjNte2r0M/4OrSHyULqLwdXDZ8BSDjz/5LQAAgAAAAAAAAAAAAAAAACIGAjy3HGmZkHaMAY3xejZsTrdL3hafKeiEJhwQyXPsJq06FODFlcUtAACAAAAAAAAAAAAAAAAAAAA="
 
         tests = (
             # (seed_word repeated x12, signed_tx_hash_hex),
@@ -104,7 +104,7 @@ class P2SHTest(TestCase):
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
             psbt_obj = create_ps2sh_multisig_psbt(**kwargs)
-            self.assertEqual(psbt_obj.serialize().hex(), expected_unsigned_psbt_hex)
+            self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
             hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
 
@@ -191,8 +191,7 @@ class P2SHTest(TestCase):
             "fee_sats": 4000,
         }
 
-        # FIXME: this PSBT doesn't appear to parse!?
-        expected_unsigned_psbt_hex = "70736274ff01007501000000000101a294ff73bafec95f340b667c0f05b968bbab1a5b14ed54d2288518dec191bc3b0100000000ffffffff02e80300000000000017a9144e939ddfe567971692d19559f1f92d4fae5aa056878813000000000000160014ff9da567e62f30ea8654fa1d5fbd47bef8e3be130000000000000100df020000000001012c40a6810f7a670913d171e1f5b203ca01ed45ed3bf68b649850491eecb560080100000000feffffff02a7e50941010000001600147b3af2253632c3000f9cdd531747107fe249c7d1102700000000000017a91459fb638aaa55a7119a09faf5e8b2ce8a879cce338702473044022004666d885310990e1b0a61e93b1490acb172d43200d6fcfa22e89905b7f3094d02204a705e4a4fc8cab97f7d146f481e70718ee4567486796536d14c7808be3fd866012102cc3b01d2192b5275d3fda7f82eaf593dfb8ca9333f7296f93da401f8d1821335619f1e0001044751210226e53c7ab615da468364ca9f59879f51bd94278c26a39cac59a235a7cf8145932102d221e17bb80cf130bb0931434afac5e55f377ed9b2b003519a529ce02862444752ae22060226e53c7ab615da468364ca9f59879f51bd94278c26a39cac59a235a7cf81459314838f3ff92d000080000000000000000001000000220602d221e17bb80cf130bb0931434afac5e55f377ed9b2b003519a529ce02862444714e0c595c52d000080000000000000000001000000000000"
+        expected_unsigned_psbt_b64 = "cHNidP8BAHIBAAAAAaKU/3O6/slfNAtmfA8FuWi7qxpbFO1U0iiFGN7Bkbw7AQAAAAD/////AugDAAAAAAAAF6kUTpOd3+VnlxaS0ZVZ8fktT65aoFaHiBMAAAAAAAAWABT/naVn5i8w6oZU+h1fvUe++OO+EwAAAAAAAQDfAgAAAAABASxApoEPemcJE9Fx4fWyA8oB7UXtO/aLZJhQSR7stWAIAQAAAAD+////AqflCUEBAAAAFgAUezryJTYywwAPnN1TF0cQf+JJx9EQJwAAAAAAABepFFn7Y4qqVacRmgn69eiyzoqHnM4zhwJHMEQCIARmbYhTEJkOGwph6TsUkKyxctQyANb8+iLomQW38wlNAiBKcF5KT8jKuX99FG9IHnBxjuRWdIZ5ZTbRTHgIvj/YZgEhAsw7AdIZK1J10/2n+C6vWT37jKkzP3KW+T2kAfjRghM1YZ8eAAEER1EhAiblPHq2FdpGg2TKn1mHn1G9lCeMJqOcrFmiNafPgUWTIQLSIeF7uAzxMLsJMUNK+sXlXzd+2bKwA1GaUpzgKGJER1KuIgYCJuU8erYV2kaDZMqfWYefUb2UJ4wmo5ysWaI1p8+BRZMUg48/+S0AAIAAAAAAAAAAAAEAAAAiBgLSIeF7uAzxMLsJMUNK+sXlXzd+2bKwA1GaUpzgKGJERxTgxZXFLQAAgAAAAAAAAAAAAQAAAAAAAA=="
 
         # With p2sh, txid changes depending on which key signs
         tests = (
@@ -213,7 +212,7 @@ class P2SHTest(TestCase):
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
             psbt_obj = create_ps2sh_multisig_psbt(**kwargs)
-            self.assertEqual(psbt_obj.serialize().hex(), expected_unsigned_psbt_hex)
+            self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
             hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
 
@@ -250,7 +249,7 @@ class P2SHTest(TestCase):
         self.assertEqual(str(cm.exception), "xfp_hex deadbeef not found in psbt")
 
         psbt_obj.replace_root_xfps({"e0c595c5": "00000000"})
-        self.assertNotEqual(psbt_obj.serialize().hex(), expected_unsigned_psbt_hex)
+        self.assertNotEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
         # Confirm that swapping out the change address throws an error
         # nonsense address corresponding to secret exponent = 1

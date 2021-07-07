@@ -111,7 +111,7 @@ class RedeemScriptTest(TestCase):
         for cnt, expected_receive_addr in enumerate(expected_receive_addrs):
             redeem_script = RedeemScript.create_p2sh_multisig(
                 quorum_m=1,
-                pubkey_hex_list=[
+                pubkey_hexes=[
                     child_xpriv_1.traverse(f"m/0/{cnt}").pub.sec().hex(),
                     child_xpriv_2.traverse(f"m/0/{cnt}").pub.sec().hex(),
                 ],
@@ -125,7 +125,7 @@ class RedeemScriptTest(TestCase):
         for cnt, expected_change_addr in enumerate(expected_change_addrs):
             redeem_script = RedeemScript.create_p2sh_multisig(
                 quorum_m=1,
-                pubkey_hex_list=[
+                pubkey_hexes=[
                     child_xpriv_1.traverse(f"m/1/{cnt}").pub.sec().hex(),
                     child_xpriv_2.traverse(f"m/1/{cnt}").pub.sec().hex(),
                 ],
@@ -137,13 +137,13 @@ class RedeemScriptTest(TestCase):
 
         # For recovery only (unsorted pubkeys), do not use this method unless you know what you're doing
         misordered_pubkeys_addr = "2NFzScjC9jaMbo5ST4M1WVeeWgSaVT7xS1W"
-        pubkey_hex_list = [
+        pubkey_hexes = [
             child_xpriv_1.traverse("m/0/0").pub.sec().hex(),
             child_xpriv_2.traverse("m/0/0").pub.sec().hex(),
         ]
         misordered_redeem_script = RedeemScript.create_p2sh_multisig_unsorted(
             quorum_m=1,
-            pubkey_hex_list=pubkey_hex_list,
+            pubkey_hexes=pubkey_hexes,
             target_address=misordered_pubkeys_addr,
             network="testnet",
         )
@@ -155,7 +155,7 @@ class RedeemScriptTest(TestCase):
             fake_addr = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
             RedeemScript.create_p2sh_multisig_unsorted(
                 quorum_m=1,
-                pubkey_hex_list=pubkey_hex_list,
+                pubkey_hexes=pubkey_hexes,
                 target_address=fake_addr,
                 network="testnet",
             )

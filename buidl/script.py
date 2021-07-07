@@ -371,38 +371,56 @@ class RedeemScript(Script):
         return cls.parse(stream)
 
     @classmethod
-    def create_p2sh_multisig(cls, quorum_m, pubkey_hex_list, sort_keys=True):
+    def create_p2sh_multisig(
+        cls,
+        quorum_m,
+        pubkey_hexes,
+        sort_keys=True,
+        expected_addr=None,
+        expected_addr_network="mainnet",
+    ):
         """
         Create a p2sh RedeemScript using a configure threshold (quorum_m) of child public keys (in hex).
 
         To use a custom order of pubkeys, feed them in order and set sort_keys=False
+
+        For safety, you may pass in an expected_addr and the method will throw an error if the derived address doesn't match the expected one.
         """
         # safety checks
         if type(quorum_m) is not int:
             raise ValueError(f"quorum_m must be of type int: {quorum_m}")
-        if quorum_m < 1 or quorum_m > len(pubkey_hex_list):
-            raise ValueError(f"Invalid m-of-n: {quorum_m}-of-{len(pubkey_hex_list)}")
+        if quorum_m < 1 or quorum_m > len(pubkey_hexes):
+            raise ValueError(f"Invalid m-of-n: {quorum_m}-of-{len(pubkey_hexes)}")
 
         commands = [number_to_op_code(quorum_m)]
 
         if sort_keys:
-            pubkey_hexes = sorted(pubkey_hex_list)
+            pubkey_hexes = sorted(pubkey_hexes)
         else:
-            pubkey_hexes = pubkey_hex_list
+            pubkey_hexes = pubkey_hexes
 
         for pubkey_hex in pubkey_hexes:
             # we want these in binary (not hex)
             commands.append(bytes.fromhex(pubkey_hex))
 
-        quorum_n = len(pubkey_hex_list)
+        quorum_n = len(pubkey_hexes)
         commands.append(number_to_op_code(quorum_n))
         commands.append(174)  # OP_CHECKMULTISIG
 
-        return cls(commands)
+        to_return = cls(commands)
+
+        if expected_addr:
+            calculated_addr = to_return.address(network=expected_addr_network)
+            if expected_addr != calculated_addr:
+                raise ValueError(
+                    f"Expected address {expected_addr} but calculated {calculated_addr}"
+                )
+
+        return to_return
 
     @classmethod
     def create_p2sh_multisig_unsorted(
-        cls, quorum_m, pubkey_hex_list, target_address, network="main"
+        cls, quorum_m, pubkey_hexes, target_address, network="main"
     ):
         """
         Helper method to create a p2sh that orders pubkeys to get a target_address.
@@ -412,9 +430,9 @@ class RedeemScript(Script):
         DO NOT SEND NEW FUNDS TO AN ADDRESS GENERATED USING THIS METHOD.
         Instead, use the regular create_p2sh_multisig method (with sort_keys=True) to generate a modern address.
         """
-        for permutation in permutations(pubkey_hex_list):
+        for permutation in permutations(pubkey_hexes):
             result = cls.create_p2sh_multisig(
-                quorum_m=quorum_m, pubkey_hex_list=permutation, sort_keys=False
+                quorum_m=quorum_m, pubkey_hexes=permutation, sort_keys=False
             )
             if result.address(network) == target_address:
                 return result

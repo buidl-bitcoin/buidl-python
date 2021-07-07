@@ -107,7 +107,7 @@ def create_ps2sh_multisig_psbt(
         # This allows us to spend from a redeem script with pubkeys out of order
         redeem_script = RedeemScript.create_p2sh_multisig_unsorted(
             quorum_m=input_dict["quorum_m"],
-            pubkey_hex_list=input_pubkey_hexes,
+            pubkey_hexes=input_pubkey_hexes,
             target_address=utxo.script_pubkey.address(network=network),
             network=network,
         )
@@ -158,7 +158,7 @@ def create_ps2sh_multisig_psbt(
 
             redeem_script = RedeemScript.create_p2sh_multisig(
                 quorum_m=output_dict["quorum_m"],
-                pubkey_hex_list=output_pubkey_hexes,
+                pubkey_hexes=output_pubkey_hexes,
                 # We intentionally only allow change addresses (output addresses) to be lexicographically sorted
                 sort_keys=True,
             )
@@ -174,7 +174,7 @@ def create_ps2sh_multisig_psbt(
         tx_outs=tx_outs,
         locktime=0,
         network=network,
-        segwit=True,
+        segwit=False,
     )
 
     # Safety check to try and prevent footgun
