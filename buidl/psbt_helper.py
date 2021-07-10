@@ -90,7 +90,7 @@ def create_ps2sh_multisig_psbt(
             # Enhance the PSBT
             named_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
                 child_hd_pub=child_hd_pubkey,
-                fingerprint_hex=xfp_hex,
+                xfp_hex=xfp_hex,
                 root_path=root_path,
             )
             pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
@@ -151,7 +151,7 @@ def create_ps2sh_multisig_psbt(
                 # Enhance the PSBT
                 named_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
                     child_hd_pub=child_hd_pubkey,
-                    fingerprint_hex=xfp_hex,
+                    xfp_hex=xfp_hex,
                     root_path=root_path,
                 )
                 pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
