@@ -396,8 +396,6 @@ class RedeemScript(Script):
 
         if sort_keys:
             pubkey_hexes = sorted(pubkey_hexes)
-        else:
-            pubkey_hexes = pubkey_hexes
 
         for pubkey_hex in pubkey_hexes:
             # we want these in binary (not hex)
