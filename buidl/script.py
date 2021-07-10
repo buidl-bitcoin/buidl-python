@@ -353,6 +353,9 @@ class P2SHScriptPubKey(ScriptPubKey):
 class RedeemScript(Script):
     """Subclass that represents a RedeemScript for p2sh"""
 
+    def is_p2sh_multisig(self):
+        return self.commands[-1] == 174
+
     def hash160(self):
         """Returns the hash160 of the serialization of the RedeemScript"""
         return hash160(self.raw_serialize())
@@ -444,8 +447,8 @@ class RedeemScript(Script):
         """
         Return the m-of-n of this multisig, as in 2-of-3 or 3-of-5
         """
-        if self.commands[-1] != 174:
-            raise ValueError(f"Not OP_CHECKMULTISIG: {self}")
+        if not self.is_p2sh_multisig():
+            raise ValueError(f"Not p2sh multisig: {self}")
         quorum_m = op_code_to_number(self.commands[0])
         # 3 because quorum_m, OP_CHECKMULTISIG, and bitcoin off-by-one error
         quorum_n = len(self.commands) - 3
@@ -455,6 +458,8 @@ class RedeemScript(Script):
         """
         The pubkeys needed to sign this transaction, typically children derived from xpubs
         """
+        if not self.is_p2sh_multisig():
+            raise ValueError(f"Not p2sh multisig: {self}")
         return self.commands[1:-2]
 
 
