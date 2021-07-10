@@ -104,12 +104,12 @@ def create_p2sh_multisig_psbt(
             )
         total_input_sats += utxo.amount
 
-        # This allows us to spend from a redeem script with pubkeys out of order
-        redeem_script = RedeemScript.create_p2sh_multisig_unsorted(
+        redeem_script = RedeemScript.create_p2sh_multisig(
             quorum_m=input_dict["quorum_m"],
-            pubkey_hexes=input_pubkey_hexes,
-            target_address=utxo.script_pubkey.address(network=network),
-            network=network,
+            # assumes you want to sort pubkeys. TODO: allow for over-ride method?
+            pubkey_hexes=sorted(input_pubkey_hexes),
+            expected_addr=utxo.script_pubkey.address(network=network),
+            expected_addr_network=network,
         )
 
         # Confirm address matches previous ouput
@@ -159,7 +159,7 @@ def create_p2sh_multisig_psbt(
             redeem_script = RedeemScript.create_p2sh_multisig(
                 quorum_m=output_dict["quorum_m"],
                 pubkey_hexes=output_pubkey_hexes,
-                # We intentionally only allow change addresses (output addresses) to be lexicographically sorted
+                # We intentionally only allow change addresses to be lexicographically sorted
                 sort_keys=True,
             )
             # Confirm address matches previous ouput

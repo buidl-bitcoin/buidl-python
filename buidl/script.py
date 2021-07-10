@@ -1,4 +1,3 @@
-from itertools import permutations
 from io import BytesIO
 
 from buidl.bech32 import decode_bech32, encode_bech32_checksum
@@ -418,30 +417,6 @@ class RedeemScript(Script):
                 )
 
         return to_return
-
-    @classmethod
-    def create_p2sh_multisig_unsorted(
-        cls, quorum_m, pubkey_hexes, target_address, network="main"
-    ):
-        """
-        Helper method to create a p2sh that orders pubkeys to get a target_address.
-
-        DO NOT USE THIS METHOD IF YOU DON'T UNDERSTAND WHAT IT'S DOING.
-        THIS SHOULD ONLY BE USED FOR SPENDING OUT OF A LEGACY ADDRESS.
-        DO NOT SEND NEW FUNDS TO AN ADDRESS GENERATED USING THIS METHOD.
-        Instead, use the regular create_p2sh_multisig method (with sort_keys=True) to generate a modern address.
-        """
-        for permutation in permutations(pubkey_hexes):
-            result = cls.create_p2sh_multisig(
-                quorum_m=quorum_m, pubkey_hexes=permutation, sort_keys=False
-            )
-            if result.address(network) == target_address:
-                return result
-
-        # We didn't get a match
-        raise ValueError(
-            f"Could not find a combination of pubkeys the generated address {target_address}"
-        )
 
     def get_quorum(self):
         """
