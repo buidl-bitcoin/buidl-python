@@ -447,6 +447,7 @@ class RedeemScript(Script):
         if self.commands[-1] != 174:
             raise ValueError(f"Not OP_CHECKMULTISIG: {self}")
         quorum_m = op_code_to_number(self.commands[0])
+        # 3 because quorum_m, OP_CHECKMULTISIG, and bitcoin off-by-one error
         quorum_n = len(self.commands) - 3
         return quorum_m, quorum_n
 
