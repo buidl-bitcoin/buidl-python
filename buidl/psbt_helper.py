@@ -23,7 +23,7 @@ def _get_child_hdpubkey(xpub_dict, root_path):
                 return xpub_obj.traverse(child_path)
 
 
-def create_ps2sh_multisig_psbt(
+def create_p2sh_multisig_psbt(
     xpubs_dict,
     input_dicts,
     output_dicts,

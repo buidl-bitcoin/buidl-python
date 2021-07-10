@@ -2,7 +2,7 @@ from unittest import TestCase
 from copy import deepcopy
 
 from buidl.hd import HDPrivateKey
-from buidl.psbt_helper import create_ps2sh_multisig_psbt
+from buidl.psbt_helper import create_p2sh_multisig_psbt
 from buidl.script import RedeemScript
 
 
@@ -103,7 +103,7 @@ class P2SHTest(TestCase):
 
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
-            psbt_obj = create_ps2sh_multisig_psbt(**kwargs)
+            psbt_obj = create_p2sh_multisig_psbt(**kwargs)
             self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
             hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
@@ -211,7 +211,7 @@ class P2SHTest(TestCase):
 
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
-            psbt_obj = create_ps2sh_multisig_psbt(**kwargs)
+            psbt_obj = create_p2sh_multisig_psbt(**kwargs)
             self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
             hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
@@ -242,7 +242,7 @@ class P2SHTest(TestCase):
             self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
 
         # Replace xfps
-        psbt_obj = create_ps2sh_multisig_psbt(**kwargs)
+        psbt_obj = create_p2sh_multisig_psbt(**kwargs)
         with self.assertRaises(ValueError) as cm:
             # deadbeef  not in psbt
             psbt_obj.replace_root_xfps({"deadbeef": "00000000"})
@@ -257,7 +257,7 @@ class P2SHTest(TestCase):
         fake_addr = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
         modified_kwargs["output_dicts"][0]["address"] = fake_addr
         with self.assertRaises(ValueError) as cm:
-            create_ps2sh_multisig_psbt(**modified_kwargs)
+            create_p2sh_multisig_psbt(**modified_kwargs)
         self.assertEqual(
             "Invalid redeem script for output #0. Expecting 2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8 but got tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
             str(cm.exception),
@@ -269,7 +269,7 @@ class P2SHTest(TestCase):
         modified_kwargs = deepcopy(kwargs)
         modified_kwargs["output_dicts"][0]["path_dict"]["e0c595c5"] = "m/999"
         with self.assertRaises(ValueError) as cm:
-            create_ps2sh_multisig_psbt(**modified_kwargs)
+            create_p2sh_multisig_psbt(**modified_kwargs)
         self.assertIn(
             "xfp_hex e0c595c5 for m/999 from output #0 not supplied in xpubs_dict",
             str(cm.exception),
