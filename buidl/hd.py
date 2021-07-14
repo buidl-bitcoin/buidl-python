@@ -708,3 +708,21 @@ def ltrim_path(bip32_path, depth):
 
     to_return = path.split("/")[depth + 1 :]
     return "m/" + "/".join(to_return)
+
+
+def get_unhardened_child_path(base_path, root_path):
+    """
+    Return the difference between the base_path and root_path.
+
+    Return None if there is no child_path (or it require hardened derivation).
+    """
+    if not is_valid_bip32_path(root_path):
+        raise ValueError(f"Invalid bip32_path: {root_path}")
+
+    base_path = base_path.strip().lower().replace("h", "'")
+    root_path = root_path.strip().lower().replace("h", "'")
+
+    if root_path.startswith(base_path):
+        child_path = root_path[len(base_path) :]
+        if "'" not in child_path:
+            return f"m{child_path}"

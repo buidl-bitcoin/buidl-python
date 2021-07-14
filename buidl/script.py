@@ -14,6 +14,7 @@ from buidl.helper import (
 )
 from buidl.op import (
     number_to_op_code,
+    op_code_to_number,
     op_equal,
     op_hash160,
     op_verify,
@@ -351,6 +352,9 @@ class P2SHScriptPubKey(ScriptPubKey):
 class RedeemScript(Script):
     """Subclass that represents a RedeemScript for p2sh"""
 
+    def is_p2sh_multisig(self):
+        return self.commands[-1] == 174
+
     def hash160(self):
         """Returns the hash160 of the serialization of the RedeemScript"""
         return hash160(self.raw_serialize())
@@ -369,34 +373,69 @@ class RedeemScript(Script):
         return cls.parse(stream)
 
     @classmethod
-    def create_p2sh_multisig(cls, quorum_m, pubkey_hex_list, sort_keys=True):
+    def create_p2sh_multisig(
+        cls,
+        quorum_m,
+        pubkey_hexes,
+        sort_keys=True,
+        expected_addr=None,
+        expected_addr_network="mainnet",
+    ):
         """
         Create a p2sh RedeemScript using a configure threshold (quorum_m) of child public keys (in hex).
 
         To use a custom order of pubkeys, feed them in order and set sort_keys=False
+
+        For safety, you may pass in an expected_addr and the method will throw an error if the derived address doesn't match the expected one.
         """
         # safety checks
         if type(quorum_m) is not int:
             raise ValueError(f"quorum_m must be of type int: {quorum_m}")
-        if quorum_m < 1 or quorum_m > len(pubkey_hex_list):
-            raise ValueError(f"Invalid m-of-n: {quorum_m}-of-{len(pubkey_hex_list)}")
+        if quorum_m < 1 or quorum_m > len(pubkey_hexes):
+            raise ValueError(f"Invalid m-of-n: {quorum_m}-of-{len(pubkey_hexes)}")
 
         commands = [number_to_op_code(quorum_m)]
 
         if sort_keys:
-            pubkey_hexes = sorted(pubkey_hex_list)
-        else:
-            pubkey_hexes = pubkey_hex_list
+            pubkey_hexes = sorted(pubkey_hexes)
 
         for pubkey_hex in pubkey_hexes:
             # we want these in binary (not hex)
             commands.append(bytes.fromhex(pubkey_hex))
 
-        quorum_n = len(pubkey_hex_list)
+        quorum_n = len(pubkey_hexes)
         commands.append(number_to_op_code(quorum_n))
         commands.append(174)  # OP_CHECKMULTISIG
 
-        return cls(commands)
+        to_return = cls(commands)
+
+        if expected_addr:
+            calculated_addr = to_return.address(network=expected_addr_network)
+            if expected_addr != calculated_addr:
+                raise ValueError(
+                    f"Expected address {expected_addr} but calculated {calculated_addr}"
+                )
+
+        return to_return
+
+    def get_quorum(self):
+        """
+        Return the m-of-n of this multisig, as in 2-of-3 or 3-of-5
+        """
+        if not self.is_p2sh_multisig():
+            raise ValueError(f"Not p2sh multisig: {self}")
+        quorum_m = op_code_to_number(self.commands[0])
+        # 3 because quorum_m, OP_CHECKMULTISIG, and bitcoin off-by-one error
+        quorum_n = len(self.commands) - 3
+        return quorum_m, quorum_n
+
+    def signing_pubkeys(self):
+        """
+        The pubkeys needed to sign this transaction, typically children derived from xpubs
+        """
+        if not self.is_p2sh_multisig():
+            raise ValueError(f"Not p2sh multisig: {self}")
+        return self.commands[1:-2]
 
 
 class SegwitPubKey(ScriptPubKey):

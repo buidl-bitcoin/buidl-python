@@ -226,7 +226,7 @@ class TxTest(TestCase):
 
         redeem_script = RedeemScript.create_p2sh_multisig(
             quorum_m=2,
-            pubkey_hex_list=[
+            pubkey_hexes=[
                 private_key1.point.sec().hex(),
                 private_key2.point.sec().hex(),
             ],
