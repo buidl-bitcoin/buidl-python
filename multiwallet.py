@@ -506,7 +506,7 @@ class MultiWallet(Cmd):
         )
         n_int = _get_int(
             prompt="How many total keys will be able to sign transaction from this wallet?",
-            default=3,
+            default=m_int,
             minimum=m_int,
             maximum=15,
         )
