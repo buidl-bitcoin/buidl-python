@@ -1,7 +1,7 @@
 import re
 
 from buidl.hd import HDPublicKey, is_valid_bip32_path
-from buidl.helper import sha256, uses_only_hex_chars
+from buidl.helper import is_intable, sha256, uses_only_hex_chars
 from buidl.op import number_to_op_code
 from buidl.script import P2WSHScriptPubKey, WitnessScript
 
@@ -67,41 +67,42 @@ def is_valid_xfp_hex(string):
 
 def parse_full_key_record(key_record_str):
     """
-    A full key record will come from your Coordinator and include a reference to change derivation.
+    A full key record will come from your Coordinator and include a reference to an account index.
     It will look something like this:
-    [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*'
+    [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*
+
+    (It is basically a partial key record, with a trailing account index and a *)
     """
 
-    key_record_re = re.match(
-        r"\[([0-9a-f]{8})(.*?)\]([0-9A-Za-z]+)\/([0-9]+?)\/\*", key_record_str
-    )
-    if key_record_re is None:
-        raise ValueError(f"Invalid key record: {key_record_str}")
+    # Validate that this is key record:
+    parts = key_record_str.split("/")
+    if parts[-1] != "*":
+        raise ValueError(
+            "Invalid full key record, does not end with a *: {key_record_str}"
+        )
+    if not is_intable(parts[-2]):
+        raise ValueError(
+            "Invalid full key record, account index `{parts[-2]}` is not an int: {key_record_str}"
+        )
 
-    xfp, path, xpub, index_str = key_record_re.groups()
-    # Note that we don't validate xfp/index because the regex already tells us they're composed of ints
+    # Now we strip off the trailing account index and *, and parse the remainder as a partial key record
+    partial_key_record_str = "/".join(parts[0 : len(parts) - 2])
 
-    index_int = int(index_str)
-
-    path = "m" + path
-    if not is_valid_bip32_path(path):
-        raise ValueError(f"Invalid BIP32 path {path} in key record: {key_record_str}")
+    to_return = parse_partial_key_record(key_record_str=partial_key_record_str)
+    to_return["account_index"] = int(parts[-2])
+    to_return["xpub_parent"] = to_return.pop("xpub")
 
     try:
-        parent_pubkey_obj = HDPublicKey.parse(s=xpub)
-        network = parent_pubkey_obj.network
-        xpub_child = parent_pubkey_obj.child(index=index_int).xpub()
+        parent_pubkey_obj = HDPublicKey.parse(s=to_return["xpub_parent"])
+        to_return["xpub_child"] = parent_pubkey_obj.child(
+            index=to_return["account_index"]
+        ).xpub()
     except ValueError:
-        raise ValueError(f"Invalid xpub {xpub} in key record: {key_record_str}")
+        raise ValueError(
+            f"Invalid parent xpub {to_return['xpub_parent']} in key record: {key_record_str}"
+        )
 
-    return {
-        "xfp": xfp,
-        "path": path,
-        "xpub_parent": xpub,
-        "account_index": index_int,
-        "xpub_child": xpub_child,
-        "network": network,
-    }
+    return to_return
 
 
 def parse_partial_key_record(key_record_str):
@@ -138,6 +139,17 @@ def parse_partial_key_record(key_record_str):
     }
 
 
+def parse_any_key_record(key_record_str):
+    """
+    Try to parse a key record as full key record, and if not parse as a partial key record
+
+    """
+    try:
+        return parse_full_key_record(key_record_str)
+    except ValueError:
+        return parse_partial_key_record(key_record_str)
+
+
 class P2WSHSortedMulti:
 
     # TODO: make an inheritable base descriptor class that this inherits from
@@ -147,6 +159,7 @@ class P2WSHSortedMulti:
         quorum_m,  # m as in m-of-n
         key_records=[],  # pubkeys required to sign
         checksum="",
+        sort_key_records=True,
     ):
         if type(quorum_m) is not int or quorum_m < 1:
             raise ValueError(f"quorum_m must be a positive int: {quorum_m}")
@@ -156,7 +169,6 @@ class P2WSHSortedMulti:
             raise ValueError("No key_records supplied")
 
         key_records_to_save, network = [], None
-        descriptor_text = f"wsh(sortedmulti({quorum_m}"
         for key_record in key_records:
             # TODO: does bitcoin core have a standard to enforce for h vs ' in bip32 path?
             path = key_record.get("path")
@@ -209,8 +221,16 @@ class P2WSHSortedMulti:
                 }
             )
 
-            descriptor_text += f",[{key_record['xfp']}{key_record['path'][1:]}]{xpub_to_use}/{account_index}/*"
+        if sort_key_records:
+            # Sort lexicographically based on parent xpub
+            key_records_to_save = sorted(
+                key_records_to_save, key=lambda k: k["xpub_parent"]
+            )
 
+        # Generate descriptor text (not part of above loop due to sort_key_records)
+        descriptor_text = f"wsh(sortedmulti({quorum_m}"
+        for key_record_to_save in key_records_to_save:
+            descriptor_text += f",[{key_record_to_save['xfp']}{key_record_to_save['path'][1:]}]{key_record_to_save['xpub_parent']}/{account_index}/*"
         descriptor_text += "))"
         self.descriptor_text = descriptor_text
         self.key_records = key_records_to_save
@@ -274,7 +294,12 @@ class P2WSHSortedMulti:
                 f"Malformed threshold {quorum_m_int}-of-{len(key_records)} (m must be less than n) in {output_record}"
             )
 
-        return cls(quorum_m=quorum_m_int, key_records=key_records, checksum=checksum)
+        return cls(
+            quorum_m=quorum_m_int,
+            key_records=key_records,
+            sort_key_records=False,
+            checksum=checksum,
+        )
 
     def get_address(self, offset=0, is_change=False, sort_keys=True):
         """

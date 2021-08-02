@@ -112,13 +112,6 @@ def _get_psbt_obj(network):
         return psbt_obj
 
 
-def _abort(msg):
-    " Used because TX signing is complicated and we might bail after intial pasting of PSBT "
-    print_red("ABORTING WITHOUT SIGNING:\n")
-    print_red(msg)
-    return True
-
-
 #####################################################################
 # Command Line App Code Starts Here
 #####################################################################
@@ -158,7 +151,8 @@ class MyPrompt(Cmd):
         try:
             psbt_described = psbt_obj.describe_p2pkh_sweep(privkey_obj=privkey_obj)
         except Exception as e:
-            return _abort(f"Could not describe PSBT: {e}")
+            print_red(f"ABORTING WITHOUT SIGNING, could not describe PSBT:\n{e}")
+            return
 
         # Gather TX info and validate
         print_yellow(psbt_described["tx_summary_text"])
@@ -213,7 +207,7 @@ class MyPrompt(Cmd):
         for cnt, _ in enumerate(tx_obj.tx_ins):
             was_signed = tx_obj.sign_p2pkh(input_index=cnt, private_key=privkey_obj)
             if was_signed is not True:
-                return _abort("PSBT was NOT signed")
+                print_red("PSBT was NOT signed")
 
         print_yellow(f"SIGNED TX {tx_obj.hash().hex()} has the following hex:\n")
         print_green(tx_obj.serialize().hex())
@@ -226,7 +220,7 @@ class MyPrompt(Cmd):
             ' - Electrum signing of a previously unsigned transaction: "Combine" > "Merge Signatures From"\n'
         )
 
-    def do_debug(self, arg):
+    def do_version_info(self, arg):
         """Print program settings for debug purposes"""
 
         to_print = [
