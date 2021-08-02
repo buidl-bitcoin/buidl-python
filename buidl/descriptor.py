@@ -71,10 +71,10 @@ def parse_full_key_record(key_record_str):
     It will look something like this:
     [c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*
 
-    (It is basically a partial key record, with a trailing account index and a *)
+    A full key record is basically a partial key record, with a trailing /{account-index}/*
     """
 
-    # Validate that this is key record:
+    # Validate that it appears to be a full key record:
     parts = key_record_str.split("/")
     if parts[-1] != "*":
         raise ValueError(
@@ -85,7 +85,7 @@ def parse_full_key_record(key_record_str):
             "Invalid full key record, account index `{parts[-2]}` is not an int: {key_record_str}"
         )
 
-    # Now we strip off the trailing account index and *, and parse the remainder as a partial key record
+    # Now we strip off the trailing account index and *, and parse the rest as a partial key record
     partial_key_record_str = "/".join(parts[0 : len(parts) - 2])
 
     to_return = parse_partial_key_record(key_record_str=partial_key_record_str)
@@ -229,14 +229,15 @@ class P2WSHSortedMulti:
 
         # Generate descriptor text (not part of above loop due to sort_key_records)
         descriptor_text = f"wsh(sortedmulti({quorum_m}"
-        for key_record_to_save in key_records_to_save:
-            descriptor_text += f",[{key_record_to_save['xfp']}{key_record_to_save['path'][1:]}]{key_record_to_save['xpub_parent']}/{account_index}/*"
+        for kr in key_records_to_save:
+            descriptor_text += f",[{kr['xfp']}{kr['path'][1:]}]{kr['xpub_parent']}/{kr['account_index']}/*"
         descriptor_text += "))"
         self.descriptor_text = descriptor_text
         self.key_records = key_records_to_save
         self.network = network
 
         calculated_checksum = calc_core_checksum(descriptor_text)
+
         if checksum:
             # test that it matches
             if calculated_checksum != checksum:

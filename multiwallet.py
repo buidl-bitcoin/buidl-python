@@ -116,6 +116,10 @@ def _get_bool(prompt, default=True):
         print_red("Please choose either y or n")
 
 
+def _get_string(prompt, default=""):
+    return input(blue_fg(f"{prompt} [{default}]: ")).strip().lower() or default
+
+
 def _get_path_string():
     while True:
         res = input(blue_fg('Path to use (should start with "m/"): ')).strip().lower()
@@ -193,7 +197,7 @@ class WordCompleter:
 #####################################################################
 
 
-def get_p2wsh_sortedmulti():
+def _get_p2wsh_sortedmulti():
     while True:
         output_record = input(
             blue_fg("Paste in your account map (AKA output record): ")
@@ -693,7 +697,7 @@ class MultiWallet(Cmd):
 
     def do_validate_address(self, arg):
         """Verify receive addresses for a multisig wallet using output descriptors (from Specter-Desktop)"""
-        p2wsh_sortedmulti_obj = get_p2wsh_sortedmulti()
+        p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
         limit = _get_int(
             prompt="Limit of addresses to display",
             # This is slow without libsecp256k1:
@@ -739,7 +743,7 @@ class MultiWallet(Cmd):
 
         # Unfortunately, there is no way to validate change without having the hdpubkey_map
         # TODO: make version where users can enter this later (after manually approving the transaction)?
-        p2wsh_sortedmulti_obj = get_p2wsh_sortedmulti()
+        p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
         psbt_obj = _get_psbt_obj()
 
         hdpubkey_map = {}
@@ -819,6 +823,28 @@ class MultiWallet(Cmd):
         else:
             print_red("ERROR: Could NOT sign PSBT!")
             return
+
+    def do_convert_descriptors_to_caravan(self, arg):
+        """
+        Convert bitcoin core output descriptors to caravan import
+        """
+        p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
+
+        wallet_name = _get_string("Enter wallet name", default="p2wsh wallet")
+
+        key_record_names = []
+        if _get_bool("Give human name to each key record?", default=False):
+            for cnt, kr in enumerate(p2wsh_sortedmulti_obj.key_records):
+                kr_name = _get_string(
+                    f"Enter key record name for {kr['xfp']}", default=f"Seed #{cnt+1}"
+                )
+                key_record_names.append(kr_name)
+
+        caravan_json = p2wsh_sortedmulti_obj.caravan_export(
+            wallet_name=wallet_name, key_record_names=key_record_names
+        )
+        print_yellow("Output descriptor as Caravan import (save this to a file):")
+        print_green(caravan_json)
 
     def do_toggle_advanced_mode(self, arg):
         """
