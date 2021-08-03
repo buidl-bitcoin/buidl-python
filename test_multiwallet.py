@@ -77,17 +77,18 @@ class MultiwalletTest(unittest.TestCase):
 
         self.child.sendline("create_output_descriptors")
 
-        # UGLY HACK
-        # Line reads:
-        #   How many signatures will be required to spend from this wallet?
-        # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("be required to spend from this wallet?")
+        # UGLY HACK - Github CI uses a  narrow terminal and only displays part of this line:
+        full_text = "How many signatures will be required to spend from this wallet?"
+        self.expect(full_text[25:])
+
         self.child.sendline("1")
 
-        # Line reads:
-        #    How many total keys will be able to sign transaction from this wallet?
-        # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("to sign transaction from this wallet?")
+        # UGLY HACK - Github CI uses a  narrow terminal and only displays part of this line:
+        self.expect(
+            "How many total keys will be able to sign transaction from this wallet?"[
+                33:
+            ]
+        )
         self.child.sendline("2")
 
         self.expect("Enter xpub key record ")
@@ -108,17 +109,17 @@ class MultiwalletTest(unittest.TestCase):
 
         self.child.sendline("create_output_descriptors")
 
-        # UGLY HACK
-        # Line reads:
-        #   How many signatures will be required to spend from this wallet?
-        # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("be required to spend from this wallet?")
+        # UGLY HACK - Github CI uses a  narrow terminal and only displays part of this line:
+        full_text = "How many signatures will be required to spend from this wallet?"
+        self.expect(full_text[25:])
         self.child.sendline("1")
 
-        # Line reads:
-        #    How many total keys will be able to sign transaction from this wallet?
-        # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("to sign transaction from this wallet?")
+        # UGLY HACK - Github CI uses a  narrow terminal and only displays part of this line:
+        self.expect(
+            "How many total keys will be able to sign transaction from this wallet?"[
+                33:
+            ]
+        )
         self.child.sendline("2")
 
         self.expect("Enter xpub key record ")
@@ -167,11 +168,12 @@ class MultiwalletTest(unittest.TestCase):
         self.expect("Offset of addresses to display")
 
         self.child.sendline("0")
-        # UGLY HACK
-        # Line reads:
-        #   Display receive addresses? `N` to display change addresses instead. [Y/n]:
-        # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("to display change addresses instead")
+        # UGLY HACK - Github CI uses a  narrow terminal and only displays part of this line:
+        self.expect(
+            "Display receive addresses? `N` to display change addresses instead. [Y/n]:"[
+                31:
+            ]
+        )
 
         self.child.sendline("N")
         self.expect("1-of-2 Multisig Change Addresses")
