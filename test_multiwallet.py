@@ -218,6 +218,21 @@ class MultiwalletTest(unittest.TestCase):
 
         self.expect(signed_psbt_b64)
 
+    def test_caravan_output_descriptors(self):
+        descriptors = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9/0/*))#t0v98kwu"
+        self.child.sendline("convert_descriptors_to_caravan")
+        self.expect("Paste in your account map (AKA output record")
+
+        self.child.sendline(descriptors)
+        self.expect("Enter wallet name [p2wsh wallet]: ")
+
+        self.child.sendline("")
+        self.expect("Give human name to each key record? [y/N]:")
+
+        self.child.sendline("N")
+        # This is a weak check that we didn't crash, we're not validating the response as it's too wide for GitHub CI terminal to be meaningful
+        self.expect("Output descriptor as Caravan import (save this to a file):")
+
     def test_fail(self):
         # This has to take some seconds to fail
         mw = pexpect.spawn("python3 multiwallet.py", timeout=1)
