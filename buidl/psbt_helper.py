@@ -6,10 +6,11 @@ from buidl.tx import Tx, TxIn, TxOut
 from buidl.script import RedeemScript, address_to_script_pubkey
 
 
-def _get_child_hdpubkey(xpub_dict, root_path):
+def _safe_get_child_hdpubkey(xfp_dict, xfp_hex, root_path, cnt):
     """
-    Iterate through an xpub_dict to find one that can traverse to the given root_path
+    Iterate through all possible base_paths of an xpub_dict to find one that can traverse to the given root_path
     """
+    xpub_dict = xfp_dict.get(xfp_hex)
     if xpub_dict:
         for base_path, xpub_obj in xpub_dict.items():
             child_path = get_unhardened_child_path(
@@ -18,9 +19,12 @@ def _get_child_hdpubkey(xpub_dict, root_path):
             )
             if child_path:
                 if base_path.count("/") != xpub_obj.depth:
-                    msg = f"base_path {base_path} depth != {xpub_obj.depth} for {xpub_obj}"
+                    msg = f"xfp_hex {xfp_hex} for in/output #{cnt} base_path mismatch: {base_path} depth != {xpub_obj.depth} for {xpub_obj}"
                     raise ValueError(msg)
                 return xpub_obj.traverse(child_path)
+    raise ValueError(
+        f"xfp_hex {xfp_hex} with {root_path} for in/output #{cnt} not supplied in xpub_dict"
+    )
 
 
 def create_p2sh_multisig_psbt(
@@ -89,14 +93,12 @@ def create_p2sh_multisig_psbt(
         input_pubkey_hexes, total_input_sats = [], 0
         for xfp_hex, root_path in input_dict["path_dict"].items():
             # Get the correct xpub/path
-            child_hd_pubkey = _get_child_hdpubkey(
-                xpub_dict=xfp_dict.get(xfp_hex),
+            child_hd_pubkey = _safe_get_child_hdpubkey(
+                xfp_dict=xfp_dict,
+                xfp_hex=xfp_hex,
                 root_path=root_path,
+                cnt=cnt,
             )
-            if child_hd_pubkey is None:
-                raise ValueError(
-                    f"xfp_hex {xfp_hex} for {root_path} from input #{cnt} not supplied in xpubs_dict:  {xpubs_dict}"
-                )
             input_pubkey_hexes.append(child_hd_pubkey.sec().hex())
 
             # Enhance the PSBT
@@ -139,7 +141,7 @@ def create_p2sh_multisig_psbt(
         redeem_lookup[redeem_script.hash160()] = redeem_script
 
     tx_outs = []
-    for output_dict in output_dicts:
+    for cnt, output_dict in enumerate(output_dicts):
         tx_out = TxOut(
             amount=output_dict["sats"],
             script_pubkey=address_to_script_pubkey(output_dict["address"]),
@@ -150,14 +152,12 @@ def create_p2sh_multisig_psbt(
             # This output claims to be change, so we must validate it here
             output_pubkey_hexes = []
             for xfp_hex, root_path in output_dict["path_dict"].items():
-                child_hd_pubkey = _get_child_hdpubkey(
-                    xpub_dict=xfp_dict.get(xfp_hex),
+                child_hd_pubkey = _safe_get_child_hdpubkey(
+                    xfp_dict=xfp_dict,
+                    xfp_hex=xfp_hex,
                     root_path=root_path,
+                    cnt=cnt,
                 )
-                if child_hd_pubkey is None:
-                    raise ValueError(
-                        f"xfp_hex {xfp_hex} for {root_path} from output #{cnt} not supplied in xpubs_dict: {xpubs_dict}"
-                    )
                 output_pubkey_hexes.append(child_hd_pubkey.sec().hex())
 
                 # Enhance the PSBT

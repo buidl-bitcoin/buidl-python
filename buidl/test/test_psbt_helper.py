@@ -272,7 +272,7 @@ class P2SHTest(TestCase):
         modified_kwargs["output_dicts"][0]["path_dict"]["e0c595c5"] = "m/999"
         with self.assertRaises(ValueError) as cm:
             create_p2sh_multisig_psbt(**modified_kwargs)
-        self.assertIn(
-            "xfp_hex e0c595c5 for m/999 from output #0 not supplied in xpubs_dict",
+        self.assertEqual(
+            "xfp_hex e0c595c5 with m/999 for in/output #0 not supplied in xpub_dict",
             str(cm.exception),
         )
