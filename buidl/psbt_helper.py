@@ -43,6 +43,8 @@ def create_p2sh_multisig_psbt(
 
     network = None
 
+    hd_pubs = {}
+
     # This at the child pubkey lookup that each input will traverse off of
     for xfp_hex, base_paths in xpubs_dict.items():
         for base_path in base_paths:
@@ -51,6 +53,16 @@ def create_p2sh_multisig_psbt(
 
             # We will use this dict/list structure for each input/ouput in the for-loops below
             xfp_dict[xfp_hex][base_path["base_path"]] = hd_pubkey_obj
+
+            # TODO: total hack, update this!
+            hd_pubkey_obj2 = HDPublicKey.parse(base_path["xpub_b58"])
+            named_global_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
+                child_hd_pub=hd_pubkey_obj2,
+                xfp_hex=xfp_hex,
+                # we're only going to root path level. TODO: change the method signature for from_hd_pub?
+                root_path=base_path["base_path"],
+            )
+            hd_pubs[named_global_hd_pubkey_obj.serialize()] = named_global_hd_pubkey_obj
 
             if network is None:
                 # Set the initial value
@@ -192,6 +204,8 @@ def create_p2sh_multisig_psbt(
         redeem_lookup=redeem_lookup,
         witness_lookup=None,
     )
+    psbt_obj.hd_pubs = hd_pubs
+    psbt_obj.validate()
 
     if psbt_obj.validate() is not True:
         raise ValueError(f"PSBT does not validate: {psbt_obj.serialize_base64()}")
