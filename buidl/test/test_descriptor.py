@@ -212,7 +212,9 @@ class P2WSHMultiTest(TestCase):
                 "account_index": 0,
             },
         ]
-        p2wsh_sortedmulti_obj = P2WSHSortedMulti(quorum_m, key_records)
+        p2wsh_sortedmulti_obj = P2WSHSortedMulti(
+            quorum_m, key_records, sort_key_records=False
+        )
         # notice that both values are tpub, despite ingesting Vpub
         want = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h/2046266013/1945465733/1801020214/1402692941]tpubDNVvpMhdGTmQg1AT6muju2eUWPXWWAtUSyc1EQ2MxJ2s97fMqFZQbpzQM4gU8bwzfFM7KBpSXRJ5v2Wu8sY2GF5ZpXm3qy8GLArZZNM1Wru/0/*))#0lfdttke"
         self.assertEqual(str(p2wsh_sortedmulti_obj), want)

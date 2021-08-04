@@ -47,7 +47,7 @@ def create_p2sh_multisig_psbt(
     for xfp_hex, base_paths in xpubs_dict.items():
         for base_path in base_paths:
 
-            hd_pubkey_obj = HDPublicKey.parse(base_path["xpub_hex"])
+            hd_pubkey_obj = HDPublicKey.parse(base_path["xpub_b58"])
 
             # We will use this dict/list structure for each input/ouput in the for-loops below
             xfp_dict[xfp_hex][base_path["base_path"]] = hd_pubkey_obj

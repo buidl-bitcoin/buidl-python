@@ -46,8 +46,8 @@ class SinglesweepTest(unittest.TestCase):
             "Welcome to singlesweep, a stateless single sig sweeper that works with WIF and PSBTs."
         )
 
-    def test_debug(self):
-        self.child.sendline("debug")
+    def test_version_info(self):
+        self.child.sendline("version_info")
         self.expect("buidl Version: ")
         self.expect("Python Version: ")
         self.expect("Platform: ")

@@ -12,7 +12,7 @@ from pkg_resources import DistributionNotFound, get_distribution
 
 import buidl  # noqa: F401 (used below with pkg_resources for versioning)
 from buidl.blinding import blind_xpub, secure_secret_path
-from buidl.descriptor import P2WSHSortedMulti, parse_partial_key_record
+from buidl.descriptor import P2WSHSortedMulti, parse_any_key_record
 from buidl.hd import (
     calc_num_valid_seedpicker_checksums,
     calc_valid_seedpicker_checksums,
@@ -116,6 +116,10 @@ def _get_bool(prompt, default=True):
         print_red("Please choose either y or n")
 
 
+def _get_string(prompt, default=""):
+    return input(blue_fg(f"{prompt} [{default}]: ")).strip().lower() or default
+
+
 def _get_path_string():
     while True:
         res = input(blue_fg('Path to use (should start with "m/"): ')).strip().lower()
@@ -193,7 +197,7 @@ class WordCompleter:
 #####################################################################
 
 
-def get_p2wsh_sortedmulti():
+def _get_p2wsh_sortedmulti():
     while True:
         output_record = input(
             blue_fg("Paste in your account map (AKA output record): ")
@@ -233,7 +237,7 @@ def _get_bip39_firstwords():
         all_words_valid = True
         for cnt, word in enumerate(fw.split()):
             if word not in BIP39:
-                print_red(f"Word #{cnt+1} ({word} is not a valid BIP39 word")
+                print_red(f"Word #{cnt+1} `{word}` is not a valid BIP39 word")
                 all_words_valid = False
         if all_words_valid is False:
             continue
@@ -294,13 +298,6 @@ def _get_psbt_obj():
         return psbt_obj
 
 
-def _abort(msg):
-    " Used because TX signing is complicated and we might bail after intial pasting of PSBT "
-    print_red("ABORTING WITHOUT SIGNING:\n")
-    print_red(msg)
-    return True
-
-
 def _get_bip39_seed(network):
     readline.parse_and_bind("tab: complete")
     old_completer = readline.get_completer()
@@ -344,7 +341,7 @@ def _get_key_record(prompt):
     while True:
         key_record_str = input(key_record_prompt).strip()
         try:
-            return parse_partial_key_record(key_record_str=key_record_str)
+            return parse_any_key_record(key_record_str=key_record_str)
         except ValueError as e:
             print_red(f"Could not parse entry: {e}")
             continue
@@ -397,11 +394,11 @@ class MultiWallet(Cmd):
         Cmd.__init__(self, stdin=stdin, stdout=stdout)
 
     def do_generate_seed(self, arg):
-        """Seedpicker implementation: calculate bitcoin public and private key information from BIP39 words you draw out of a hat"""
+        """Calculate bitcoin public and private key information from BIP39 words you draw out of a hat (using the seedpicker implementation)"""
 
         if not self.ADVANCED_MODE:
             _print_footgun_warning(
-                "This will enable passphrases, custom paths, and different checksum indices."
+                "This will enable passphrases, custom paths, slip132 version bytes, and different checksum indices."
             )
 
         first_words = _get_bip39_firstwords()
@@ -491,12 +488,7 @@ class MultiWallet(Cmd):
         print_green(key_record)
 
     def do_create_output_descriptors(self, arg):
-        """Combine m-of-n key records to create an output descriptor (account map)"""
-
-        if not self.ADVANCED_MODE:
-            _print_footgun_warning(
-                "This will enable custom account indices (instead of just defaulting to 0)."
-            )
+        """Combine m-of-n public key records into a multisig output descriptor (account map)"""
 
         m_int = _get_int(
             prompt="How many signatures will be required to spend from this wallet?",
@@ -506,29 +498,38 @@ class MultiWallet(Cmd):
         )
         n_int = _get_int(
             prompt="How many total keys will be able to sign transaction from this wallet?",
-            default=m_int,
+            default=min(m_int + 1, 15),
             minimum=m_int,
             maximum=15,
         )
         key_records = []
         for cnt in range(n_int):
-            prompt = f"Enter key record #{cnt+1} (of {n_int}) in the format [deadbeef/path]xpub: "
+            prompt = f"Enter xpub key record #{cnt+1} (of {n_int}) in the format [deadbeef/path]xpub: "
             key_record_dict = _get_key_record(prompt)
-            key_record_dict["xpub_parent"] = key_record_dict.pop("xpub")
-            if self.ADVANCED_MODE:
-                account_index = _get_int(
-                    prompt="Enter account index for this key record?",
-                    default=0,
-                    minimum=0,
-                    maximum=100,
-                )
-                key_record_dict["account_index"] = account_index
-            else:
+            if key_record_dict.get("account_index") is None:
+                # we have a partial dict
                 key_record_dict["account_index"] = 0
+                key_record_dict["xpub_parent"] = key_record_dict.pop("xpub")
+            # Safety check
+            if key_record_dict in key_records:
+                # TODO: make this more performant
+                print_red(
+                    "ABORTING! Cannot use the same xpub key record twice in the same output descriptor."
+                )
+                return
             key_records.append(key_record_dict)
 
+        sort_key_records = True
+        if self.ADVANCED_MODE:
+            sort_key_records = _get_bool(
+                "Sort parent xpubs? This does not affect child addresses for sortedmulti, but alters bitcoin core descriptor checksum.",
+                default=True,
+            )
+
         p2wsh_sortedmulti_obj = P2WSHSortedMulti(
-            quorum_m=m_int, key_records=key_records
+            quorum_m=m_int,
+            key_records=key_records,
+            sort_key_records=sort_key_records,
         )
         print_yellow("Your output descriptors are:\n")
         print_green(str(p2wsh_sortedmulti_obj))
@@ -591,8 +592,17 @@ class MultiWallet(Cmd):
         )
         print_yellow("\n".join(warning_msg))
 
-    def do_recover_seed(self, arg):
-        """Recover a seed from Shamir shares per SLIP39"""
+    def do_shamir_recover_seed(self, arg):
+        """Recover a seed from Shamir shares using a SLIP39-like standard"""
+        # Prevent footgun-ing
+        if not self.ADVANCED_MODE:
+            warning_msg = (
+                "This shamir share implementation is non-standard!\n"
+                "If you're trying to recover from SLIP39 seed generated elsewhere, it probably won't work."
+            )
+            _print_footgun_warning(warning_msg)
+            return
+
         share_mnemonics = []
         while True:
             share_phrase = input(
@@ -612,8 +622,18 @@ class MultiWallet(Cmd):
         except (TypeError, ValueError, SyntaxError) as e:
             print_red(e)
 
-    def do_split_seed(self, arg):
-        """Split a seed to Shamir shares per SLIP39"""
+    def do_shamir_split_seed(self, arg):
+        """Split a seed to Shamir shares using a SLIP39-like standard"""
+        # Prevent footgun-ing
+        if not self.ADVANCED_MODE:
+            warning_msg = (
+                "This shamir share implementation is non-standard!\n"
+                "It has the benefit of being reversible, meaning it accepts standard BIP39 seeds and can recreate them later from Shamir Shares, the SSSS protocol is not compatible with SLIP39."
+                "However, once you recover your original BIP39 seed phrase (not possible with SLIP39), you can put that into any hardware wallet."
+            )
+            _print_footgun_warning(warning_msg)
+            return
+
         mnemonic = input(blue_fg("Enter a BIP39 seed phrase: ")).strip()
         k = _get_int(
             "How many Shamir shares should be required to recover the seed phrase?",
@@ -675,9 +695,9 @@ class MultiWallet(Cmd):
         prompt = f"You will need {k} of these {n} share phrases{additional} to recover your seed phrase:\n\n{share_mnemonics}"
         print_green(prompt)
 
-    def do_receive(self, arg):
+    def do_validate_address(self, arg):
         """Verify receive addresses for a multisig wallet using output descriptors (from Specter-Desktop)"""
-        p2wsh_sortedmulti_obj = get_p2wsh_sortedmulti()
+        p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
         limit = _get_int(
             prompt="Limit of addresses to display",
             # This is slow without libsecp256k1:
@@ -710,16 +730,20 @@ class MultiWallet(Cmd):
             )
             print_green(f"#{offset_to_use}: {address}")
 
-    def do_send(self, arg):
-        """Sign a multisig PSBT using 1 of your BIP39 seed phrases. Can also be used to just inspect a TX and not sign it."""
-        # This tool only supports a TX with the following constraints:
-        #   We sign ALL inputs and they have the same multisig wallet (quorum + pubkeys)
-        #   There can only be 1 output (sweep transaction) or 2 outputs (spend + change).
-        #   If there is change, we validate it has the same multisig wallet as the inputs we sign.
+    def do_sign_transaction(self, arg):
+        """
+        (Co)sign a multisig PSBT using 1 of your BIP39 seed phrases.
+        Can also be used to just inspect a PSBT and not sign it.
+
+        Note: This tool ONLY supports transactions with the following constraints:
+          - We sign ALL inputs and they belong to the same multisig wallet (quorum + pubkeys).
+          - There can only be 1 output (sweep transaction) or 2 outputs (spend + change).
+          - If there is change, we validate it belongs to the same multisig wallet as all inputs.
+        """
 
         # Unfortunately, there is no way to validate change without having the hdpubkey_map
         # TODO: make version where users can enter this later (after manually approving the transaction)?
-        p2wsh_sortedmulti_obj = get_p2wsh_sortedmulti()
+        p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
         psbt_obj = _get_psbt_obj()
 
         hdpubkey_map = {}
@@ -785,7 +809,8 @@ class MultiWallet(Cmd):
             ]
             for xfp in sorted(psbt_described["inputs_desc"][0]["root_xfp_hexes"]):
                 err.append("  " + xfp)
-            return _abort("\n".join(err))
+            print_red(f"ABORTING WITHOUT SIGNING:\n {err}")
+            return
 
         private_keys = [
             hd_priv.traverse(root_path).private_key for root_path in root_paths
@@ -796,11 +821,34 @@ class MultiWallet(Cmd):
             print_yellow("Signed PSBT to broadcast:\n")
             print_green(psbt_obj.serialize_base64())
         else:
-            return _abort("PSBT was NOT signed")
+            print_red("ERROR: Could NOT sign PSBT!")
+            return
 
-    def do_advanced_mode(self, arg):
+    def do_convert_descriptors_to_caravan(self, arg):
         """
-        Toggle advanced mode features like passphrases, different BIP39 seed checksums, and non-standard BIP32 paths.
+        Convert bitcoin core output descriptors to caravan import
+        """
+        p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
+
+        wallet_name = _get_string("Enter wallet name", default="p2wsh wallet")
+
+        key_record_names = []
+        if _get_bool("Give human name to each key record?", default=False):
+            for cnt, kr in enumerate(p2wsh_sortedmulti_obj.key_records):
+                kr_name = _get_string(
+                    f"Enter key record name for {kr['xfp']}", default=f"Seed #{cnt+1}"
+                )
+                key_record_names.append(kr_name)
+
+        caravan_json = p2wsh_sortedmulti_obj.caravan_export(
+            wallet_name=wallet_name, key_record_names=key_record_names
+        )
+        print_yellow("Output descriptor as Caravan import (save this to a file):")
+        print_green(caravan_json)
+
+    def do_toggle_advanced_mode(self, arg):
+        """
+        Toggle advanced mode features like passphrases, different BIP39 seed checksums, non-standard BIP32 paths, xpub blinding, shamir's secret sharing scheme, etc.
         WARNING: these features are for advanced users and could lead to loss of funds.
         """
         if self.ADVANCED_MODE:
@@ -810,7 +858,7 @@ class MultiWallet(Cmd):
             self.ADVANCED_MODE = True
             print_yellow("ADVANCED mode set, don't mess up!")
 
-    def do_debug(self, arg):
+    def do_version_info(self, arg):
         """Print program settings for debug purposes"""
 
         to_print = [

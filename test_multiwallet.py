@@ -41,8 +41,8 @@ class MultiwalletTest(unittest.TestCase):
         self.child = pexpect.spawn("python3 multiwallet.py", timeout=2)
         self.expect("Welcome to multiwallet, the stateless multisig bitcoin wallet")
 
-    def test_debug(self):
-        self.child.sendline("debug")
+    def test_version_info(self):
+        self.child.sendline("version_info")
         self.expect("buidl Version: ")
         self.expect("Multiwallet Mode: ")
         self.expect("Python Version: ")
@@ -77,25 +77,26 @@ class MultiwalletTest(unittest.TestCase):
 
         self.child.sendline("create_output_descriptors")
 
-        # UGLY HACK
-        # Line reads:
-        #   How many signatures will be required to spend from this wallet?
-        # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("be required to spend from this wallet?")
+        # UGLY HACK - Github CI uses a  narrow terminal and only displays part of this line:
+        full_text = "How many signatures will be required to spend from this wallet?"
+        self.expect(full_text[25:])
+
         self.child.sendline("1")
 
-        # Line reads:
-        #    How many total keys will be able to sign transaction from this wallet?
-        # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("to sign transaction from this wallet?")
+        # UGLY HACK - Github CI uses a  narrow terminal and only displays part of this line:
+        self.expect(
+            "How many total keys will be able to sign transaction from this wallet?"[
+                33:
+            ]
+        )
         self.child.sendline("2")
 
-        self.expect("Enter key record ")
+        self.expect("Enter xpub key record ")
         self.child.sendline(
             "[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy"
         )
 
-        self.expect("Enter key record ")
+        self.expect("Enter xpub key record ")
         self.child.sendline(
             "[2553c4b8/48h/1h/0h/2h/2046266013/1945465733/1801020214/1402692941]tpubDNVvpMhdGTmQg1AT6muju2eUWPXWWAtUSyc1EQ2MxJ2s97fMqFZQbpzQM4gU8bwzfFM7KBpSXRJ5v2Wu8sY2GF5ZpXm3qy8GLArZZNM1Wru"
         )
@@ -108,25 +109,25 @@ class MultiwalletTest(unittest.TestCase):
 
         self.child.sendline("create_output_descriptors")
 
-        # UGLY HACK
-        # Line reads:
-        #   How many signatures will be required to spend from this wallet?
-        # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("be required to spend from this wallet?")
+        # UGLY HACK - Github CI uses a  narrow terminal and only displays part of this line:
+        full_text = "How many signatures will be required to spend from this wallet?"
+        self.expect(full_text[25:])
         self.child.sendline("1")
 
-        # Line reads:
-        #    How many total keys will be able to sign transaction from this wallet?
-        # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("to sign transaction from this wallet?")
+        # UGLY HACK - Github CI uses a  narrow terminal and only displays part of this line:
+        self.expect(
+            "How many total keys will be able to sign transaction from this wallet?"[
+                33:
+            ]
+        )
         self.child.sendline("2")
 
-        self.expect("Enter key record ")
+        self.expect("Enter xpub key record ")
         self.child.sendline(
             "[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy"
         )
 
-        self.expect("Enter key record ")
+        self.expect("Enter xpub key record ")
         self.child.sendline(
             "[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9"
         )
@@ -137,7 +138,7 @@ class MultiwalletTest(unittest.TestCase):
         account_map = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9/0/*))#t0v98kwu"
         receive_addr = "tb1qtsvps7q8j5mn2qqfrujlrnwraelkptps5k595hn5d4tfq7mv644sfkkxps"
 
-        self.child.sendline("receive")
+        self.child.sendline("validate_address")
         self.expect("Paste in your account map (AKA output record")
 
         self.child.sendline(account_map)
@@ -154,10 +155,10 @@ class MultiwalletTest(unittest.TestCase):
         account_map = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9/0/*))#t0v98kwu"
         change_addr = "tb1qjcsz3nmscxdecksnrn5k9dxrj0g3f7xkuclk53aqu33lg06r0cks5l8ew8"
 
-        self.child.sendline("advanced_mode")
+        self.child.sendline("toggle_advanced_mode")
         self.expect("ADVANCED mode set")
 
-        self.child.sendline("receive")
+        self.child.sendline("validate_address")
         self.expect("Paste in your account map (AKA output record)")
 
         self.child.sendline(account_map)
@@ -167,11 +168,12 @@ class MultiwalletTest(unittest.TestCase):
         self.expect("Offset of addresses to display")
 
         self.child.sendline("0")
-        # UGLY HACK
-        # Line reads:
-        #   Display receive addresses? `N` to display change addresses instead. [Y/n]:
-        # But Github CI uses a very narrow terminal and only picks this part up:
-        self.expect("to display change addresses instead")
+        # UGLY HACK - Github CI uses a  narrow terminal and only displays part of this line:
+        self.expect(
+            "Display receive addresses? `N` to display change addresses instead. [Y/n]:"[
+                31:
+            ]
+        )
 
         self.child.sendline("N")
         self.expect("1-of-2 Multisig Change Addresses")
@@ -183,7 +185,7 @@ class MultiwalletTest(unittest.TestCase):
         seed_phrase = "zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo abstract"
         signed_psbt_b64 = "cHNidP8BAFICAAAAASqJ31Trzpdt/MCBc1rpqmJyTcrhHNgqYqmsoDzHoklrAQAAAAD+////AYcmAAAAAAAAFgAUVH5mMP/WhqzXEzUORHbh1WJ7TS4AAAAAAAEBKxAnAAAAAAAAIgAgW8ODIeZA3ep/uESxtEZmQlxl4Q0QWWbe4I7x3aHuEvAiAgI0eOoa6SLJeaxzFWRXvzgWElJmJgyZMSfbSZ7plUxF9kgwRQIhAKTtWurRx19SWBS0G50IkvEDqbdZG2Q0KuTPB3BRWUCoAiBBWAtAQdmL+uV7aMwcJIacsFtYzrGagkhf6ZfEySXPXgEBBYtRIQI0eOoa6SLJeaxzFWRXvzgWElJmJgyZMSfbSZ7plUxF9iECYYmlbj1NXorYlB1Ed7jOwa4nt+xwhePNaxnQW53o6lQhApaCK4Vcv04C6td57v3zGuHGrrVjXQEMKwKbbS8GHrkKIQLEV1INwWxsAYHEj/ElyUDHWQOxdbsfQzP2LT4IRZmWY1SuIgYCNHjqGukiyXmscxVkV784FhJSZiYMmTEn20me6ZVMRfYc99BAkDAAAIABAACAAAAAgAIAAIAAAAAABgAAACIGAmGJpW49TV6K2JQdRHe4zsGuJ7fscIXjzWsZ0Fud6OpUHDpStc0wAACAAQAAgAAAAIACAACAAAAAAAYAAAAiBgKWgiuFXL9OAurXee798xrhxq61Y10BDCsCm20vBh65ChwSmA7tMAAAgAEAAIAAAACAAgAAgAAAAAAGAAAAIgYCxFdSDcFsbAGBxI/xJclAx1kDsXW7H0Mz9i0+CEWZlmMcx9BkijAAAIABAACAAAAAgAIAAIAAAAAABgAAAAAA"
 
-        self.child.sendline("send")
+        self.child.sendline("sign_transaction")
         self.expect("Paste in your account map (AKA output record")
 
         self.child.sendline(account_map)
@@ -215,6 +217,21 @@ class MultiwalletTest(unittest.TestCase):
         self.expect("Signed PSBT to broadcast")
 
         self.expect(signed_psbt_b64)
+
+    def test_caravan_output_descriptors(self):
+        descriptors = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9/0/*))#t0v98kwu"
+        self.child.sendline("convert_descriptors_to_caravan")
+        self.expect("Paste in your account map (AKA output record")
+
+        self.child.sendline(descriptors)
+        self.expect("Enter wallet name [p2wsh wallet]: ")
+
+        self.child.sendline("")
+        self.expect("Give human name to each key record? [y/N]:")
+
+        self.child.sendline("N")
+        # This is a weak check that we didn't crash, we're not validating the response as it's too wide for GitHub CI terminal to be meaningful
+        self.expect("Output descriptor as Caravan import (save this to a file):")
 
     def test_fail(self):
         # This has to take some seconds to fail
