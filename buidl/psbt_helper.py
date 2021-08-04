@@ -63,7 +63,7 @@ def create_p2sh_multisig_psbt(
             named_global_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
                 child_hd_pub=hd_pubkey_obj2,
                 xfp_hex=xfp_hex,
-                # we're only going to root path level. TODO: change the method signature for from_hd_pub?
+                # we're only going to base path level. TODO: change the method signature for from_hd_pub?
                 root_path=base_path["base_path"],
             )
             hd_pubs[named_global_hd_pubkey_obj.serialize()] = named_global_hd_pubkey_obj
