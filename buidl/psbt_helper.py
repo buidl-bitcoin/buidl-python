@@ -8,20 +8,18 @@ from buidl.script import RedeemScript, address_to_script_pubkey
 
 def _safe_get_child_hdpubkey(xfp_dict, xfp_hex, root_path, cnt):
     """
-    Iterate through all possible base_paths of an xpub_dict to find one that can traverse to the given root_path
+    Given an xfp_dict, inteligently traverse all the xpubs until you find one that can traverse to the given root_path
     """
-    xpub_dict = xfp_dict.get(xfp_hex)
-    if xpub_dict:
-        for base_path, xpub_obj in xpub_dict.items():
-            child_path = get_unhardened_child_path(
-                root_path=root_path,
-                base_path=base_path,
-            )
-            if child_path:
-                if base_path.count("/") != xpub_obj.depth:
-                    msg = f"xfp_hex {xfp_hex} for in/output #{cnt} base_path mismatch: {base_path} depth != {xpub_obj.depth} for {xpub_obj}"
-                    raise ValueError(msg)
-                return xpub_obj.traverse(child_path)
+    for base_path, xpub_obj in xfp_dict.get(xfp_hex, {}).items():
+        child_path = get_unhardened_child_path(
+            root_path=root_path,
+            base_path=base_path,
+        )
+        if child_path:
+            if base_path.count("/") != xpub_obj.depth:
+                msg = f"xfp_hex {xfp_hex} for in/output #{cnt} base_path mismatch: {base_path} depth != {xpub_obj.depth} for {xpub_obj}"
+                raise ValueError(msg)
+            return xpub_obj.traverse(child_path)
     raise ValueError(
         f"xfp_hex {xfp_hex} with {root_path} for in/output #{cnt} not supplied in xpub_dict"
     )
@@ -59,12 +57,11 @@ def create_p2sh_multisig_psbt(
         # We will use this dict/list structure for each input/ouput in the for-loops below
         xfp_dict[xfp_hex][base_path] = hd_pubkey_obj
 
-        # TODO: total hack, update this!
-        hd_pubkey_obj2 = HDPublicKey.parse(xpub_b58)
         named_global_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
-            child_hd_pub=hd_pubkey_obj2,
+            # TODO: why can't you re-use hd_pubkey_obj from above (you get a strange error later)
+            child_hd_pub=HDPublicKey.parse(xpub_b58),
             xfp_hex=xfp_hex,
-            # we're only going to base path level. TODO: change the method signature for from_hd_pub?
+            # we're only going to base path level
             root_path=base_path,
         )
         hd_pubs[named_global_hd_pubkey_obj.serialize()] = named_global_hd_pubkey_obj
