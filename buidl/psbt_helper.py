@@ -120,8 +120,8 @@ def create_p2sh_multisig_psbt(
 
         redeem_script = RedeemScript.create_p2sh_multisig(
             quorum_m=input_dict["quorum_m"],
-            # assumes you want to sort pubkeys. TODO: allow for over-ride method?
-            pubkey_hexes=sorted(input_pubkey_hexes),
+            pubkey_hexes=input_pubkey_hexes,
+            sort_keys=True,  # TODO: allow legacy users to customize this?
             expected_addr=utxo.script_pubkey.address(network=network),
             expected_addr_network=network,
         )
