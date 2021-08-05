@@ -344,8 +344,18 @@ class PSBT:
         )
 
     @classmethod
-    def create(cls, tx_obj):
+    def create(
+        cls,
+        tx_obj,
+        validate=True,
+        tx_lookup={},
+        pubkey_lookup={},
+        redeem_lookup={},
+        witness_lookup={},
+        hd_pubs={},
+    ):
         """Create a PSBT from a transaction"""
+
         # create an array of PSBTIns
         psbt_ins = []
         # iterate through the inputs of the transaction
@@ -367,6 +377,7 @@ class PSBT:
             psbt_in = PSBTIn(tx_in, script_sig=script_sig, witness=witness)
             # add PSBTIn to array
             psbt_ins.append(psbt_in)
+
         # create an array of PSBTOuts
         psbt_outs = []
         # iterate through the outputs of the transaction
@@ -376,13 +387,25 @@ class PSBT:
             # add PSBTOut to arary
             psbt_outs.append(psbt_out)
         # return an instance with the Tx, PSBTIn array and PSBTOut array
-        return cls(tx_obj, psbt_ins, psbt_outs)
+        psbt_obj = cls(tx_obj, psbt_ins, psbt_outs)
 
-    def update(self, tx_lookup, pubkey_lookup, redeem_lookup=None, witness_lookup=None):
-        if redeem_lookup is None:
-            redeem_lookup = {}
-        if witness_lookup is None:
-            witness_lookup = {}
+        # append metadata
+        if tx_lookup or pubkey_lookup:
+            psbt_obj.update(
+                tx_lookup=tx_lookup,
+                pubkey_lookup=pubkey_lookup,
+                redeem_lookup=redeem_lookup,
+                witness_lookup=witness_lookup,
+            )
+        if hd_pubs:
+            psbt_obj.hd_pubs = hd_pubs
+
+        if validate:
+            psbt_obj.validate()
+
+        return psbt_obj
+
+    def update(self, tx_lookup, pubkey_lookup, redeem_lookup={}, witness_lookup={}):
         # update each PSBTIn
         for psbt_in in self.psbt_ins:
             psbt_in.update(tx_lookup, pubkey_lookup, redeem_lookup, witness_lookup)

@@ -200,17 +200,12 @@ def create_p2sh_multisig_psbt(
             f"TX fee of {fee_sats} sats supplied != {calculated_fee_sats} sats calculated"
         )
 
-    psbt_obj = PSBT.create(tx_obj)
-    psbt_obj.update(
+    return PSBT.create(
+        tx_obj=tx_obj,
+        validate=True,
         tx_lookup=tx_lookup,
         pubkey_lookup=pubkey_lookup,
         redeem_lookup=redeem_lookup,
         witness_lookup=None,
+        hd_pubs=hd_pubs,
     )
-    psbt_obj.hd_pubs = hd_pubs
-    psbt_obj.validate()
-
-    if psbt_obj.validate() is not True:
-        raise ValueError(f"PSBT does not validate: {psbt_obj.serialize_base64()}")
-
-    return psbt_obj
