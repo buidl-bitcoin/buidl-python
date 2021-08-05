@@ -75,7 +75,9 @@ def create_p2sh_multisig_psbt(
         else:
             # Confirm it hasn't changed
             if network != hd_pubkey_obj.network:
-                raise MixedNetwork(f"Mixed networks in public key records: {public_key_records}")
+                raise MixedNetwork(
+                    f"Mixed networks in public key records: {public_key_records}"
+                )
 
     tx_ins = []
     for cnt, input_dict in enumerate(input_dicts):
