@@ -28,7 +28,7 @@ def _safe_get_child_hdpubkey(xfp_dict, xfp_hex, root_path, cnt):
 
 
 def create_p2sh_multisig_psbt(
-    xpubs_dict,
+    public_key_records,
     input_dicts,
     output_dicts,
     fee_sats,
@@ -37,6 +37,9 @@ def create_p2sh_multisig_psbt(
     Helper method to create a p2sh multisig PSBT.
 
     network (testnet/mainnet) will be inferred from xpubs/tpubs.
+
+    public_key_records are a list of entries that loom like this: [xfp_hex, xpub_b58, base_path]
+    # TODO: turn this into a new object?
     """
 
     tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}
@@ -50,31 +53,29 @@ def create_p2sh_multisig_psbt(
     hd_pubs = {}
 
     # This at the child pubkey lookup that each input will traverse off of
-    for xfp_hex, base_paths in xpubs_dict.items():
-        for base_path in base_paths:
+    for xfp_hex, xpub_b58, base_path in public_key_records:
+        hd_pubkey_obj = HDPublicKey.parse(xpub_b58)
 
-            hd_pubkey_obj = HDPublicKey.parse(base_path["xpub_b58"])
+        # We will use this dict/list structure for each input/ouput in the for-loops below
+        xfp_dict[xfp_hex][base_path] = hd_pubkey_obj
 
-            # We will use this dict/list structure for each input/ouput in the for-loops below
-            xfp_dict[xfp_hex][base_path["base_path"]] = hd_pubkey_obj
+        # TODO: total hack, update this!
+        hd_pubkey_obj2 = HDPublicKey.parse(xpub_b58)
+        named_global_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
+            child_hd_pub=hd_pubkey_obj2,
+            xfp_hex=xfp_hex,
+            # we're only going to base path level. TODO: change the method signature for from_hd_pub?
+            root_path=base_path,
+        )
+        hd_pubs[named_global_hd_pubkey_obj.serialize()] = named_global_hd_pubkey_obj
 
-            # TODO: total hack, update this!
-            hd_pubkey_obj2 = HDPublicKey.parse(base_path["xpub_b58"])
-            named_global_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
-                child_hd_pub=hd_pubkey_obj2,
-                xfp_hex=xfp_hex,
-                # we're only going to base path level. TODO: change the method signature for from_hd_pub?
-                root_path=base_path["base_path"],
-            )
-            hd_pubs[named_global_hd_pubkey_obj.serialize()] = named_global_hd_pubkey_obj
-
-            if network is None:
-                # Set the initial value
-                network = hd_pubkey_obj.network
-            else:
-                # Confirm it hasn't changed
-                if network != hd_pubkey_obj.network:
-                    raise MixedNetwork(f"Mixed networks in xpubs: {xpubs_dict}")
+        if network is None:
+            # Set the initial value
+            network = hd_pubkey_obj.network
+        else:
+            # Confirm it hasn't changed
+            if network != hd_pubkey_obj.network:
+                raise MixedNetwork(f"Mixed networks in public key records: {public_key_records}")
 
     tx_ins = []
     for cnt, input_dict in enumerate(input_dicts):

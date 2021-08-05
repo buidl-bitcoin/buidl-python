@@ -45,22 +45,20 @@ class P2SHTest(TestCase):
         # https://blockstream.info/testnet/tx/d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490
 
         kwargs = {
-            "xpubs_dict": {
-                "e0c595c5": [
-                    {
-                        # action x12
-                        "xpub_b58": "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
-                        "base_path": "m/45'/0",
-                    }
+            "public_key_records": [
+                # action x12
+                [
+                    "e0c595c5",
+                    "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
+                    "m/45'/0",
                 ],
-                "838f3ff9": [
-                    {
-                        # agent x12
-                        "xpub_b58": "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
-                        "base_path": "m/45'/0",
-                    }
+                # agent x12
+                [
+                    "838f3ff9",
+                    "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
+                    "m/45'/0",
                 ],
-            },
+            ],
             "input_dicts": [
                 {
                     "quorum_m": 1,
@@ -138,22 +136,20 @@ class P2SHTest(TestCase):
 
         kwargs = {
             # this part is unchanged from the previous
-            "xpubs_dict": {
-                "e0c595c5": [
-                    {
-                        # action x12
-                        "xpub_b58": "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
-                        "base_path": "m/45'/0",
-                    }
+            "public_key_records": [
+                # action x12
+                [
+                    "e0c595c5",
+                    "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
+                    "m/45'/0",
                 ],
-                "838f3ff9": [
-                    {
-                        # agent x12
-                        "xpub_b58": "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
-                        "base_path": "m/45'/0",
-                    }
+                # agent x12
+                [
+                    "838f3ff9",
+                    "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
+                    "m/45'/0",
                 ],
-            },
+            ],
             # this part is changed:
             "input_dicts": [
                 {
