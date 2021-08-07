@@ -61,7 +61,7 @@ def create_p2sh_multisig_psbt(
             child_hd_pub=hd_pubkey_obj,
             xfp_hex=xfp_hex,
             # we're only going to base path level
-            root_path=base_path,
+            path=base_path,
         )
         hd_pubs[named_global_hd_pubkey_obj.serialize()] = named_global_hd_pubkey_obj
 
@@ -104,7 +104,7 @@ def create_p2sh_multisig_psbt(
             named_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
                 child_hd_pub=child_hd_pubkey,
                 xfp_hex=xfp_hex,
-                root_path=root_path,
+                path=root_path,
             )
             pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
 
@@ -163,7 +163,7 @@ def create_p2sh_multisig_psbt(
                 named_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
                     child_hd_pub=child_hd_pubkey,
                     xfp_hex=xfp_hex,
-                    root_path=root_path,
+                    path=root_path,
                 )
                 pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
 
