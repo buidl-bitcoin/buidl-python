@@ -40,15 +40,15 @@ def create_p2sh_multisig_psbt(
     # TODO: turn this into a new object?
     """
 
-    tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}
-    # Use a nested default dict
+    # initialize variables
+    network = None
+    tx_lookup, pubkey_lookup, redeem_lookup, hd_pubs = {}, {}, {}, {}
+
+    # Use a nested default dict for increased readability
+    # It's possible (though nonstandard) for one xfp to have multiple public_key_records in a multisig wallet
     # https://stackoverflow.com/a/19189356
     recursive_defaultdict = lambda: defaultdict(recursive_defaultdict)  # noqa: E731
     xfp_dict = recursive_defaultdict()
-
-    network = None
-
-    hd_pubs = {}
 
     # This at the child pubkey lookup that each input will traverse off of
     for xfp_hex, xpub_b58, base_path in public_key_records:
@@ -58,8 +58,7 @@ def create_p2sh_multisig_psbt(
         xfp_dict[xfp_hex][base_path] = hd_pubkey_obj
 
         named_global_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
-            # TODO: why can't you re-use hd_pubkey_obj from above (you get a strange error later)
-            child_hd_pub=HDPublicKey.parse(xpub_b58),
+            child_hd_pub=hd_pubkey_obj,
             xfp_hex=xfp_hex,
             # we're only going to base path level
             root_path=base_path,

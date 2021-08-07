@@ -200,7 +200,8 @@ class NamedHDPublicKey(HDPublicKey):
         hd_key = child_hd_pub
         hd_key.__class__ = cls
         hd_key.add_raw_path_data(
-            bytes.fromhex(xfp_hex) + serialize_binary_path(root_path)
+            raw_path=bytes.fromhex(xfp_hex) + serialize_binary_path(root_path),
+            network=hd_key.network,
         )
         return hd_key
 
