@@ -647,7 +647,7 @@ class PSBT:
         root_paths_for_signing = set()
 
         # These will be used for all inputs and change outputs
-        input_quorum_m, input_quorum_n = None, None
+        inputs_quorum_m, inputs_quorum_n = None, None
 
         # Gather TX info and validate
         inputs_desc = []
@@ -670,24 +670,24 @@ class PSBT:
                     )
 
                 input_quorum_m, input_quorum_n = psbt_in.witness_script.get_quorum()
-                if input_quorum_m is None:
-                    input_quorum_m = input_quorum_m
+                if inputs_quorum_m is None:
+                    inputs_quorum_m = input_quorum_m
                 else:
-                    if input_quorum_m != input_quorum_m:
+                    if inputs_quorum_m != input_quorum_m:
                         raise SuspiciousTransaction(
-                            f"Previous input(s) set a quorum threshold of {input_quorum_m}, but this transaction is {input_quorum_m}"
+                            f"Previous input(s) set a quorum threshold of {inputs_quorum_m}, but this transaction is {input_quorum_m}"
                         )
 
-                if input_quorum_n is None:
-                    input_quorum_n = input_quorum_n
-                    if input_quorum_n != len(hdpubkey_map):
+                if inputs_quorum_n is None:
+                    inputs_quorum_n = input_quorum_n
+                    if inputs_quorum_n != len(hdpubkey_map):
                         raise SuspiciousTransaction(
                             f"Transaction has {len(hdpubkey_map)} pubkeys but we are expecting {input_quorum_n}"
                         )
                 else:
-                    if input_quorum_n != input_quorum_n:
+                    if inputs_quorum_n != input_quorum_n:
                         raise SuspiciousTransaction(
-                            f"Previous input(s) set a max quorum of threshold of {input_quorum_n}, but this transaction is {input_quorum_n}"
+                            f"Previous input(s) set a max quorum of threshold of {inputs_quorum_n}, but this transaction is {input_quorum_n}"
                         )
 
             bip32_derivs = []
@@ -747,8 +747,8 @@ class PSBT:
                 raise SuspiciousTransaction("\n".join(err))
 
         return {
-            "input_quorum_m": input_quorum_m,
-            "input_quorum_n": input_quorum_n,
+            "inputs_quorum_m": inputs_quorum_m,
+            "inputs_quorum_n": inputs_quorum_n,
             "inputs_desc": inputs_desc,
             "root_paths_for_signing": root_paths_for_signing,
         }
@@ -892,8 +892,8 @@ class PSBT:
             hdpubkey_map=hdpubkey_map,
             xfp_for_signing=xfp_for_signing,
         )
-        input_quorum_m = inputs_described["input_quorum_m"]
-        input_quorum_n = inputs_described["input_quorum_n"]
+        inputs_quorum_m = inputs_described["inputs_quorum_m"]
+        inputs_quorum_n = inputs_described["inputs_quorum_n"]
         inputs_desc = inputs_described["inputs_desc"]
         root_paths_for_signing = inputs_described["root_paths_for_signing"]
         total_input_sats = sum([x["sats"] for x in inputs_desc])
@@ -902,8 +902,8 @@ class PSBT:
             hdpubkey_map=hdpubkey_map,
             xfp_for_signing=xfp_for_signing,
             # Tool requires m-of-n be same for inputs as outputs
-            expected_quorum_m=input_quorum_m,
-            expected_quorum_n=input_quorum_n,
+            expected_quorum_m=inputs_quorum_m,
+            expected_quorum_n=inputs_quorum_n,
         )
         outputs_desc = outputs_described["outputs_desc"]
         change_addr = outputs_described["change_addr"]
