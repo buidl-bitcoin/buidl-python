@@ -664,31 +664,35 @@ class PSBT:
             # Be sure all xpubs are properly accounted for
             if hdpubkey_map:
                 if len(hdpubkey_map) != len(psbt_in.named_pubs):
-                    # TODO: doesn't handle case where the same xfp is >1 signers (surprisingly complex)
+                    # TODO: doesn't handle case where the same xfp is >1 signers
                     raise SuspiciousTransaction(
                         f"{len(hdpubkey_map)} xpubs supplied != {len(psbt_in.named_pubs)} named_pubs in PSBT input."
                     )
+            else:
+                raise NotImplementedError(
+                    "TODO: handle case of inferring without an hdpubkey_map"
+                )
 
-                input_quorum_m, input_quorum_n = psbt_in.witness_script.get_quorum()
-                if inputs_quorum_m is None:
-                    inputs_quorum_m = input_quorum_m
-                else:
-                    if inputs_quorum_m != input_quorum_m:
-                        raise SuspiciousTransaction(
-                            f"Previous input(s) set a quorum threshold of {inputs_quorum_m}, but this transaction is {input_quorum_m}"
-                        )
+            input_quorum_m, input_quorum_n = psbt_in.witness_script.get_quorum()
+            if inputs_quorum_m is None:
+                inputs_quorum_m = input_quorum_m
+            else:
+                if inputs_quorum_m != input_quorum_m:
+                    raise SuspiciousTransaction(
+                        f"Previous input(s) set a quorum threshold of {inputs_quorum_m}, but this transaction is {input_quorum_m}"
+                    )
 
-                if inputs_quorum_n is None:
-                    inputs_quorum_n = input_quorum_n
-                    if inputs_quorum_n != len(hdpubkey_map):
-                        raise SuspiciousTransaction(
-                            f"Transaction has {len(hdpubkey_map)} pubkeys but we are expecting {input_quorum_n}"
-                        )
-                else:
-                    if inputs_quorum_n != input_quorum_n:
-                        raise SuspiciousTransaction(
-                            f"Previous input(s) set a max quorum of threshold of {inputs_quorum_n}, but this transaction is {input_quorum_n}"
-                        )
+            if inputs_quorum_n is None:
+                inputs_quorum_n = input_quorum_n
+                if inputs_quorum_n != len(hdpubkey_map):
+                    raise SuspiciousTransaction(
+                        f"Transaction has {len(hdpubkey_map)} pubkeys but we are expecting {input_quorum_n}"
+                    )
+            else:
+                if inputs_quorum_n != input_quorum_n:
+                    raise SuspiciousTransaction(
+                        f"Previous input(s) set a max quorum of threshold of {inputs_quorum_n}, but this transaction is {input_quorum_n}"
+                    )
 
             bip32_derivs = []
             for _, named_pub in psbt_in.named_pubs.items():
@@ -753,7 +757,13 @@ class PSBT:
             "root_paths_for_signing": root_paths_for_signing,
         }
 
-    def _describe_basic_multisig_tx_outputs(self, expected_quorum_m, expected_quorum_n, hdpubkey_map={}, xfp_for_signing=None):
+    def _describe_basic_multisig_tx_outputs(
+        self,
+        expected_quorum_m,
+        expected_quorum_n,
+        hdpubkey_map={},
+        xfp_for_signing=None,
+    ):
 
         # This tool only supports TXs with 1-2 outputs (sweep TX OR spend+change TX):
         if len(self.psbt_outs) > 2:
@@ -854,10 +864,10 @@ class PSBT:
 
         return {
             "outputs_desc": outputs_desc,
-            'change_addr': change_addr,
-            'output_change_sats': output_change_sats,
-            'spend_addr': spend_addr,
-            'output_spend_sats': output_spend_sats,
+            "change_addr": change_addr,
+            "output_change_sats": output_change_sats,
+            "spend_addr": spend_addr,
+            "output_spend_sats": output_spend_sats,
         }
 
     def describe_basic_multisig_tx(self, hdpubkey_map={}, xfp_for_signing=None):
