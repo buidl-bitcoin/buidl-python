@@ -282,17 +282,7 @@ class PSBT:
                 for sec, sig in psbt_in.sigs.items():
                     point = S256Point.parse(sec)
                     signature = Signature.parse(sig[:-1])
-                    if psbt_in.prev_tx:
-                        # legacy
-                        if not self.tx_obj.check_sig_legacy(
-                            i, point, signature, psbt_in.redeem_script
-                        ):
-                            raise ValueError(
-                                "legacy signature provided does not validate {}".format(
-                                    self
-                                )
-                            )
-                    elif psbt_in.prev_out:
+                    if psbt_in.prev_out:
                         # segwit
                         if not self.tx_obj.check_sig_segwit(
                             i,
@@ -303,6 +293,16 @@ class PSBT:
                         ):
                             raise ValueError(
                                 "segwit signature provided does not validate"
+                            )
+                    elif psbt_in.prev_tx:
+                        # legacy
+                        if not self.tx_obj.check_sig_legacy(
+                            i, point, signature, psbt_in.redeem_script
+                        ):
+                            raise ValueError(
+                                "legacy signature provided does not validate {}".format(
+                                    self
+                                )
                             )
             # validate the NamedPublicKeys
             if psbt_in.named_pubs:
@@ -643,7 +643,7 @@ class PSBT:
             if not was_replaced:
                 raise ValueError(f"xfp_hex {xfp_to_hide} not found in psbt")
 
-    def _describe_basic_multisig_tx_inputs(self, hdpubkey_map={}, xfp_for_signing=None):
+    def _describe_basic_multisig_tx_inputs(self, hdpubkey_map, xfp_for_signing=None):
         root_paths_for_signing = set()
 
         # These will be used for all inputs and change outputs
@@ -662,15 +662,10 @@ class PSBT:
                 )
 
             # Be sure all xpubs are properly accounted for
-            if hdpubkey_map:
-                if len(hdpubkey_map) != len(psbt_in.named_pubs):
-                    # TODO: doesn't handle case where the same xfp is >1 signers
-                    raise SuspiciousTransaction(
-                        f"{len(hdpubkey_map)} xpubs supplied != {len(psbt_in.named_pubs)} named_pubs in PSBT input."
-                    )
-            else:
-                raise NotImplementedError(
-                    "TODO: handle case of inferring without an hdpubkey_map"
+            if len(hdpubkey_map) != len(psbt_in.named_pubs):
+                # TODO: doesn't handle case where the same xfp is >1 signers
+                raise SuspiciousTransaction(
+                    f"{len(hdpubkey_map)} xpubs supplied != {len(psbt_in.named_pubs)} named_pubs in PSBT input."
                 )
 
             input_quorum_m, input_quorum_n = psbt_in.witness_script.get_quorum()
@@ -897,6 +892,18 @@ class PSBT:
         self.validate()
 
         tx_fee_sats = self.tx_obj.fee()
+
+        if not hdpubkey_map:
+            if not self.hd_pubs:
+                raise ValueError(
+                    "Cannot describe multisig PSBT without `hd_pubs` nor `hdpubkey_map`"
+                )
+            # build hdpubkey_map from PSBT's hdpubs
+            hdpubkey_map = {}
+            for _, hdpubkey in self.hd_pubs.items():
+                hdpubkey_map[hdpubkey.root_fingerprint.hex()] = HDPublicKey.parse(
+                    hdpubkey.xpub()
+                )
 
         inputs_described = self._describe_basic_multisig_tx_inputs(
             hdpubkey_map=hdpubkey_map,

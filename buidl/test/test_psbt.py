@@ -646,6 +646,112 @@ class PSBTTest(TestCase):
                 privkey_obj=PrivateKey(secret=1, network="testnet")
             )
 
+    def test_describe_basic_multisig_nopubkeymap(self):
+        psbt_with_xpubs = "cHNidP8BAF4CAAAAAVnAAJBVdhn3JXR/+xnIV3909mMlK54ux56qruCYyDMxAAAAAAD9////AR2GAQAAAAAAIgAghWi2ObHovaOzrJHz7w8+smg2+1eAamJxXoWGMhzN27HCeh8ATwEENYfPBIH57suAAAACWsKNF5QmpSZFlYXQ5PRaHaP9uAZOqPmLkbP9AiymDtwCd5mfakF7WtxnH7YzkJdpAnPKZ+WR+xHmGe5YW8C6z1EU4MWVxTAAAIABAACAAAAAgAIAAIBPAQQ1h88EkYCp9oAAAAIGrAFY5Fzsoqb8E8E/f9Lk6rTVkGn6Pkg6D9I4TN958gIhFhsdVpYmJBmJ+mkCBjuw/7eYCaArAD+9TT0JUQtzihSDjz/5MAAAgAEAAIAAAACAAgAAgAABAH0CAAAAAZt5QczPUEc5WphZD5A3659qq7bSTYLpCSu4cRZlWJezAAAAAAD+////AqCGAQAAAAAAIgAgiPOsvg8crqxeGccQKjuw5+A19GFMOaj83WdxsnakR8AKZ+QAAAAAABYAFA+VUziCYIHZLvUbTbABHskgY2f9wHofAAEBK6CGAQAAAAAAIgAgiPOsvg8crqxeGccQKjuw5+A19GFMOaj83WdxsnakR8ABAwQBAAAAAQVHUSEDOCPR/ei1x+po6gsWOhb7u/HPplV598QZG2DlCOVatoUhA7jNisc8iZsolWXC08/epb5ZM24r2zCPIqBt7KT1BYDSUq4iBgM4I9H96LXH6mjqCxY6Fvu78c+mVXn3xBkbYOUI5Vq2hRzgxZXFMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAIgYDuM2KxzyJmyiVZcLTz96lvlkzbivbMI8ioG3spPUFgNIcg48/+TAAAIABAACAAAAAgAIAAIAAAAAAAAAAAAAA"
+
+        psbt_obj = PSBT.parse_base64(psbt_with_xpubs, network="testnet")
+        # test having an empty hd pubkey map and one made of hd pubkeys
+        hdpubkey_map_tests = [
+            {},  # intentinally not passing in an hdpubkey_map
+            {
+                # action x12
+                "e0c595c5": HDPublicKey.parse(
+                    "tpubDErwirr9PdyV44W8DuEC5X8Usm58H6ocj8nbScFmRb7wvNntzTRjWdakBS44i6wNMoiRxUKpYXfaX9swGCYb13tDESNEeUJmFqMzZ513Cgh"
+                ),
+                # agent x12
+                "838f3ff9": HDPublicKey.parse(
+                    "tpubDEyZdFTwneTjZe5Neu685w9ZfZPSFz41nE1TUhXMF1ap954UT6FDPTgrP6qAxvxeKVRU1KCpFC36A67j8AecYeU8eVJWb51HMEviTPj6g96"
+                ),
+            },
+        ]
+
+        psbt_description_want = {
+            "txid": "15a9523496a8d9014144c6227204d3243accd4d7e5d8bafae0f66d84d86d1f92",
+            "tx_summary_text": "PSBT sends 99,869 sats to tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar with a fee of 131 sats (0.13% of spend)",
+            "locktime": 2063042,
+            "version": 2,
+            "network": "testnet",
+            "tx_fee_sats": 131,
+            "total_input_sats": 100000,
+            "output_spend_sats": 99869,
+            "change_addr": "",
+            "output_change_sats": 0,
+            "change_sats": 0,
+            "spend_addr": "tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar",
+            "inputs_desc": [
+                {
+                    "quorum": "1-of-2",
+                    "bip32_derivs": [
+                        {
+                            # action x12
+                            "pubkey": "033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab685",
+                            "master_fingerprint": "e0c595c5",
+                            "path": "m/48'/1'/0'/2'/0/0",
+                            "xpub": "tpubDErwirr9PdyV44W8DuEC5X8Usm58H6ocj8nbScFmRb7wvNntzTRjWdakBS44i6wNMoiRxUKpYXfaX9swGCYb13tDESNEeUJmFqMzZ513Cgh",
+                        },
+                        {
+                            # agent x12
+                            "pubkey": "03b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d2",
+                            "master_fingerprint": "838f3ff9",
+                            "path": "m/48'/1'/0'/2'/0/0",
+                            "xpub": "tpubDEyZdFTwneTjZe5Neu685w9ZfZPSFz41nE1TUhXMF1ap954UT6FDPTgrP6qAxvxeKVRU1KCpFC36A67j8AecYeU8eVJWb51HMEviTPj6g96",
+                        },
+                    ],
+                    "prev_txhash": "3133c898e0aeaa9ec72e9e2b2563f6747f57c819fb7f7425f71976559000c059",
+                    "prev_idx": 0,
+                    "n_sequence": 4294967293,
+                    "sats": 100000,
+                    "addr": "tb1q3re6e0s0rjh2chsecugz5wasulsrtarpfsu63lxavacmya4yglqq0gwqnl",
+                    "witness_script": "OP_1 033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab685 03b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d2 OP_2 OP_CHECKMULTISIG ",
+                }
+            ],
+            "outputs_desc": [
+                {
+                    "sats": 99869,
+                    "addr": "tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar",
+                    "addr_type": "P2WSH",
+                    "is_change": False,
+                }
+            ],
+        }
+
+        for hdpubkey_map in hdpubkey_map_tests:
+            psbt_described = psbt_obj.describe_basic_multisig_tx(
+                hdpubkey_map=hdpubkey_map,
+                xfp_for_signing=None,
+            )
+            self.assertEqual(psbt_described, psbt_description_want)
+
+        psbt_description_want["root_paths"] = {"m/48'/1'/0'/2'/0/0"}
+        for hdpubkey_map in hdpubkey_map_tests:
+            psbt_described_with_xfp = psbt_obj.describe_basic_multisig_tx(
+                hdpubkey_map={},  # intentinally not passing in an hdpubkey_map
+                xfp_for_signing="838f3ff9",  # agentx12
+            )
+
+            self.assertEqual(psbt_described_with_xfp, psbt_description_want)
+
+        # Now sign the transaction using the given paths
+        hd_priv = HDPrivateKey.from_mnemonic("action " * 12, network="testnet")
+        private_keys = [
+            hd_priv.traverse(root_path).private_key
+            for root_path in psbt_described_with_xfp["root_paths"]
+        ]
+        self.assertTrue(psbt_obj.sign_with_private_keys(private_keys))
+        self.assertTrue(psbt_obj.validate())
+        psbt_obj.finalize()
+        self.assertTrue(psbt_obj.validate())
+
+        tx_hex_want = "0200000000010159c00090557619f725747ffb19c8577f74f663252b9e2ec79eaaaee098c833310000000000fdffffff011d860100000000002200208568b639b1e8bda3b3ac91f3ef0f3eb26836fb57806a62715e8586321ccddbb10300483045022100d85acd84aa42c6cf797b212986dfabf597aa0a8ad65e296d2731e8d58ac2f72502203c3ca17a00aed3b9c33dc1c6df57a06b8a8e7f78b6f4813e6633e2d0a0232fa401475121033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab6852103b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d252aec27a1f00"
+
+        tx_obj = psbt_obj.final_tx()
+
+        self.assertEqual(tx_obj.serialize().hex(), tx_hex_want)
+        self.assertEqual(
+            tx_obj.id(),
+            "15a9523496a8d9014144c6227204d3243accd4d7e5d8bafae0f66d84d86d1f92",
+        )
+
     def test_psbt_multisig_describe_1of4(self):
         valid_output_record = "wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"
         # This is already parsed in test_descriptor.py, so not duplicating that here
