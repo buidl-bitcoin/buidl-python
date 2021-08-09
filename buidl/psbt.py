@@ -651,6 +651,7 @@ class PSBT:
 
         # Gather TX info and validate
         inputs_desc = []
+        total_input_sats = 0
         for cnt, psbt_in in enumerate(self.psbt_ins):
             psbt_in.validate()
 
@@ -723,13 +724,16 @@ class PSBT:
             # BIP67 sort order
             bip32_derivs = sorted(bip32_derivs, key=lambda k: k["pubkey"])
 
+            input_sats = psbt_in.tx_in.value()
+            total_input_sats += input_sats
+
             input_desc = {
                 "quorum": f"{input_quorum_m}-of-{input_quorum_n}",
                 "bip32_derivs": bip32_derivs,
                 "prev_txhash": psbt_in.tx_in.prev_tx.hex(),
                 "prev_idx": psbt_in.tx_in.prev_index,
                 "n_sequence": psbt_in.tx_in.sequence,
-                "sats": psbt_in.tx_in.value(),
+                "sats": input_sats,
                 "addr": psbt_in.witness_script.address(network=self.network),
                 # if adding support for p2sh in the future, the address would be: psbt_in.witness_script.p2sh_address(network=self.network),
                 "witness_script": str(psbt_in.witness_script),
@@ -750,6 +754,7 @@ class PSBT:
             "inputs_quorum_n": inputs_quorum_n,
             "inputs_desc": inputs_desc,
             "root_paths_for_signing": root_paths_for_signing,
+            "total_input_sats": total_input_sats,
         }
 
     def _describe_basic_p2wsh_outputs(
@@ -914,7 +919,7 @@ class PSBT:
         inputs_quorum_n = inputs_described["inputs_quorum_n"]
         inputs_desc = inputs_described["inputs_desc"]
         root_paths_for_signing = inputs_described["root_paths_for_signing"]
-        total_input_sats = sum([x["sats"] for x in inputs_desc])
+        total_input_sats = inputs_described["total_input_sats"]
 
         outputs_described = self._describe_basic_p2wsh_outputs(
             hdpubkey_map=hdpubkey_map,
