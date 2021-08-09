@@ -186,15 +186,17 @@ class MultiwalletTest(unittest.TestCase):
         signed_psbt_b64 = "cHNidP8BAFICAAAAASqJ31Trzpdt/MCBc1rpqmJyTcrhHNgqYqmsoDzHoklrAQAAAAD+////AYcmAAAAAAAAFgAUVH5mMP/WhqzXEzUORHbh1WJ7TS4AAAAAAAEBKxAnAAAAAAAAIgAgW8ODIeZA3ep/uESxtEZmQlxl4Q0QWWbe4I7x3aHuEvAiAgI0eOoa6SLJeaxzFWRXvzgWElJmJgyZMSfbSZ7plUxF9kgwRQIhAKTtWurRx19SWBS0G50IkvEDqbdZG2Q0KuTPB3BRWUCoAiBBWAtAQdmL+uV7aMwcJIacsFtYzrGagkhf6ZfEySXPXgEBBYtRIQI0eOoa6SLJeaxzFWRXvzgWElJmJgyZMSfbSZ7plUxF9iECYYmlbj1NXorYlB1Ed7jOwa4nt+xwhePNaxnQW53o6lQhApaCK4Vcv04C6td57v3zGuHGrrVjXQEMKwKbbS8GHrkKIQLEV1INwWxsAYHEj/ElyUDHWQOxdbsfQzP2LT4IRZmWY1SuIgYCNHjqGukiyXmscxVkV784FhJSZiYMmTEn20me6ZVMRfYc99BAkDAAAIABAACAAAAAgAIAAIAAAAAABgAAACIGAmGJpW49TV6K2JQdRHe4zsGuJ7fscIXjzWsZ0Fud6OpUHDpStc0wAACAAQAAgAAAAIACAACAAAAAAAYAAAAiBgKWgiuFXL9OAurXee798xrhxq61Y10BDCsCm20vBh65ChwSmA7tMAAAgAEAAIAAAACAAgAAgAAAAAAGAAAAIgYCxFdSDcFsbAGBxI/xJclAx1kDsXW7H0Mz9i0+CEWZlmMcx9BkijAAAIABAACAAAAAgAIAAIAAAAAABgAAAAAA"
 
         self.child.sendline("sign_transaction")
-        self.expect("Paste in your account map (AKA output record")
-
-        self.child.sendline(account_map)
         self.expect("Paste partially signed bitcoin transaction (PSBT) in base64 form")
 
         self.child.sendline(unsigned_psbt_b64)
-        self.expect("Display as testnet?")
+        self.expect(
+            "Transaction appears to be a testnet transaction. Display as testnet?"[-19:]
+        )
 
         self.child.sendline("Y")
+        self.expect("Paste in your account map (AKA output record")
+
+        self.child.sendline(account_map)
         self.expect(
             "PSBT sends 9,863 sats to tb1q23lxvv8l66r2e4cnx58ygahp6438knfwp8lapc with a fee of 137 sats (1.37% of spend)"
         )

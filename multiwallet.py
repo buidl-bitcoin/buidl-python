@@ -741,16 +741,20 @@ class MultiWallet(Cmd):
           - If there is change, we validate it belongs to the same multisig wallet as all inputs.
         """
 
-        # Unfortunately, there is no way to validate change without having the hdpubkey_map
-        # TODO: make version where users can enter this later (after manually approving the transaction)?
-        p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
         psbt_obj = _get_psbt_obj()
 
-        hdpubkey_map = {}
-        for key_record in p2wsh_sortedmulti_obj.key_records:
-            hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
-                key_record["xpub_parent"]
-            )
+        if psbt_obj.hd_pubs:
+            # if the PSBT included hd_pubs, then buidl will build the hdpubkey_map automatically from that
+            hdpubkey_map = {}
+        else:
+            # ask for output descriptors to use to build hdpubkey_map
+            p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
+
+            hdpubkey_map = {}
+            for key_record in p2wsh_sortedmulti_obj.key_records:
+                hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
+                    key_record["xpub_parent"]
+                )
 
         psbt_described = psbt_obj.describe_basic_multisig_tx(
             hdpubkey_map=hdpubkey_map, xfp_for_signing=None
