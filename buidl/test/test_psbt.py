@@ -647,7 +647,7 @@ class PSBTTest(TestCase):
             )
 
     def test_describe_basic_multisig_nopubkeymap(self):
-        psbt_with_xpubs = "cHNidP8BAF4CAAAAAVnAAJBVdhn3JXR/+xnIV3909mMlK54ux56qruCYyDMxAAAAAAD9////AR2GAQAAAAAAIgAghWi2ObHovaOzrJHz7w8+smg2+1eAamJxXoWGMhzN27HCeh8ATwEENYfPBIH57suAAAACWsKNF5QmpSZFlYXQ5PRaHaP9uAZOqPmLkbP9AiymDtwCd5mfakF7WtxnH7YzkJdpAnPKZ+WR+xHmGe5YW8C6z1EU4MWVxTAAAIABAACAAAAAgAIAAIBPAQQ1h88EkYCp9oAAAAIGrAFY5Fzsoqb8E8E/f9Lk6rTVkGn6Pkg6D9I4TN958gIhFhsdVpYmJBmJ+mkCBjuw/7eYCaArAD+9TT0JUQtzihSDjz/5MAAAgAEAAIAAAACAAgAAgAABAH0CAAAAAZt5QczPUEc5WphZD5A3659qq7bSTYLpCSu4cRZlWJezAAAAAAD+////AqCGAQAAAAAAIgAgiPOsvg8crqxeGccQKjuw5+A19GFMOaj83WdxsnakR8AKZ+QAAAAAABYAFA+VUziCYIHZLvUbTbABHskgY2f9wHofAAEBK6CGAQAAAAAAIgAgiPOsvg8crqxeGccQKjuw5+A19GFMOaj83WdxsnakR8ABAwQBAAAAAQVHUSEDOCPR/ei1x+po6gsWOhb7u/HPplV598QZG2DlCOVatoUhA7jNisc8iZsolWXC08/epb5ZM24r2zCPIqBt7KT1BYDSUq4iBgM4I9H96LXH6mjqCxY6Fvu78c+mVXn3xBkbYOUI5Vq2hRzgxZXFMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAIgYDuM2KxzyJmyiVZcLTz96lvlkzbivbMI8ioG3spPUFgNIcg48/+TAAAIABAACAAAAAgAIAAIAAAAAAAAAAAAAA"
+        psbt_with_xpubs = "cHNidP8BAF4CAAAAAVnAAJBVdhn3JXR/+xnIV3909mMlK54ux56qruCYyDMxAAAAAAD9////AZ+EAQAAAAAAIgAghWi2ObHovaOzrJHz7w8+smg2+1eAamJxXoWGMhzN27FSfh8ATwEENYfPBIH57suAAAACWsKNF5QmpSZFlYXQ5PRaHaP9uAZOqPmLkbP9AiymDtwCd5mfakF7WtxnH7YzkJdpAnPKZ+WR+xHmGe5YW8C6z1EU4MWVxTAAAIABAACAAAAAgAIAAIBPAQQ1h88EkYCp9oAAAAIGrAFY5Fzsoqb8E8E/f9Lk6rTVkGn6Pkg6D9I4TN958gIhFhsdVpYmJBmJ+mkCBjuw/7eYCaArAD+9TT0JUQtzihSDjz/5MAAAgAEAAIAAAACAAgAAgAABAH0CAAAAAZt5QczPUEc5WphZD5A3659qq7bSTYLpCSu4cRZlWJezAAAAAAD+////AqCGAQAAAAAAIgAgiPOsvg8crqxeGccQKjuw5+A19GFMOaj83WdxsnakR8AKZ+QAAAAAABYAFA+VUziCYIHZLvUbTbABHskgY2f9wHofAAEBK6CGAQAAAAAAIgAgiPOsvg8crqxeGccQKjuw5+A19GFMOaj83WdxsnakR8ABAwQBAAAAAQVHUSEDOCPR/ei1x+po6gsWOhb7u/HPplV598QZG2DlCOVatoUhA7jNisc8iZsolWXC08/epb5ZM24r2zCPIqBt7KT1BYDSUq4iBgM4I9H96LXH6mjqCxY6Fvu78c+mVXn3xBkbYOUI5Vq2hRzgxZXFMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAIgYDuM2KxzyJmyiVZcLTz96lvlkzbivbMI8ioG3spPUFgNIcg48/+TAAAIABAACAAAAAgAIAAIAAAAAAAAAAAAAA"
 
         psbt_obj = PSBT.parse_base64(psbt_with_xpubs, network="testnet")
         # test having an empty hd pubkey map and one made of hd pubkeys
@@ -666,14 +666,14 @@ class PSBTTest(TestCase):
         ]
 
         psbt_description_want = {
-            "txid": "15a9523496a8d9014144c6227204d3243accd4d7e5d8bafae0f66d84d86d1f92",
-            "tx_summary_text": "PSBT sends 99,869 sats to tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar with a fee of 131 sats (0.13% of spend)",
-            "locktime": 2063042,
+            "txid": "8b8f537cff81ca69fbccb08f0f5e1f4190f417a06c8242ccfb2880fac45f9f39",
+            "tx_summary_text": "PSBT sends 99,487 sats to tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar with a fee of 513 sats (0.51% of spend)",
+            "locktime": 2063954,
             "version": 2,
             "network": "testnet",
-            "tx_fee_sats": 131,
+            "tx_fee_sats": 513,
             "total_input_sats": 100000,
-            "output_spend_sats": 99869,
+            "output_spend_sats": 99487,
             "change_addr": "",
             "output_change_sats": 0,
             "change_sats": 0,
@@ -707,7 +707,7 @@ class PSBTTest(TestCase):
             ],
             "outputs_desc": [
                 {
-                    "sats": 99869,
+                    "sats": 99487,
                     "addr": "tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar",
                     "addr_type": "P2WSH",
                     "is_change": False,
@@ -742,14 +742,13 @@ class PSBTTest(TestCase):
         psbt_obj.finalize()
         self.assertTrue(psbt_obj.validate())
 
-        tx_hex_want = "0200000000010159c00090557619f725747ffb19c8577f74f663252b9e2ec79eaaaee098c833310000000000fdffffff011d860100000000002200208568b639b1e8bda3b3ac91f3ef0f3eb26836fb57806a62715e8586321ccddbb10300483045022100d85acd84aa42c6cf797b212986dfabf597aa0a8ad65e296d2731e8d58ac2f72502203c3ca17a00aed3b9c33dc1c6df57a06b8a8e7f78b6f4813e6633e2d0a0232fa401475121033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab6852103b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d252aec27a1f00"
+        tx_hex_want = "0200000000010159c00090557619f725747ffb19c8577f74f663252b9e2ec79eaaaee098c833310000000000fdffffff019f840100000000002200208568b639b1e8bda3b3ac91f3ef0f3eb26836fb57806a62715e8586321ccddbb103004630430220582891c9cffa213caaea3e9720adeb7ada8d6c4d7e77cd1796cfcf43fb6a83d6021f01b112b000a6d98f59d557f09c4bbfd9cc087e9847de70ee205d40945f211e01475121033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab6852103b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d252ae527e1f00"
 
         tx_obj = psbt_obj.final_tx()
-
         self.assertEqual(tx_obj.serialize().hex(), tx_hex_want)
         self.assertEqual(
             tx_obj.id(),
-            "15a9523496a8d9014144c6227204d3243accd4d7e5d8bafae0f66d84d86d1f92",
+            "8b8f537cff81ca69fbccb08f0f5e1f4190f417a06c8242ccfb2880fac45f9f39",
         )
 
     def test_psbt_multisig_describe_1of4(self):
