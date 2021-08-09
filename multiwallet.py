@@ -748,6 +748,9 @@ class MultiWallet(Cmd):
             hdpubkey_map = {}
         else:
             # ask for output descriptors to use to build hdpubkey_map
+            print_blue(
+                "PSBT doesn't include enough info to guess your account map (for validation)."
+            )
             p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
 
             hdpubkey_map = {}
