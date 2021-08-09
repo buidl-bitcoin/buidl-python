@@ -649,7 +649,6 @@ class PSBTTest(TestCase):
     def test_describe_basic_multisig_nopubkeymap(self):
         psbt_with_xpubs = "cHNidP8BAF4CAAAAAVnAAJBVdhn3JXR/+xnIV3909mMlK54ux56qruCYyDMxAAAAAAD9////AZ+EAQAAAAAAIgAghWi2ObHovaOzrJHz7w8+smg2+1eAamJxXoWGMhzN27FSfh8ATwEENYfPBIH57suAAAACWsKNF5QmpSZFlYXQ5PRaHaP9uAZOqPmLkbP9AiymDtwCd5mfakF7WtxnH7YzkJdpAnPKZ+WR+xHmGe5YW8C6z1EU4MWVxTAAAIABAACAAAAAgAIAAIBPAQQ1h88EkYCp9oAAAAIGrAFY5Fzsoqb8E8E/f9Lk6rTVkGn6Pkg6D9I4TN958gIhFhsdVpYmJBmJ+mkCBjuw/7eYCaArAD+9TT0JUQtzihSDjz/5MAAAgAEAAIAAAACAAgAAgAABAH0CAAAAAZt5QczPUEc5WphZD5A3659qq7bSTYLpCSu4cRZlWJezAAAAAAD+////AqCGAQAAAAAAIgAgiPOsvg8crqxeGccQKjuw5+A19GFMOaj83WdxsnakR8AKZ+QAAAAAABYAFA+VUziCYIHZLvUbTbABHskgY2f9wHofAAEBK6CGAQAAAAAAIgAgiPOsvg8crqxeGccQKjuw5+A19GFMOaj83WdxsnakR8ABAwQBAAAAAQVHUSEDOCPR/ei1x+po6gsWOhb7u/HPplV598QZG2DlCOVatoUhA7jNisc8iZsolWXC08/epb5ZM24r2zCPIqBt7KT1BYDSUq4iBgM4I9H96LXH6mjqCxY6Fvu78c+mVXn3xBkbYOUI5Vq2hRzgxZXFMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAIgYDuM2KxzyJmyiVZcLTz96lvlkzbivbMI8ioG3spPUFgNIcg48/+TAAAIABAACAAAAAgAIAAIAAAAAAAAAAAAAA"
 
-        psbt_obj = PSBT.parse_base64(psbt_with_xpubs, network="testnet")
         # test having an empty hd pubkey map and one made of hd pubkeys
         hdpubkey_map_tests = [
             {},  # intentinally not passing in an hdpubkey_map
@@ -715,41 +714,55 @@ class PSBTTest(TestCase):
             ],
         }
 
-        for hdpubkey_map in hdpubkey_map_tests:
-            psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
-                hdpubkey_map=hdpubkey_map,
-                xfp_for_signing=None,
-            )
-            self.assertEqual(psbt_described, psbt_description_want)
+        # Due to segwit, TXID is the same regardless of which seed phrase is used to sign the TX
+        # This was broadcast to the testnet blockchain on 2021-08-08:
+        tx_id_want = "8b8f537cff81ca69fbccb08f0f5e1f4190f417a06c8242ccfb2880fac45f9f39"
+        # TX hex is different though, due to different signatures from different pubkeys
+        action_tx_hex_want = "0200000000010159c00090557619f725747ffb19c8577f74f663252b9e2ec79eaaaee098c833310000000000fdffffff019f840100000000002200208568b639b1e8bda3b3ac91f3ef0f3eb26836fb57806a62715e8586321ccddbb103004630430220582891c9cffa213caaea3e9720adeb7ada8d6c4d7e77cd1796cfcf43fb6a83d6021f01b112b000a6d98f59d557f09c4bbfd9cc087e9847de70ee205d40945f211e01475121033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab6852103b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d252ae527e1f00"
+        agent_tx_hex_want = "0200000000010159c00090557619f725747ffb19c8577f74f663252b9e2ec79eaaaee098c833310000000000fdffffff019f840100000000002200208568b639b1e8bda3b3ac91f3ef0f3eb26836fb57806a62715e8586321ccddbb10300483045022100e7d4808c724a624385b386efa26f30fc2b1ab6c212818601aae8ff10645e42910220571a99fb675a7646c27591dc90b78d7a615bb7f5a08e577459764c63083c3d6f01475121033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab6852103b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d252ae527e1f00"
 
-        psbt_description_want["root_paths"] = {"m/48'/1'/0'/2'/0/0"}
-        for hdpubkey_map in hdpubkey_map_tests:
-            psbt_described_with_xfp = psbt_obj.describe_basic_p2wsh_multisig_tx(
-                hdpubkey_map={},  # intentinally not passing in an hdpubkey_map
-                xfp_for_signing="838f3ff9",  # agentx12
-            )
+        for xfp_for_signing in (None, "e0c595c5", "838f3ff9"):
+            for seed_word, tx_hex_want in (
+                ("action", action_tx_hex_want),
+                ("agent", agent_tx_hex_want),
+            ):
+                hd_priv = HDPrivateKey.from_mnemonic(
+                    f"{seed_word} " * 12, network="testnet"
+                )
 
-            self.assertEqual(psbt_described_with_xfp, psbt_description_want)
+                if xfp_for_signing:
+                    psbt_description_want["root_paths"] = {"m/48'/1'/0'/2'/0/0"}
 
-        # Now sign the transaction using the given paths
-        hd_priv = HDPrivateKey.from_mnemonic("action " * 12, network="testnet")
-        private_keys = [
-            hd_priv.traverse(root_path).private_key
-            for root_path in psbt_described_with_xfp["root_paths"]
-        ]
-        self.assertTrue(psbt_obj.sign_with_private_keys(private_keys))
-        self.assertTrue(psbt_obj.validate())
-        psbt_obj.finalize()
-        self.assertTrue(psbt_obj.validate())
+                for hdpubkey_map in hdpubkey_map_tests:
+                    psbt_obj = PSBT.parse_base64(psbt_with_xpubs, network="testnet")
+                    psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
+                        hdpubkey_map=hdpubkey_map,
+                        xfp_for_signing=xfp_for_signing,
+                    )
 
-        tx_hex_want = "0200000000010159c00090557619f725747ffb19c8577f74f663252b9e2ec79eaaaee098c833310000000000fdffffff019f840100000000002200208568b639b1e8bda3b3ac91f3ef0f3eb26836fb57806a62715e8586321ccddbb103004630430220582891c9cffa213caaea3e9720adeb7ada8d6c4d7e77cd1796cfcf43fb6a83d6021f01b112b000a6d98f59d557f09c4bbfd9cc087e9847de70ee205d40945f211e01475121033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab6852103b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d252ae527e1f00"
+                    self.assertEqual(psbt_described, psbt_description_want)
 
-        tx_obj = psbt_obj.final_tx()
-        self.assertEqual(tx_obj.serialize().hex(), tx_hex_want)
-        self.assertEqual(
-            tx_obj.id(),
-            "8b8f537cff81ca69fbccb08f0f5e1f4190f417a06c8242ccfb2880fac45f9f39",
-        )
+                if not xfp_for_signing:
+                    # Can't sign without knowing who we're signing for, these ones are only testing the describe_...() method
+                    continue
+
+                private_keys = [
+                    hd_priv.traverse(root_path).private_key
+                    for root_path in psbt_described["root_paths"]
+                ]
+                self.assertTrue(psbt_obj.sign_with_private_keys(private_keys))
+                self.assertTrue(psbt_obj.validate())
+                self.assertIsNone(psbt_obj.finalize())
+                self.assertTrue(psbt_obj.validate())
+
+                tx_obj = psbt_obj.final_tx()
+
+                tx_obj.serialize().hex()
+                self.assertEqual(tx_obj.serialize().hex(), tx_hex_want)
+                self.assertEqual(
+                    tx_obj.id(),
+                    tx_id_want,
+                )
 
     def test_psbt_multisig_describe_1of4(self):
         valid_output_record = "wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"
