@@ -643,7 +643,7 @@ class PSBT:
             if not was_replaced:
                 raise ValueError(f"xfp_hex {xfp_to_hide} not found in psbt")
 
-    def _describe_basic_multisig_tx_inputs(self, hdpubkey_map, xfp_for_signing=None):
+    def _describe_basic_p2wsh_inputs(self, hdpubkey_map, xfp_for_signing=None):
         root_paths_for_signing = set()
 
         # These will be used for all inputs and change outputs
@@ -752,7 +752,7 @@ class PSBT:
             "root_paths_for_signing": root_paths_for_signing,
         }
 
-    def _describe_basic_multisig_tx_outputs(
+    def _describe_basic_p2wsh_outputs(
         self,
         expected_quorum_m,
         expected_quorum_n,
@@ -865,9 +865,9 @@ class PSBT:
             "output_spend_sats": output_spend_sats,
         }
 
-    def describe_basic_multisig_tx(self, hdpubkey_map={}, xfp_for_signing=None):
+    def describe_basic_p2wsh_multisig_tx(self, hdpubkey_map={}, xfp_for_signing=None):
         """
-        Describe a typical multisig transaction in a human-readable way for manual verification before signing.
+        Describe a typical p2wsh multisig transaction in a human-readable way for manual verification before signing.
 
         This tool supports transactions with the following constraints:
         * ALL inputs have the exact same multisig wallet (quorum + xpubs)
@@ -884,9 +884,10 @@ class PSBT:
           }
         These HDPublicKey's will be traversed according to the paths given in the PSBT.
 
-        TODO: add helper method that accepts and output descriptor, converts it into an hdpubkey_map, and calls this method
-        TODO: add support for batching? Would change already complex logic re change validation.
-        TODO: add support for p2sh and other script types
+        TODOS:
+          - add helper method that accepts an output descriptor, converts it into an hdpubkey_map, and then calls this method
+          - add support for batching (still restricted to 1 change output)
+          - add support for p2sh and other script types
         """
 
         self.validate()
@@ -905,7 +906,7 @@ class PSBT:
                     hdpubkey.xpub()
                 )
 
-        inputs_described = self._describe_basic_multisig_tx_inputs(
+        inputs_described = self._describe_basic_p2wsh_inputs(
             hdpubkey_map=hdpubkey_map,
             xfp_for_signing=xfp_for_signing,
         )
@@ -915,7 +916,7 @@ class PSBT:
         root_paths_for_signing = inputs_described["root_paths_for_signing"]
         total_input_sats = sum([x["sats"] for x in inputs_desc])
 
-        outputs_described = self._describe_basic_multisig_tx_outputs(
+        outputs_described = self._describe_basic_p2wsh_outputs(
             hdpubkey_map=hdpubkey_map,
             xfp_for_signing=xfp_for_signing,
             # Tool requires m-of-n be same for inputs as outputs

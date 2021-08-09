@@ -716,7 +716,7 @@ class PSBTTest(TestCase):
         }
 
         for hdpubkey_map in hdpubkey_map_tests:
-            psbt_described = psbt_obj.describe_basic_multisig_tx(
+            psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
                 hdpubkey_map=hdpubkey_map,
                 xfp_for_signing=None,
             )
@@ -724,7 +724,7 @@ class PSBTTest(TestCase):
 
         psbt_description_want["root_paths"] = {"m/48'/1'/0'/2'/0/0"}
         for hdpubkey_map in hdpubkey_map_tests:
-            psbt_described_with_xfp = psbt_obj.describe_basic_multisig_tx(
+            psbt_described_with_xfp = psbt_obj.describe_basic_p2wsh_multisig_tx(
                 hdpubkey_map={},  # intentinally not passing in an hdpubkey_map
                 xfp_for_signing="838f3ff9",  # agentx12
             )
@@ -931,7 +931,7 @@ class PSBTTest(TestCase):
             ],
         }
 
-        psbt_described = psbt_obj.describe_basic_multisig_tx(
+        psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
             hdpubkey_map=hdpubkey_map, xfp_for_signing=None
         )
         self.assertEqual(
@@ -947,7 +947,7 @@ class PSBTTest(TestCase):
             "m/48'/1'/0'/2'/1/0",
             "m/48'/1'/0'/2'/1/2",
         }
-        psbt_described_with_xfp = psbt_obj.describe_basic_multisig_tx(
+        psbt_described_with_xfp = psbt_obj.describe_basic_p2wsh_multisig_tx(
             hdpubkey_map=hdpubkey_map, xfp_for_signing=root_xfp_hex
         )
         self.assertEqual(psbt_described_with_xfp, want)
@@ -982,7 +982,7 @@ class PSBTTest(TestCase):
 
         psbt_obj = PSBT.parse_base64(testnet_psbt_b64, network="testnet")
 
-        psbt_described = psbt_obj.describe_basic_multisig_tx(
+        psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
             hdpubkey_map=hdpubkey_map, xfp_for_signing=None
         )
         psbt_description_expected = {
@@ -1054,7 +1054,7 @@ class PSBTTest(TestCase):
         # root paths for this input given the following xfp to sign for
         root_xfp_hex = "f7d04090"
         psbt_description_expected["root_paths"] = {"m/48'/1'/0'/2'/0/0"}
-        psbt_described_with_xfp = psbt_obj.describe_basic_multisig_tx(
+        psbt_described_with_xfp = psbt_obj.describe_basic_p2wsh_multisig_tx(
             hdpubkey_map=hdpubkey_map, xfp_for_signing=root_xfp_hex
         )
         self.assertEqual(psbt_described_with_xfp, psbt_description_expected)
