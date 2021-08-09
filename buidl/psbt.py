@@ -915,9 +915,6 @@ class PSBT:
             hdpubkey_map=hdpubkey_map,
             xfp_for_signing=xfp_for_signing,
         )
-        inputs_quorum_m = inputs_described["inputs_quorum_m"]
-        inputs_quorum_n = inputs_described["inputs_quorum_n"]
-        inputs_desc = inputs_described["inputs_desc"]
         root_paths_for_signing = inputs_described["root_paths_for_signing"]
         total_input_sats = inputs_described["total_input_sats"]
 
@@ -925,12 +922,9 @@ class PSBT:
             hdpubkey_map=hdpubkey_map,
             xfp_for_signing=xfp_for_signing,
             # Tool requires m-of-n be same for inputs as outputs
-            expected_quorum_m=inputs_quorum_m,
-            expected_quorum_n=inputs_quorum_n,
+            expected_quorum_m=inputs_described["inputs_quorum_m"],
+            expected_quorum_n=inputs_described["inputs_quorum_n"],
         )
-        outputs_desc = outputs_described["outputs_desc"]
-        change_addr = outputs_described["change_addr"]
-        output_change_sats = outputs_described["output_change_sats"]
         spend_addr = outputs_described["spend_addr"]
         output_spend_sats = outputs_described["output_spend_sats"]
 
@@ -947,13 +941,13 @@ class PSBT:
             "tx_fee_sats": tx_fee_sats,
             "total_input_sats": total_input_sats,
             "output_spend_sats": output_spend_sats,
-            "change_addr": change_addr,
-            "output_change_sats": output_change_sats,
+            "change_addr": outputs_described["change_addr"],
+            "output_change_sats": outputs_described["output_change_sats"],
             "change_sats": total_input_sats - tx_fee_sats - output_spend_sats,
             "spend_addr": spend_addr,
             # Input/output level
-            "inputs_desc": inputs_desc,
-            "outputs_desc": outputs_desc,
+            "inputs_desc": inputs_described["inputs_desc"],
+            "outputs_desc": outputs_described["outputs_desc"],
         }
 
         if root_paths_for_signing:
