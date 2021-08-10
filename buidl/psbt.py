@@ -643,8 +643,7 @@ class PSBT:
             if not was_replaced:
                 raise ValueError(f"xfp_hex {xfp_to_hide} not found in psbt")
 
-    def _describe_basic_p2wsh_inputs(self, hdpubkey_map, xfp_for_signing=None):
-        root_paths_for_signing = set()
+    def _describe_basic_p2wsh_inputs(self, hdpubkey_map):
 
         # These will be used for all inputs and change outputs
         inputs_quorum_m, inputs_quorum_n = None, None
@@ -652,6 +651,7 @@ class PSBT:
         # Gather TX info and validate
         inputs_desc = []
         total_input_sats = 0
+        root_paths_for_signing = {}
         for cnt, psbt_in in enumerate(self.psbt_ins):
             psbt_in.validate()
 
@@ -708,8 +708,11 @@ class PSBT:
                         f"xpub {hdpub} with path {named_pub.root_path} does not appear to be part of input # {cnt}"
                     )
 
-                if xfp_for_signing and xfp_for_signing == xfp:
-                    root_paths_for_signing.add(named_pub.root_path)
+                # TODO: use default dict?
+                if xfp in root_paths_for_signing:
+                    root_paths_for_signing[xfp].add(named_pub.root_path)
+                else:
+                    root_paths_for_signing[xfp] = {named_pub.root_path}
 
                 # this is very similar to what bitcoin-core's decodepsbt returns
                 bip32_derivs.append(
@@ -740,14 +743,10 @@ class PSBT:
             }
             inputs_desc.append(input_desc)
 
-        if xfp_for_signing:
-            if not root_paths_for_signing:
-                err = [
-                    "Did you enter a root fingerprint for another seed?",
-                    f"The xfp supplied ({xfp_for_signing}) does not correspond to the transaction inputs, which are {input_quorum_m} of the following:",
-                    ", ".join(sorted(list(hdpubkey_map.keys()))),
-                ]
-                raise SuspiciousTransaction("\n".join(err))
+        if not root_paths_for_signing:
+            raise SuspiciousTransaction(
+                "No `root_paths_for_signing` with `hdpubkey_map` {hdpubkey_map} in PSBT:\n{self}"
+            )
 
         return {
             "inputs_quorum_m": inputs_quorum_m,
@@ -762,7 +761,6 @@ class PSBT:
         expected_quorum_m,
         expected_quorum_n,
         hdpubkey_map={},
-        xfp_for_signing=None,
     ):
 
         # This tool only supports TXs with 1-2 outputs (sweep TX OR spend+change TX):
@@ -870,7 +868,7 @@ class PSBT:
             "output_spend_sats": output_spend_sats,
         }
 
-    def describe_basic_p2wsh_multisig_tx(self, hdpubkey_map={}, xfp_for_signing=None):
+    def describe_basic_p2wsh_multisig_tx(self, hdpubkey_map={}):
         """
         Describe a typical p2wsh multisig transaction in a human-readable way for manual verification before signing.
 
@@ -879,8 +877,6 @@ class PSBT:
         * There can only be 1 output (sweep transaction) or 2 outputs (spend + change). If 2 outputs, we validate the change (it has the same quorum/xpubs as the inputs we sign).
 
         A SuspiciousTransaction Exception does not strictly mean there is a problem with the transaction, it is likely just too complex for simple summary.
-
-        If `xfp_for_signing` (a hex string) is included, then the root_paths needed to derive child private keys (for signing) from that seed will be returned for future use.
 
         Due to the nature of how PSBT works, if your PSBT is slimmed down to not contain xpubs & prev TX hexes, you must supply a `hdpubkey_map` for ALL n xpubs:
           {
@@ -911,16 +907,11 @@ class PSBT:
                     hdpubkey.xpub()
                 )
 
-        inputs_described = self._describe_basic_p2wsh_inputs(
-            hdpubkey_map=hdpubkey_map,
-            xfp_for_signing=xfp_for_signing,
-        )
-        root_paths_for_signing = inputs_described["root_paths_for_signing"]
+        inputs_described = self._describe_basic_p2wsh_inputs(hdpubkey_map=hdpubkey_map)
         total_input_sats = inputs_described["total_input_sats"]
 
         outputs_described = self._describe_basic_p2wsh_outputs(
             hdpubkey_map=hdpubkey_map,
-            xfp_for_signing=xfp_for_signing,
             # Tool requires m-of-n be same for inputs as outputs
             expected_quorum_m=inputs_described["inputs_quorum_m"],
             expected_quorum_n=inputs_described["inputs_quorum_n"],
@@ -931,7 +922,7 @@ class PSBT:
         # comma separating satoshis for better display
         tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with a fee of {tx_fee_sats:,} sats ({round(tx_fee_sats / total_input_sats * 100, 2)}% of spend)"
 
-        to_return = {
+        return {
             # TX level:
             "txid": self.tx_obj.id(),
             "tx_summary_text": tx_summary_text,
@@ -948,12 +939,8 @@ class PSBT:
             # Input/output level
             "inputs_desc": inputs_described["inputs_desc"],
             "outputs_desc": outputs_described["outputs_desc"],
+            "root_paths": inputs_described["root_paths_for_signing"],
         }
-
-        if root_paths_for_signing:
-            to_return["root_paths"] = root_paths_for_signing
-
-        return to_return
 
     def describe_p2pkh_sweep(self, privkey_obj=None):
         """

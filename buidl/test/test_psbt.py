@@ -712,6 +712,10 @@ class PSBTTest(TestCase):
                     "is_change": False,
                 }
             ],
+            "root_paths": {
+                "e0c595c5": {"m/48'/1'/0'/2'/0/0"},
+                "838f3ff9": {"m/48'/1'/0'/2'/0/0"},
+            },
         }
 
         # Due to segwit, TXID is the same regardless of which seed phrase is used to sign the TX
@@ -721,48 +725,40 @@ class PSBTTest(TestCase):
         action_tx_hex_want = "0200000000010159c00090557619f725747ffb19c8577f74f663252b9e2ec79eaaaee098c833310000000000fdffffff019f840100000000002200208568b639b1e8bda3b3ac91f3ef0f3eb26836fb57806a62715e8586321ccddbb103004630430220582891c9cffa213caaea3e9720adeb7ada8d6c4d7e77cd1796cfcf43fb6a83d6021f01b112b000a6d98f59d557f09c4bbfd9cc087e9847de70ee205d40945f211e01475121033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab6852103b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d252ae527e1f00"
         agent_tx_hex_want = "0200000000010159c00090557619f725747ffb19c8577f74f663252b9e2ec79eaaaee098c833310000000000fdffffff019f840100000000002200208568b639b1e8bda3b3ac91f3ef0f3eb26836fb57806a62715e8586321ccddbb10300483045022100e7d4808c724a624385b386efa26f30fc2b1ab6c212818601aae8ff10645e42910220571a99fb675a7646c27591dc90b78d7a615bb7f5a08e577459764c63083c3d6f01475121033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab6852103b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d252ae527e1f00"
 
-        for xfp_for_signing in (None, "e0c595c5", "838f3ff9"):
-            for seed_word, tx_hex_want in (
-                ("action", action_tx_hex_want),
-                ("agent", agent_tx_hex_want),
-            ):
-                hd_priv = HDPrivateKey.from_mnemonic(
-                    f"{seed_word} " * 12, network="testnet"
+        for seed_word, tx_hex_want in (
+            ("action", action_tx_hex_want),
+            ("agent", agent_tx_hex_want),
+        ):
+            hd_priv = HDPrivateKey.from_mnemonic(
+                f"{seed_word} " * 12, network="testnet"
+            )
+
+            for hdpubkey_map in hdpubkey_map_tests:
+                psbt_obj = PSBT.parse_base64(psbt_with_xpubs, network="testnet")
+                psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
+                    hdpubkey_map=hdpubkey_map,
                 )
+                self.assertEqual(psbt_described, psbt_description_want)
 
-                if xfp_for_signing:
-                    psbt_description_want["root_paths"] = {"m/48'/1'/0'/2'/0/0"}
-
-                for hdpubkey_map in hdpubkey_map_tests:
-                    psbt_obj = PSBT.parse_base64(psbt_with_xpubs, network="testnet")
-                    psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
-                        hdpubkey_map=hdpubkey_map,
-                        xfp_for_signing=xfp_for_signing,
-                    )
-
-                    self.assertEqual(psbt_described, psbt_description_want)
-
-                if not xfp_for_signing:
-                    # Can't sign without knowing who we're signing for, these ones are only testing the describe_...() method
-                    continue
-
-                private_keys = [
-                    hd_priv.traverse(root_path).private_key
-                    for root_path in psbt_described["root_paths"]
+            private_keys = [
+                hd_priv.traverse(root_path).private_key
+                for root_path in psbt_described["root_paths"][
+                    hd_priv.fingerprint().hex()
                 ]
-                self.assertTrue(psbt_obj.sign_with_private_keys(private_keys))
-                self.assertTrue(psbt_obj.validate())
-                self.assertIsNone(psbt_obj.finalize())
-                self.assertTrue(psbt_obj.validate())
+            ]
+            self.assertTrue(psbt_obj.sign_with_private_keys(private_keys))
+            self.assertTrue(psbt_obj.validate())
+            self.assertIsNone(psbt_obj.finalize())
+            self.assertTrue(psbt_obj.validate())
 
-                tx_obj = psbt_obj.final_tx()
+            tx_obj = psbt_obj.final_tx()
 
-                tx_obj.serialize().hex()
-                self.assertEqual(tx_obj.serialize().hex(), tx_hex_want)
-                self.assertEqual(
-                    tx_obj.id(),
-                    tx_id_want,
-                )
+            tx_obj.serialize().hex()
+            self.assertEqual(tx_obj.serialize().hex(), tx_hex_want)
+            self.assertEqual(
+                tx_obj.id(),
+                tx_id_want,
+            )
 
     def test_psbt_multisig_describe_1of4(self):
         valid_output_record = "wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"
@@ -778,7 +774,7 @@ class PSBTTest(TestCase):
         testnet_psbt_b64 = "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"
         psbt_obj = PSBT.parse_base64(testnet_psbt_b64, network="testnet")
 
-        want = {
+        psbt_described_want = {
             "txid": "523f56e8ba1c3d9223d57745cccc83ed7d49d0c0ddae48ba93d1e4d0276fd25e",
             "tx_summary_text": "PSBT sends 5,577 sats to tb1q6een5px0jrffgm9mkf5cvxtvnv0qdzepu40mqy with a fee of 423 sats (7.05% of spend)",
             "locktime": 0,
@@ -941,28 +937,41 @@ class PSBTTest(TestCase):
                     "is_change": False,
                 }
             ],
+            "root_paths": {
+                "c7d0648a": {
+                    "m/48'/1'/0'/2'/1/0",
+                    "m/48'/1'/0'/2'/0/3",
+                    "m/48'/1'/0'/2'/0/5",
+                    "m/48'/1'/0'/2'/1/2",
+                },
+                "12980eed": {
+                    "m/48'/1'/0'/2'/1/0",
+                    "m/48'/1'/0'/2'/0/3",
+                    "m/48'/1'/0'/2'/0/5",
+                    "m/48'/1'/0'/2'/1/2",
+                },
+                "3a52b5cd": {
+                    "m/48'/1'/0'/2'/1/0",
+                    "m/48'/1'/0'/2'/0/3",
+                    "m/48'/1'/0'/2'/0/5",
+                    "m/48'/1'/0'/2'/1/2",
+                },
+                "f7d04090": {
+                    "m/48'/1'/0'/2'/1/0",
+                    "m/48'/1'/0'/2'/0/3",
+                    "m/48'/1'/0'/2'/0/5",
+                    "m/48'/1'/0'/2'/1/2",
+                },
+            },
         }
 
         psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
-            hdpubkey_map=hdpubkey_map, xfp_for_signing=None
+            hdpubkey_map=hdpubkey_map
         )
         self.assertEqual(
             psbt_described,
-            want,
+            psbt_described_want,
         )
-
-        # root paths for this input given the following xfp to sign for
-        root_xfp_hex = "12980eed"
-        want["root_paths"] = {
-            "m/48'/1'/0'/2'/0/3",
-            "m/48'/1'/0'/2'/0/5",
-            "m/48'/1'/0'/2'/1/0",
-            "m/48'/1'/0'/2'/1/2",
-        }
-        psbt_described_with_xfp = psbt_obj.describe_basic_p2wsh_multisig_tx(
-            hdpubkey_map=hdpubkey_map, xfp_for_signing=root_xfp_hex
-        )
-        self.assertEqual(psbt_described_with_xfp, want)
 
         # Now sign the transaction using the given paths
         hd_priv = HDPrivateKey.from_mnemonic(
@@ -970,7 +979,7 @@ class PSBTTest(TestCase):
         )
         private_keys = [
             hd_priv.traverse(root_path).private_key
-            for root_path in psbt_described_with_xfp["root_paths"]
+            for root_path in psbt_described["root_paths"][hd_priv.fingerprint().hex()]
         ]
         self.assertTrue(psbt_obj.sign_with_private_keys(private_keys))
 
@@ -995,7 +1004,7 @@ class PSBTTest(TestCase):
         psbt_obj = PSBT.parse_base64(testnet_psbt_b64, network="testnet")
 
         psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
-            hdpubkey_map=hdpubkey_map, xfp_for_signing=None
+            hdpubkey_map=hdpubkey_map
         )
         psbt_description_expected = {
             "txid": "def5df8d75b149b2ea6d1abb595a9e4afbfb360360e60add21c44ee35d067a37",
@@ -1056,6 +1065,11 @@ class PSBTTest(TestCase):
                     "witness_script": "OP_2 0236a6cf4254c8290a168ecab4aee771018d357ea87154a5b5fea9ed9baee2585e 03833d6e7c4121180fb79180b78a0573ad57c299825f18f49f6942cb38b6bf023a 03a9e341c32d8870706115443cf163bfc3d2da0ca8515a29bcc1a500c65cfb23bb OP_3 OP_CHECKMULTISIG ",
                 },
             ],
+            "root_paths": {
+                "c7d0648a": {"m/48'/1'/0'/2'/0/0"},
+                "12980eed": {"m/48'/1'/0'/2'/0/0"},
+                "f7d04090": {"m/48'/1'/0'/2'/0/0"},
+            },
         }
 
         self.assertEqual(
@@ -1063,11 +1077,8 @@ class PSBTTest(TestCase):
             psbt_described,
         )
 
-        # root paths for this input given the following xfp to sign for
-        root_xfp_hex = "f7d04090"
-        psbt_description_expected["root_paths"] = {"m/48'/1'/0'/2'/0/0"}
         psbt_described_with_xfp = psbt_obj.describe_basic_p2wsh_multisig_tx(
-            hdpubkey_map=hdpubkey_map, xfp_for_signing=root_xfp_hex
+            hdpubkey_map=hdpubkey_map
         )
         self.assertEqual(psbt_described_with_xfp, psbt_description_expected)
 
@@ -1076,7 +1087,9 @@ class PSBTTest(TestCase):
         )
         private_keys = [
             hd_priv.traverse(root_path).private_key
-            for root_path in psbt_described_with_xfp["root_paths"]
+            for root_path in psbt_described_with_xfp["root_paths"][
+                hd_priv.fingerprint().hex()
+            ]
         ]
 
         self.assertTrue(psbt_obj.sign_with_private_keys(private_keys))
