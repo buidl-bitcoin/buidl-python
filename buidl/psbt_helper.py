@@ -6,25 +6,27 @@ from buidl.tx import Tx, TxIn, TxOut
 from buidl.script import RedeemScript, address_to_script_pubkey
 
 
-def _get_child_hdpubkey(xpub_dict, root_path):
+def _safe_get_child_hdpubkey(xfp_dict, xfp_hex, root_path, cnt):
     """
-    Iterate through an xpub_dict to find one that can traverse to the given root_path
+    Given an xfp_dict, inteligently traverse all the xpubs until you find one that can traverse to the given root_path
     """
-    if xpub_dict:
-        for base_path, xpub_obj in xpub_dict.items():
-            child_path = get_unhardened_child_path(
-                root_path=root_path,
-                base_path=base_path,
-            )
-            if child_path:
-                if base_path.count("/") != xpub_obj.depth:
-                    msg = f"base_path {base_path} depth != {xpub_obj.depth} for {xpub_obj}"
-                    raise ValueError(msg)
-                return xpub_obj.traverse(child_path)
+    for base_path, xpub_obj in xfp_dict.get(xfp_hex, {}).items():
+        child_path = get_unhardened_child_path(
+            root_path=root_path,
+            base_path=base_path,
+        )
+        if child_path:
+            if base_path.count("/") != xpub_obj.depth:
+                msg = f"xfp_hex {xfp_hex} for in/output #{cnt} base_path mismatch: {base_path} depth != {xpub_obj.depth} for {xpub_obj}"
+                raise ValueError(msg)
+            return xpub_obj.traverse(child_path)
+    raise ValueError(
+        f"xfp_hex {xfp_hex} with {root_path} for in/output #{cnt} not supplied in xpub_dict"
+    )
 
 
 def create_p2sh_multisig_psbt(
-    xpubs_dict,
+    public_key_records,
     input_dicts,
     output_dicts,
     fee_sats,
@@ -33,32 +35,45 @@ def create_p2sh_multisig_psbt(
     Helper method to create a p2sh multisig PSBT.
 
     network (testnet/mainnet) will be inferred from xpubs/tpubs.
+
+    public_key_records are a list of entries that loom like this: [xfp_hex, xpub_b58, base_path]
+    # TODO: turn this into a new object?
     """
 
-    tx_lookup, pubkey_lookup, redeem_lookup = {}, {}, {}
-    # Use a nested default dict
+    # initialize variables
+    network = None
+    tx_lookup, pubkey_lookup, redeem_lookup, hd_pubs = {}, {}, {}, {}
+
+    # Use a nested default dict for increased readability
+    # It's possible (though nonstandard) for one xfp to have multiple public_key_records in a multisig wallet
     # https://stackoverflow.com/a/19189356
     recursive_defaultdict = lambda: defaultdict(recursive_defaultdict)  # noqa: E731
     xfp_dict = recursive_defaultdict()
 
-    network = None
-
     # This at the child pubkey lookup that each input will traverse off of
-    for xfp_hex, base_paths in xpubs_dict.items():
-        for base_path in base_paths:
+    for xfp_hex, xpub_b58, base_path in public_key_records:
+        hd_pubkey_obj = HDPublicKey.parse(xpub_b58)
 
-            hd_pubkey_obj = HDPublicKey.parse(base_path["xpub_b58"])
+        # We will use this dict/list structure for each input/ouput in the for-loops below
+        xfp_dict[xfp_hex][base_path] = hd_pubkey_obj
 
-            # We will use this dict/list structure for each input/ouput in the for-loops below
-            xfp_dict[xfp_hex][base_path["base_path"]] = hd_pubkey_obj
+        named_global_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
+            child_hd_pub=hd_pubkey_obj,
+            xfp_hex=xfp_hex,
+            # we're only going to base path level
+            path=base_path,
+        )
+        hd_pubs[named_global_hd_pubkey_obj.serialize()] = named_global_hd_pubkey_obj
 
-            if network is None:
-                # Set the initial value
-                network = hd_pubkey_obj.network
-            else:
-                # Confirm it hasn't changed
-                if network != hd_pubkey_obj.network:
-                    raise MixedNetwork(f"Mixed networks in xpubs: {xpubs_dict}")
+        if network is None:
+            # Set the initial value
+            network = hd_pubkey_obj.network
+        else:
+            # Confirm it hasn't changed
+            if network != hd_pubkey_obj.network:
+                raise MixedNetwork(
+                    f"Mixed networks in public key records: {public_key_records}"
+                )
 
     tx_ins = []
     for cnt, input_dict in enumerate(input_dicts):
@@ -77,21 +92,19 @@ def create_p2sh_multisig_psbt(
         input_pubkey_hexes, total_input_sats = [], 0
         for xfp_hex, root_path in input_dict["path_dict"].items():
             # Get the correct xpub/path
-            child_hd_pubkey = _get_child_hdpubkey(
-                xpub_dict=xfp_dict.get(xfp_hex),
+            child_hd_pubkey = _safe_get_child_hdpubkey(
+                xfp_dict=xfp_dict,
+                xfp_hex=xfp_hex,
                 root_path=root_path,
+                cnt=cnt,
             )
-            if child_hd_pubkey is None:
-                raise ValueError(
-                    f"xfp_hex {xfp_hex} for {root_path} from input #{cnt} not supplied in xpubs_dict:  {xpubs_dict}"
-                )
             input_pubkey_hexes.append(child_hd_pubkey.sec().hex())
 
             # Enhance the PSBT
             named_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
                 child_hd_pub=child_hd_pubkey,
                 xfp_hex=xfp_hex,
-                root_path=root_path,
+                path=root_path,
             )
             pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
 
@@ -106,8 +119,8 @@ def create_p2sh_multisig_psbt(
 
         redeem_script = RedeemScript.create_p2sh_multisig(
             quorum_m=input_dict["quorum_m"],
-            # assumes you want to sort pubkeys. TODO: allow for over-ride method?
-            pubkey_hexes=sorted(input_pubkey_hexes),
+            pubkey_hexes=input_pubkey_hexes,
+            sort_keys=True,  # TODO: allow legacy users to customize this?
             expected_addr=utxo.script_pubkey.address(network=network),
             expected_addr_network=network,
         )
@@ -127,7 +140,7 @@ def create_p2sh_multisig_psbt(
         redeem_lookup[redeem_script.hash160()] = redeem_script
 
     tx_outs = []
-    for output_dict in output_dicts:
+    for cnt, output_dict in enumerate(output_dicts):
         tx_out = TxOut(
             amount=output_dict["sats"],
             script_pubkey=address_to_script_pubkey(output_dict["address"]),
@@ -138,21 +151,19 @@ def create_p2sh_multisig_psbt(
             # This output claims to be change, so we must validate it here
             output_pubkey_hexes = []
             for xfp_hex, root_path in output_dict["path_dict"].items():
-                child_hd_pubkey = _get_child_hdpubkey(
-                    xpub_dict=xfp_dict.get(xfp_hex),
+                child_hd_pubkey = _safe_get_child_hdpubkey(
+                    xfp_dict=xfp_dict,
+                    xfp_hex=xfp_hex,
                     root_path=root_path,
+                    cnt=cnt,
                 )
-                if child_hd_pubkey is None:
-                    raise ValueError(
-                        f"xfp_hex {xfp_hex} for {root_path} from output #{cnt} not supplied in xpubs_dict: {xpubs_dict}"
-                    )
                 output_pubkey_hexes.append(child_hd_pubkey.sec().hex())
 
                 # Enhance the PSBT
                 named_hd_pubkey_obj = NamedHDPublicKey.from_hd_pub(
                     child_hd_pub=child_hd_pubkey,
                     xfp_hex=xfp_hex,
-                    root_path=root_path,
+                    path=root_path,
                 )
                 pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
 
@@ -185,15 +196,12 @@ def create_p2sh_multisig_psbt(
             f"TX fee of {fee_sats} sats supplied != {calculated_fee_sats} sats calculated"
         )
 
-    psbt_obj = PSBT.create(tx_obj)
-    psbt_obj.update(
+    return PSBT.create(
+        tx_obj=tx_obj,
+        validate=True,
         tx_lookup=tx_lookup,
         pubkey_lookup=pubkey_lookup,
         redeem_lookup=redeem_lookup,
         witness_lookup=None,
+        hd_pubs=hd_pubs,
     )
-
-    if psbt_obj.validate() is not True:
-        raise ValueError(f"PSBT does not validate: {psbt_obj.serialize_base64()}")
-
-    return psbt_obj

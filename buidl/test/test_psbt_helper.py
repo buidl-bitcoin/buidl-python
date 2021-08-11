@@ -14,7 +14,7 @@ class P2SHTest(TestCase):
         # For full details, see test_create_p2sh_multisig in test_script.py
 
         # Insecure testing BIP39 mnemonics
-        root_path = "m/45h/0/0/0"
+        root_path = "m/45'/0/0/0"
         hdprivs = [
             HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
             for seed_word in ("action ", "agent ")
@@ -45,22 +45,20 @@ class P2SHTest(TestCase):
         # https://blockstream.info/testnet/tx/d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490
 
         kwargs = {
-            "xpubs_dict": {
-                "e0c595c5": [
-                    {
-                        # action x12
-                        "xpub_b58": "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
-                        "base_path": "m/45h/0",
-                    }
+            "public_key_records": [
+                # action x12
+                [
+                    "e0c595c5",
+                    "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
+                    "m/45'/0",
                 ],
-                "838f3ff9": [
-                    {
-                        # agent x12
-                        "xpub_b58": "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
-                        "base_path": "m/45h/0",
-                    }
+                # agent x12
+                [
+                    "838f3ff9",
+                    "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
+                    "m/45'/0",
                 ],
-            },
+            ],
             "input_dicts": [
                 {
                     "quorum_m": 1,
@@ -86,8 +84,7 @@ class P2SHTest(TestCase):
             "fee_sats": 213684,
         }
 
-        expected_unsigned_psbt_b64 = "cHNidP8BAFUBAAAAAdqnfIGkXTXKLaTGZ2BD7mDxrJqeNQpKeLsBTWan0hJEAAAAAAD/////AUxADwAAAAAAGXapFDRKD0jKFQ7CuQOBdmC5tosTpnAmiKwAAAAAAAEA4AIAAAAAAQE4C/+dtnbRWa00hJB5x34NXB35yEG2pmQMupv8FQd+6gEAAAAA/v///wIAgxIAAAAAABepFNlrucWIj0c9vQd9dwCftJui/aJCh2EckqABAAAAF6kUhyLwf7zw/FBupLqdqoEdETlrvP2HAkcwRAIgL+PC8Y4UhkB78Lqr0rM3YQLwhEp1TY4vuN5xs5s/dscCIAwf6Pf571Flkp7VG/dU7dfdPlkZIZec9biRyEGh/RnYASEDfI/h+hrk3/9SLFMpF8c8SIRGnjtqKE6aA57GEtynju/SnB4AAQRHUSECE59xZ/F9qU0k32/ihozbXtq9DP+Dq0h8lC6i8HVw2fAhAjy3HGmZkHaMAY3xejZsTrdL3hafKeiEJhwQyXPsJq06Uq4iBgITn3Fn8X2pTSTfb+KGjNte2r0M/4OrSHyULqLwdXDZ8BSDjz/5LQAAgAAAAAAAAAAAAAAAACIGAjy3HGmZkHaMAY3xejZsTrdL3hafKeiEJhwQyXPsJq06FODFlcUtAACAAAAAAAAAAAAAAAAAAAA="
-
+        expected_unsigned_psbt_b64 = "cHNidP8BAFUBAAAAAdqnfIGkXTXKLaTGZ2BD7mDxrJqeNQpKeLsBTWan0hJEAAAAAAD/////AUxADwAAAAAAGXapFDRKD0jKFQ7CuQOBdmC5tosTpnAmiKwAAAAATwEENYfPAheO+c4AAAAALjD5unTcevzcKaWlkg/+xoU+FD5bJ+iltDa2WE1bTngCfSOd3kkScA1e4OGM3MJ/Oqg+nxEHlwuV7YBCuoT745YMg48/+S0AAIAAAAAATwEENYfPAuBIVlUAAAAAHnpWPWgBnfWu2tzv9Ujws27ps0hOBHMQbZlpQ6c5m4MDN4/ffnc3ejfVlqkEgG7tlPX4aTS92pfU5LAvGDQQKHoM4MWVxS0AAIAAAAAAAAEA4AIAAAAAAQE4C/+dtnbRWa00hJB5x34NXB35yEG2pmQMupv8FQd+6gEAAAAA/v///wIAgxIAAAAAABepFNlrucWIj0c9vQd9dwCftJui/aJCh2EckqABAAAAF6kUhyLwf7zw/FBupLqdqoEdETlrvP2HAkcwRAIgL+PC8Y4UhkB78Lqr0rM3YQLwhEp1TY4vuN5xs5s/dscCIAwf6Pf571Flkp7VG/dU7dfdPlkZIZec9biRyEGh/RnYASEDfI/h+hrk3/9SLFMpF8c8SIRGnjtqKE6aA57GEtynju/SnB4AAQRHUSECE59xZ/F9qU0k32/ihozbXtq9DP+Dq0h8lC6i8HVw2fAhAjy3HGmZkHaMAY3xejZsTrdL3hafKeiEJhwQyXPsJq06Uq4iBgITn3Fn8X2pTSTfb+KGjNte2r0M/4OrSHyULqLwdXDZ8BSDjz/5LQAAgAAAAAAAAAAAAAAAACIGAjy3HGmZkHaMAY3xejZsTrdL3hafKeiEJhwQyXPsJq06FODFlcUtAACAAAAAAAAAAAAAAAAAAAA="
         tests = (
             # (seed_word repeated x12, signed_tx_hash_hex),
             (
@@ -104,6 +101,7 @@ class P2SHTest(TestCase):
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
             psbt_obj = create_p2sh_multisig_psbt(**kwargs)
+            self.assertEqual(len(psbt_obj.hd_pubs), 2)
             self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
             hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
@@ -137,30 +135,28 @@ class P2SHTest(TestCase):
 
         kwargs = {
             # this part is unchanged from the previous
-            "xpubs_dict": {
-                "e0c595c5": [
-                    {
-                        # action x12
-                        "xpub_b58": "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
-                        "base_path": "m/45h/0",
-                    }
+            "public_key_records": [
+                # action x12
+                [
+                    "e0c595c5",
+                    "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
+                    "m/45'/0",
                 ],
-                "838f3ff9": [
-                    {
-                        # agent x12
-                        "xpub_b58": "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
-                        "base_path": "m/45h/0",
-                    }
+                # agent x12
+                [
+                    "838f3ff9",
+                    "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
+                    "m/45'/0",
                 ],
-            },
+            ],
             # this part is changed:
             "input_dicts": [
                 {
                     "quorum_m": 1,
                     "path_dict": {
                         # xfp: root_path
-                        "e0c595c5": "m/45h/0/0/1",
-                        "838f3ff9": "m/45h/0/0/1",
+                        "e0c595c5": "m/45'/0/0/1",
+                        "838f3ff9": "m/45'/0/0/1",
                     },
                     "prev_tx_dict": {
                         "hex": "020000000001012c40a6810f7a670913d171e1f5b203ca01ed45ed3bf68b649850491eecb560080100000000feffffff02a7e50941010000001600147b3af2253632c3000f9cdd531747107fe249c7d1102700000000000017a91459fb638aaa55a7119a09faf5e8b2ce8a879cce338702473044022004666d885310990e1b0a61e93b1490acb172d43200d6fcfa22e89905b7f3094d02204a705e4a4fc8cab97f7d146f481e70718ee4567486796536d14c7808be3fd866012102cc3b01d2192b5275d3fda7f82eaf593dfb8ca9333f7296f93da401f8d1821335619f1e00",
@@ -178,8 +174,8 @@ class P2SHTest(TestCase):
                     "quorum_m": 1,
                     "path_dict": {
                         # xfp: root_path (m/.../1/*/{idx} is receiving addr branch)
-                        "e0c595c5": "m/45h/0/1/0",
-                        "838f3ff9": "m/45h/0/1/0",
+                        "e0c595c5": "m/45'/0/1/0",
+                        "838f3ff9": "m/45'/0/1/0",
                     },
                 },
                 {
@@ -191,7 +187,7 @@ class P2SHTest(TestCase):
             "fee_sats": 4000,
         }
 
-        expected_unsigned_psbt_b64 = "cHNidP8BAHIBAAAAAaKU/3O6/slfNAtmfA8FuWi7qxpbFO1U0iiFGN7Bkbw7AQAAAAD/////AugDAAAAAAAAF6kUTpOd3+VnlxaS0ZVZ8fktT65aoFaHiBMAAAAAAAAWABT/naVn5i8w6oZU+h1fvUe++OO+EwAAAAAAAQDfAgAAAAABASxApoEPemcJE9Fx4fWyA8oB7UXtO/aLZJhQSR7stWAIAQAAAAD+////AqflCUEBAAAAFgAUezryJTYywwAPnN1TF0cQf+JJx9EQJwAAAAAAABepFFn7Y4qqVacRmgn69eiyzoqHnM4zhwJHMEQCIARmbYhTEJkOGwph6TsUkKyxctQyANb8+iLomQW38wlNAiBKcF5KT8jKuX99FG9IHnBxjuRWdIZ5ZTbRTHgIvj/YZgEhAsw7AdIZK1J10/2n+C6vWT37jKkzP3KW+T2kAfjRghM1YZ8eAAEER1EhAiblPHq2FdpGg2TKn1mHn1G9lCeMJqOcrFmiNafPgUWTIQLSIeF7uAzxMLsJMUNK+sXlXzd+2bKwA1GaUpzgKGJER1KuIgYCJuU8erYV2kaDZMqfWYefUb2UJ4wmo5ysWaI1p8+BRZMUg48/+S0AAIAAAAAAAAAAAAEAAAAiBgLSIeF7uAzxMLsJMUNK+sXlXzd+2bKwA1GaUpzgKGJERxTgxZXFLQAAgAAAAAAAAAAAAQAAAAAAAA=="
+        expected_unsigned_psbt_b64 = "cHNidP8BAHIBAAAAAaKU/3O6/slfNAtmfA8FuWi7qxpbFO1U0iiFGN7Bkbw7AQAAAAD/////AugDAAAAAAAAF6kUTpOd3+VnlxaS0ZVZ8fktT65aoFaHiBMAAAAAAAAWABT/naVn5i8w6oZU+h1fvUe++OO+EwAAAABPAQQ1h88CF475zgAAAAAuMPm6dNx6/NwppaWSD/7GhT4UPlsn6KW0NrZYTVtOeAJ9I53eSRJwDV7g4Yzcwn86qD6fEQeXC5XtgEK6hPvjlgyDjz/5LQAAgAAAAABPAQQ1h88C4EhWVQAAAAAeelY9aAGd9a7a3O/1SPCzbumzSE4EcxBtmWlDpzmbgwM3j99+dzd6N9WWqQSAbu2U9fhpNL3al9TksC8YNBAoegzgxZXFLQAAgAAAAAAAAQDfAgAAAAABASxApoEPemcJE9Fx4fWyA8oB7UXtO/aLZJhQSR7stWAIAQAAAAD+////AqflCUEBAAAAFgAUezryJTYywwAPnN1TF0cQf+JJx9EQJwAAAAAAABepFFn7Y4qqVacRmgn69eiyzoqHnM4zhwJHMEQCIARmbYhTEJkOGwph6TsUkKyxctQyANb8+iLomQW38wlNAiBKcF5KT8jKuX99FG9IHnBxjuRWdIZ5ZTbRTHgIvj/YZgEhAsw7AdIZK1J10/2n+C6vWT37jKkzP3KW+T2kAfjRghM1YZ8eAAEER1EhAiblPHq2FdpGg2TKn1mHn1G9lCeMJqOcrFmiNafPgUWTIQLSIeF7uAzxMLsJMUNK+sXlXzd+2bKwA1GaUpzgKGJER1KuIgYCJuU8erYV2kaDZMqfWYefUb2UJ4wmo5ysWaI1p8+BRZMUg48/+S0AAIAAAAAAAAAAAAEAAAAiBgLSIeF7uAzxMLsJMUNK+sXlXzd+2bKwA1GaUpzgKGJERxTgxZXFLQAAgAAAAAAAAAAAAQAAAAAAAA=="
 
         # With p2sh, txid changes depending on which key signs
         tests = (
@@ -212,6 +208,7 @@ class P2SHTest(TestCase):
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
             psbt_obj = create_p2sh_multisig_psbt(**kwargs)
+            self.assertEqual(len(psbt_obj.hd_pubs), 2)
             self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
             hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
@@ -270,7 +267,7 @@ class P2SHTest(TestCase):
         modified_kwargs["output_dicts"][0]["path_dict"]["e0c595c5"] = "m/999"
         with self.assertRaises(ValueError) as cm:
             create_p2sh_multisig_psbt(**modified_kwargs)
-        self.assertIn(
-            "xfp_hex e0c595c5 for m/999 from output #0 not supplied in xpubs_dict",
+        self.assertEqual(
+            "xfp_hex e0c595c5 with m/999 for in/output #0 not supplied in xpub_dict",
             str(cm.exception),
         )

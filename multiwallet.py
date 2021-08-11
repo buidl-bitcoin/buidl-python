@@ -741,19 +741,26 @@ class MultiWallet(Cmd):
           - If there is change, we validate it belongs to the same multisig wallet as all inputs.
         """
 
-        # Unfortunately, there is no way to validate change without having the hdpubkey_map
-        # TODO: make version where users can enter this later (after manually approving the transaction)?
-        p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
         psbt_obj = _get_psbt_obj()
 
-        hdpubkey_map = {}
-        for key_record in p2wsh_sortedmulti_obj.key_records:
-            hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
-                key_record["xpub_parent"]
+        if psbt_obj.hd_pubs:
+            # if the PSBT included hd_pubs, then buidl will build the hdpubkey_map automatically from that
+            hdpubkey_map = {}
+        else:
+            # ask for output descriptors to use to build hdpubkey_map
+            print_blue(
+                "PSBT doesn't include enough info to guess your account map (for validation)."
             )
+            p2wsh_sortedmulti_obj = _get_p2wsh_sortedmulti()
 
-        psbt_described = psbt_obj.describe_basic_multisig_tx(
-            hdpubkey_map=hdpubkey_map, xfp_for_signing=None
+            hdpubkey_map = {}
+            for key_record in p2wsh_sortedmulti_obj.key_records:
+                hdpubkey_map[key_record["xfp"]] = HDPublicKey.parse(
+                    key_record["xpub_parent"]
+                )
+
+        psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
+            hdpubkey_map=hdpubkey_map
         )
 
         # Gather TX info and validate
@@ -792,28 +799,9 @@ class MultiWallet(Cmd):
             return
 
         hd_priv = _get_bip39_seed(network=psbt_obj.network)
-        xfp_hex = hd_priv.fingerprint().hex()
-
-        # Derive list of child private keys we'll use to sign the TX
-        root_paths = set()
-        for cnt, input_desc in enumerate(psbt_described["inputs_desc"]):
-            for bip32_deriv in input_desc["bip32_derivs"]:
-                if bip32_deriv["master_fingerprint"] == xfp_hex:
-                    root_paths.add(bip32_deriv["path"])
-
-        if not root_paths:
-            # We confirmed above that all inputs have identical encumberance so we choose the first one as representative
-            err = [
-                "Did you enter a seed for another wallet?",
-                f"The seed supplied (fingerprint {xfp_hex}) does not correspond to the transaction inputs, which are {psbt_described['inputs_desc'][0]['quorum']} of the following:",
-            ]
-            for xfp in sorted(psbt_described["inputs_desc"][0]["root_xfp_hexes"]):
-                err.append("  " + xfp)
-            print_red(f"ABORTING WITHOUT SIGNING:\n {err}")
-            return
-
+        root_paths_for_seed = psbt_described["root_paths"][hd_priv.fingerprint().hex()]
         private_keys = [
-            hd_priv.traverse(root_path).private_key for root_path in root_paths
+            hd_priv.traverse(root_path).private_key for root_path in root_paths_for_seed
         ]
 
         if psbt_obj.sign_with_private_keys(private_keys) is True:
