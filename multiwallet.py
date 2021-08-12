@@ -200,7 +200,7 @@ class WordCompleter:
 def _get_p2wsh_sortedmulti():
     while True:
         output_record = input(
-            blue_fg("Paste in your account map (AKA output record): ")
+            blue_fg("Paste in your p2wsh output descriptors (account map): ")
         ).strip()
         try:
             return P2WSHSortedMulti.parse(output_record=output_record)

@@ -139,7 +139,7 @@ class MultiwalletTest(unittest.TestCase):
         receive_addr = "tb1qtsvps7q8j5mn2qqfrujlrnwraelkptps5k595hn5d4tfq7mv644sfkkxps"
 
         self.child.sendline("validate_address")
-        self.expect("Paste in your account map (AKA output record")
+        self.expect("Paste in your p2wsh output descriptors (account map)")
 
         self.child.sendline(account_map)
         self.expect("Limit of addresses to display")
@@ -159,7 +159,7 @@ class MultiwalletTest(unittest.TestCase):
         self.expect("ADVANCED mode set")
 
         self.child.sendline("validate_address")
-        self.expect("Paste in your account map (AKA output record)")
+        self.expect("Paste in your p2wsh output descriptors (account map)")
 
         self.child.sendline(account_map)
         self.expect("Limit of addresses to display")
@@ -193,7 +193,7 @@ class MultiwalletTest(unittest.TestCase):
         )
 
         self.child.sendline("Y")
-        self.expect("Paste in your account map (AKA output record")
+        self.expect("Paste in your p2wsh output descriptors (account map)")
 
         account_map = "wsh(sortedmulti(1,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[3a52b5cd/48h/1h/0h/2h]tpubDFdbVee2Zna6eL9TkYBZDJVJ3RxGYWgChksXBRgw6y6PU1jWPTXUqag3CBMd6VDwok1hn5HZGvg6ujsTLXykrS3DwbxqCzEvWoT49gRJy7s/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#tatkmj5q"
         self.child.sendline(account_map)
@@ -261,7 +261,7 @@ class MultiwalletTest(unittest.TestCase):
     def test_caravan_output_descriptors(self):
         descriptors = "wsh(sortedmulti(1,[aa917e75/48h/1h/0h/2h]tpubDEZRP2dRKoGRJnR9zn6EoLouYKbYyjFsxywgG7wMQwCDVkwNvoLhcX1rTQipYajmTAF82kJoKDiNCgD4wUPahACE7n1trMSm7QS8B3S1fdy/0/*,[2553c4b8/48h/1h/0h/2h]tpubDEiNuxUt4pKjKk7khdv9jfcS92R1WQD6Z3dwjyMFrYj2iMrYbk3xB5kjg6kL4P8SoWsQHpd378RCTrM7fsw4chnJKhE2kfbfc4BCPkVh6g9/0/*))#t0v98kwu"
         self.child.sendline("convert_descriptors_to_caravan")
-        self.expect("Paste in your account map (AKA output record")
+        self.expect("Paste in your p2wsh output descriptors (account map)")
 
         self.child.sendline(descriptors)
         self.expect("Enter wallet name [p2wsh wallet]: ")
