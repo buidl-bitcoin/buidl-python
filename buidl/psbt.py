@@ -693,7 +693,7 @@ class PSBT:
                     )
 
             bip32_derivs = []
-            for _, named_pub in psbt_in.named_pubs.items():
+            for named_pub in psbt_in.named_pubs.values():
                 # Match to corresponding xpub to validate that this xpub is a participant in this input
                 xfp = named_pub.root_fingerprint.hex()
 
@@ -807,7 +807,7 @@ class PSBT:
                     )
 
                 bip32_derivs = []
-                for _, named_pub in psbt_out.named_pubs.items():
+                for named_pub in psbt_out.named_pubs.values():
                     # Match to corresponding xpub to validate that this xpub is a participant in this change output
                     xfp = named_pub.root_fingerprint.hex()
 
@@ -900,7 +900,7 @@ class PSBT:
                 )
             # build hdpubkey_map from PSBT's hdpubs
             hdpubkey_map = {}
-            for _, hdpubkey in self.hd_pubs.items():
+            for hdpubkey in self.hd_pubs.values():
                 hdpubkey_map[hdpubkey.root_fingerprint.hex()] = HDPublicKey.parse(
                     hdpubkey.xpub()
                 )
