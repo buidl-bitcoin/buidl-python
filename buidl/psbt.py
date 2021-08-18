@@ -1,3 +1,4 @@
+from collections import defaultdict
 from io import BytesIO
 
 from buidl.ecc import S256Point, Signature
@@ -651,7 +652,8 @@ class PSBT:
         # Gather TX info and validate
         inputs_desc = []
         total_input_sats = 0
-        root_paths_for_signing = {}
+
+        root_paths_for_signing = defaultdict(set)
         for cnt, psbt_in in enumerate(self.psbt_ins):
             psbt_in.validate()
 
@@ -708,11 +710,7 @@ class PSBT:
                         f"xpub {hdpub} with path {named_pub.root_path} does not appear to be part of input # {cnt}"
                     )
 
-                # TODO: use default dict?
-                if xfp in root_paths_for_signing:
-                    root_paths_for_signing[xfp].add(named_pub.root_path)
-                else:
-                    root_paths_for_signing[xfp] = {named_pub.root_path}
+                root_paths_for_signing[xfp].add(named_pub.root_path)
 
                 # this is very similar to what bitcoin-core's decodepsbt returns
                 bip32_derivs.append(
@@ -878,7 +876,7 @@ class PSBT:
 
         A SuspiciousTransaction Exception does not strictly mean there is a problem with the transaction, it is likely just too complex for simple summary.
 
-        Due to the nature of how PSBT works, if your PSBT is slimmed down to not contain xpubs & prev TX hexes, you must supply a `hdpubkey_map` for ALL n xpubs:
+        Due to the nature of how PSBT works, if your PSBT is slimmed down (doesn't contain xpubs AND prev TX hexes), you must supply a `hdpubkey_map` for ALL n xpubs:
           {
             'xfphex1': HDPublicKey1,
             'xfphex2': HDPublicKey2,
