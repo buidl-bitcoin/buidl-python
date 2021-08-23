@@ -1,3 +1,4 @@
+from collections import defaultdict
 from io import BytesIO
 
 from buidl.ecc import S256Point, Signature
@@ -651,7 +652,8 @@ class PSBT:
         # Gather TX info and validate
         inputs_desc = []
         total_input_sats = 0
-        root_paths_for_signing = {}
+
+        root_paths_for_signing = defaultdict(set)
         for cnt, psbt_in in enumerate(self.psbt_ins):
             psbt_in.validate()
 
@@ -691,7 +693,7 @@ class PSBT:
                     )
 
             bip32_derivs = []
-            for _, named_pub in psbt_in.named_pubs.items():
+            for named_pub in psbt_in.named_pubs.values():
                 # Match to corresponding xpub to validate that this xpub is a participant in this input
                 xfp = named_pub.root_fingerprint.hex()
 
@@ -708,11 +710,7 @@ class PSBT:
                         f"xpub {hdpub} with path {named_pub.root_path} does not appear to be part of input # {cnt}"
                     )
 
-                # TODO: use default dict?
-                if xfp in root_paths_for_signing:
-                    root_paths_for_signing[xfp].add(named_pub.root_path)
-                else:
-                    root_paths_for_signing[xfp] = {named_pub.root_path}
+                root_paths_for_signing[xfp].add(named_pub.root_path)
 
                 # this is very similar to what bitcoin-core's decodepsbt returns
                 bip32_derivs.append(
@@ -763,16 +761,12 @@ class PSBT:
         hdpubkey_map={},
     ):
 
-        # This tool only supports TXs with 1-2 outputs (sweep TX OR spend+change TX):
-        if len(self.psbt_outs) > 2:
-            raise SuspiciousTransaction(
-                f"This tool does not support batching, your transaction has {len(self.psbt_outs)} outputs. "
-                "Please construct a transaction with <= 2 outputs."
-            )
-
-        spend_addr, output_spend_sats = "", 0
-        change_addr, output_change_sats = "", 0
+        # intialize variable we'll loop through to set
         outputs_desc = []
+        spend_addr, spend_sats = "", 0
+        change_addr, change_sats = "", 0
+        total_sats = 0
+        spends_cnt = 0
         for cnt, psbt_out in enumerate(self.psbt_outs):
             psbt_out.validate()
 
@@ -783,13 +777,13 @@ class PSBT:
                     "ScriptPubKey"
                 ),
             }
+            total_sats += output_desc["sats"]
 
             if psbt_out.named_pubs:
                 # Confirm below that this is correct (throw error otherwise)
                 output_desc["is_change"] = True
 
-                # FIXME: Confirm this works with a change test case
-
+                # FIXME: Confirm this works with a fake change test case
                 output_quorum_m, output_quorum_n = psbt_out.witness_script.get_quorum()
                 if expected_quorum_m != output_quorum_m:
                     raise SuspiciousTransaction(
@@ -809,7 +803,7 @@ class PSBT:
                     )
 
                 bip32_derivs = []
-                for _, named_pub in psbt_out.named_pubs.items():
+                for named_pub in psbt_out.named_pubs.values():
                     # Match to corresponding xpub to validate that this xpub is a participant in this change output
                     xfp = named_pub.root_fingerprint.hex()
 
@@ -841,31 +835,39 @@ class PSBT:
                 # BIP67 sort order
                 bip32_derivs = sorted(bip32_derivs, key=lambda k: k["pubkey"])
 
+                # Confirm there aren't >1 change ouputs
+                # (this is technically allowed but too sketchy to support)
+                if change_sats or change_addr:
+                    raise SuspiciousTransaction(
+                        f"Cannot have >1 change output.\n{outputs_desc}"
+                    )
                 change_addr = output_desc["addr"]
-                output_change_sats = output_desc["sats"]
+                change_sats = output_desc["sats"]
 
                 output_desc["witness_script"] = str(psbt_out.witness_script)
 
             else:
                 output_desc["is_change"] = False
-                spend_addr = output_desc["addr"]
-                output_spend_sats = output_desc["sats"]
+                spends_cnt += 1
+                spend_sats += output_desc["sats"]
+
+                if spends_cnt > 1:
+                    # There is no concept of a single spend addr/amount for batch spends
+                    # Caller must interpret the batch spend from the returned outputs_desc
+                    spend_addr = ""
+                else:
+                    spend_addr = output_desc["addr"]
 
             outputs_desc.append(output_desc)
 
-        # Confirm if 2 outputs we only have 1 change and 1 spend (can't be 2 changes or 2 spends)
-        if len(outputs_desc) == 2:
-            if all(x["is_change"] for x in outputs_desc):
-                raise SuspiciousTransaction(
-                    f"Cannot have both outputs in 2-output transaction be change nor spend, must be 1-and-1.\n {outputs_desc}"
-                )
-
         return {
+            "total_sats": total_sats,
             "outputs_desc": outputs_desc,
             "change_addr": change_addr,
-            "output_change_sats": output_change_sats,
+            "change_sats": change_sats,
             "spend_addr": spend_addr,
-            "output_spend_sats": output_spend_sats,
+            "spend_sats": spend_sats,
+            "is_batch_tx": spends_cnt > 1,
         }
 
     def describe_basic_p2wsh_multisig_tx(self, hdpubkey_map={}):
@@ -874,11 +876,11 @@ class PSBT:
 
         This tool supports transactions with the following constraints:
         * ALL inputs have the exact same multisig wallet (quorum + xpubs)
-        * There can only be 1 output (sweep transaction) or 2 outputs (spend + change). If 2 outputs, we validate the change (it has the same quorum/xpubs as the inputs we sign).
+        * All outputs are either spend or proven to be change. For UX reasons, there can not be >1 change address.
 
         A SuspiciousTransaction Exception does not strictly mean there is a problem with the transaction, it is likely just too complex for simple summary.
 
-        Due to the nature of how PSBT works, if your PSBT is slimmed down to not contain xpubs & prev TX hexes, you must supply a `hdpubkey_map` for ALL n xpubs:
+        Due to the nature of how PSBT works, if your PSBT is slimmed down (doesn't contain xpubs AND prev TX hexes), you must supply a `hdpubkey_map` for ALL n xpubs:
           {
             'xfphex1': HDPublicKey1,
             'xfphex2': HDPublicKey2,
@@ -887,7 +889,6 @@ class PSBT:
 
         TODOS:
           - add helper method that accepts an output descriptor, converts it into an hdpubkey_map, and then calls this method
-          - add support for batching (still restricted to 1 change output)
           - add support for p2sh and other script types
         """
 
@@ -902,7 +903,7 @@ class PSBT:
                 )
             # build hdpubkey_map from PSBT's hdpubs
             hdpubkey_map = {}
-            for _, hdpubkey in self.hd_pubs.items():
+            for hdpubkey in self.hd_pubs.values():
                 hdpubkey_map[hdpubkey.root_fingerprint.hex()] = HDPublicKey.parse(
                     hdpubkey.xpub()
                 )
@@ -916,11 +917,24 @@ class PSBT:
             expected_quorum_m=inputs_described["inputs_quorum_m"],
             expected_quorum_n=inputs_described["inputs_quorum_n"],
         )
+        is_batch_tx = outputs_described["is_batch_tx"]
+        total_output_sats = outputs_described["total_sats"]
+        spend_sats = outputs_described["spend_sats"]
         spend_addr = outputs_described["spend_addr"]
-        output_spend_sats = outputs_described["output_spend_sats"]
 
+        tx_fee_rounded = round(tx_fee_sats / total_input_sats * 100, 2)
         # comma separating satoshis for better display
-        tx_summary_text = f"PSBT sends {output_spend_sats:,} sats to {spend_addr} with a fee of {tx_fee_sats:,} sats ({round(tx_fee_sats / total_input_sats * 100, 2)}% of spend)"
+        if is_batch_tx:
+            spend_breakdown = "\n".join(
+                [
+                    f"{x['addr']}: {x['sats']:,} sats"
+                    for x in outputs_described["outputs_desc"]
+                    if not x["is_change"]
+                ]
+            )
+            tx_summary_text = f"Batch PSBT sends {spend_sats:,} sats with a fee of {tx_fee_sats:,} sats ({tx_fee_rounded}% of spend). Batch spend breakdown:\n{spend_breakdown}"
+        else:
+            tx_summary_text = f"PSBT sends {spend_sats:,} sats to {spend_addr} with a fee of {tx_fee_sats:,} sats ({tx_fee_rounded}% of spend)"
 
         return {
             # TX level:
@@ -931,11 +945,12 @@ class PSBT:
             "network": self.network,
             "tx_fee_sats": tx_fee_sats,
             "total_input_sats": total_input_sats,
-            "output_spend_sats": output_spend_sats,
+            "total_output_sats": total_output_sats,
+            "spend_sats": spend_sats,
             "change_addr": outputs_described["change_addr"],
-            "output_change_sats": outputs_described["output_change_sats"],
-            "change_sats": total_input_sats - tx_fee_sats - output_spend_sats,
+            "change_sats": outputs_described["change_sats"],
             "spend_addr": spend_addr,
+            "is_batch_tx": is_batch_tx,
             # Input/output level
             "inputs_desc": inputs_described["inputs_desc"],
             "outputs_desc": outputs_described["outputs_desc"],

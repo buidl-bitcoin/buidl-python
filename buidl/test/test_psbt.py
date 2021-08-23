@@ -672,11 +672,12 @@ class PSBTTest(TestCase):
             "network": "testnet",
             "tx_fee_sats": 513,
             "total_input_sats": 100000,
-            "output_spend_sats": 99487,
+            "total_output_sats": 99487,
+            "spend_sats": 99487,
             "change_addr": "",
-            "output_change_sats": 0,
             "change_sats": 0,
             "spend_addr": "tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar",
+            "is_batch_tx": False,
             "inputs_desc": [
                 {
                     "quorum": "1-of-2",
@@ -782,11 +783,12 @@ class PSBTTest(TestCase):
             "network": "testnet",
             "tx_fee_sats": 423,
             "total_input_sats": 6000,
-            "output_spend_sats": 5577,
+            "total_output_sats": 5577,
+            "spend_sats": 5577,
             "change_addr": "",
-            "output_change_sats": 0,
             "change_sats": 0,
             "spend_addr": "tb1q6een5px0jrffgm9mkf5cvxtvnv0qdzepu40mqy",
+            "is_batch_tx": False,
             "inputs_desc": [
                 {
                     "quorum": "1-of-4",
@@ -986,6 +988,106 @@ class PSBTTest(TestCase):
         psbt_signed_b64 = """cHNidP8BAM0CAAAABBvYNEzFq0NWyx7pJB5gZw3ROqK4+B4KhNRwU0VYOL3/AAAAAAD9////rl7rVIS5czYgbFQ2HIv937o+6kkmqaLYr8y9EX6jVJAAAAAAAP3///8Zul/oRT19raLmlidW322l1SUSGNMeqNEoCgu3lMAF5wAAAAAA/f///5eGSu1uoiPu9ccah8Ot6Ab7TqPFb0yVeIBkwlT0KaFJAQAAAAD9////AckVAAAAAAAAFgAU1nM6BM+Q0pRsu7Jphhlsmx4GiyEAAAAAAAEBK4UIAAAAAAAAIgAgxb6HvJsx6G8mjBf/ERAtVkJHNNu5n0t6JaZr54V3Og4iAgI9WW6VH1Y6IMVFfundzIgYNuYyfSoEkDRYchFzo9YWXEcwRAIgd5GG5i4mV5LRoVSo1hId6yW3JCTfhJj25Aw1xrLyRkMCIHoDm1+LY/J29++n7Mg1dH8rg01yFCX39lzdcUZ0LBQeAQEFi1EhAj1ZbpUfVjogxUV+6d3MiBg25jJ9KgSQNFhyEXOj1hZcIQLJJM8BgfhO2k94mw1iFYKpgtVaawh1KuDjFZcyiU2QHSEC3wYZBHvF5h0EptL00rtl2RELufMPc+HAZu6cxeRwtIAhA9NIMWAlzf1IR+rM20fmHaufoMWTeOQJv67oIG5FLki0VK4iBgI9WW6VH1Y6IMVFfundzIgYNuYyfSoEkDRYchFzo9YWXBz30ECQMAAAgAEAAIAAAACAAgAAgAEAAAACAAAAIgYCySTPAYH4TtpPeJsNYhWCqYLVWmsIdSrg4xWXMolNkB0cOlK1zTAAAIABAACAAAAAgAIAAIABAAAAAgAAACIGAt8GGQR7xeYdBKbS9NK7ZdkRC7nzD3PhwGbunMXkcLSAHBKYDu0wAACAAQAAgAAAAIACAACAAQAAAAIAAAAiBgPTSDFgJc39SEfqzNtH5h2rn6DFk3jkCb+u6CBuRS5ItBzH0GSKMAAAgAEAAIAAAACAAgAAgAEAAAACAAAAAAEBKzMDAAAAAAAAIgAgTWlV5OFgqrNlmZIPA6zUtYiTIXYKNL5QwbzInX1IxKEiAgOp40HDLYhwcGEVRDzxY7/D0toMqFFaKbzBpQDGXPsju0cwRAIgEjQPngkZ9jVqGIwWTDFFCQl9Urk0C1iukLZOhCVlG7YCIFewYf/Hm3E+vVvlVM1dX8bmmlpdU6at5iVfAzRLN06AAQEFi1EhAjamz0JUyCkKFo7KtK7ncQGNNX6ocVSltf6p7Zuu4lheIQNV7BABwsTx3OLelAvqy9y313RhQCgakoMACqRtJR1GMSEDgz1ufEEhGA+3kYC3igVzrVfCmYJfGPSfaULLOLa/AjohA6njQcMtiHBwYRVEPPFjv8PS2gyoUVopvMGlAMZc+yO7VK4iBgI2ps9CVMgpChaOyrSu53EBjTV+qHFUpbX+qe2bruJYXhzH0GSKMAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAIgYDVewQAcLE8dzi3pQL6svct9d0YUAoGpKDAAqkbSUdRjEcOlK1zTAAAIABAACAAAAAgAIAAIABAAAAAAAAACIGA4M9bnxBIRgPt5GAt4oFc61XwpmCXxj0n2lCyzi2vwI6HBKYDu0wAACAAQAAgAAAAIACAACAAQAAAAAAAAAiBgOp40HDLYhwcGEVRDzxY7/D0toMqFFaKbzBpQDGXPsjuxz30ECQMAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAAAEBK9AHAAAAAAAAIgAggE0hexkAUqSSbmiz0bmnnV5uzIyPzD9xA9QQrB1KQmkiAgLdO5wqFFC8boM3c2RAUhF/JtfMxHVDWDRrxcQQbdXop0cwRAIgAZ8/m4aTlDRXzfnpC60WZ7hgMoJrElS81CauCy/nXlICIEBHVXNHWPosT9zwMqTRnllQRD/HrYmeSy2CK+wA9U45AQEFi1EhArPS8NUyYYYL5Sq4jdgwZnda5W/3H8J+RfC03yIAI9YSIQLdO5wqFFC8boM3c2RAUhF/JtfMxHVDWDRrxcQQbdXopyEDBICu8NLP+BlM9knsGFB8x0wICzv+QHKyvWo/tPFgYmghA5yew2Iv3/ZA1Ddfbkyf77lsYEEOYS7EAosQwatP448DVK4iBgKz0vDVMmGGC+UquI3YMGZ3WuVv9x/CfkXwtN8iACPWEhzH0GSKMAAAgAEAAIAAAACAAgAAgAAAAAAFAAAAIgYC3TucKhRQvG6DN3NkQFIRfybXzMR1Q1g0a8XEEG3V6Kcc99BAkDAAAIABAACAAAAAgAIAAIAAAAAABQAAACIGAwSArvDSz/gZTPZJ7BhQfMdMCAs7/kBysr1qP7TxYGJoHDpStc0wAACAAQAAgAAAAIACAACAAAAAAAUAAAAiBgOcnsNiL9/2QNQ3X25Mn++5bGBBDmEuxAKLEMGrT+OPAxwSmA7tMAAAgAEAAIAAAACAAgAAgAAAAAAFAAAAAAEBK+gDAAAAAAAAIgAgff1Q2aG/aQF5aw4DEsK8moe+3SSEbDxz2qwY2NjdhaMiAgI2zTfKoSYVwnZMWLmuFYZCWJ24pk5jT02Vh9VD9iPuHUgwRQIhAJkQB79+OVeLnKWpznXbv62rmd0Wh+oOBnI6hDHqql+FAiABVB7LLj0N8NNny+Ch2+EK/hPjBJ4i4gOPXT0qADtkkgEBBYtRIQI2zTfKoSYVwnZMWLmuFYZCWJ24pk5jT02Vh9VD9iPuHSECxBo8waomMUQQAyHe09n5BHikL2+69rfH43P3r8Ew4u0hA5VjMnig93BW3uRBCu2Wg5vC22pIxc9VjyCYqb5lbg4IIQOZdCJdnpmErEZ0nQdzC2OcnKKWze1Tg5IJz92uBIvfWVSuIgYCNs03yqEmFcJ2TFi5rhWGQliduKZOY09NlYfVQ/Yj7h0c99BAkDAAAIABAACAAAAAgAIAAIAAAAAAAwAAACIGAsQaPMGqJjFEEAMh3tPZ+QR4pC9vuva3x+Nz96/BMOLtHBKYDu0wAACAAQAAgAAAAIACAACAAAAAAAMAAAAiBgOVYzJ4oPdwVt7kQQrtloObwttqSMXPVY8gmKm+ZW4OCBzH0GSKMAAAgAEAAIAAAACAAgAAgAAAAAADAAAAIgYDmXQiXZ6ZhKxGdJ0HcwtjnJyils3tU4OSCc/drgSL31kcOlK1zTAAAIABAACAAAAAgAIAAIAAAAAAAwAAAAAA"""
         self.assertEqual(psbt_obj.serialize_base64(), psbt_signed_b64)
 
+    def test_describe_psbt_batch_1of2(self):
+        output_record = "wsh(sortedmulti(1,[e0c595c5/48h/1h/0h/2h]tpubDErwirr9PdyV44W8DuEC5X8Usm58H6ocj8nbScFmRb7wvNntzTRjWdakBS44i6wNMoiRxUKpYXfaX9swGCYb13tDESNEeUJmFqMzZ513Cgh/0/*,[838f3ff9/48h/1h/0h/2h]tpubDEyZdFTwneTjZe5Neu685w9ZfZPSFz41nE1TUhXMF1ap954UT6FDPTgrP6qAxvxeKVRU1KCpFC36A67j8AecYeU8eVJWb51HMEviTPj6g96/0/*))#usxfzy45"
+        p2wsh_sortedmulti_obj = P2WSHSortedMulti.parse(output_record)
+        self.assertEqual(
+            "tb1qcd2jlnrxs5myqx3kndxlxdz3f5zg6y4hsrszj92tqf7xysralupqh02tkx",
+            p2wsh_sortedmulti_obj.get_address(offset=1),
+        )
+        testnet_psbt_b64 = "cHNidP8BAKsCAAAAAfvIVbluVTgVRjsE+6e+olzV03c9L/+GplL8W1y9y794AQAAAAD9////AzB1AAAAAAAAGXapFDRKD0jKFQ7CuQOBdmC5tosTpnAmiKwgTgAAAAAAACIAIAYkzTzhnTk9gR/0hBcFoVJCD5VpdolKYjEUDW8WUz0tf8IAAAAAAAAiACA+y/czKhz9qWckTsPlF0psgtLGf5e/YY6HQ+qGxMf3h5WDHwBPAQQ1h88Egfnuy4AAAAJawo0XlCalJkWVhdDk9Fodo/24Bk6o+YuRs/0CLKYO3AJ3mZ9qQXta3GcftjOQl2kCc8pn5ZH7EeYZ7lhbwLrPURTgxZXFMAAAgAEAAIAAAACAAgAAgE8BBDWHzwSRgKn2gAAAAgasAVjkXOyipvwTwT9/0uTqtNWQafo+SDoP0jhM33nyAiEWGx1WliYkGYn6aQIGO7D/t5gJoCsAP71NPQlRC3OKFIOPP/kwAACAAQAAgAAAAIACAACAAAEAlAIAAAABqDp74qKJDCSib7bFFPg/BRL99GYNZjLDqmMmW7hPPPcBAAAAFxYAFOun0nv1Hq/w1OiMPIs0wRrkLyAo/v///wLdhicAAAAAABYAFNIU/3w4wT3BPjReXzgeppmgiPchoIYBAAAAAAAiACDDVS/MZoU2QBo2m03zNFFNBI0St4DgKRVLAnxiQH3/ApWDHwABASughgEAAAAAACIAIMNVL8xmhTZAGjabTfM0UU0EjRK3gOApFUsCfGJAff8CAQMEAQAAAAEFR1EhAsoqpmsrNEuaZ0rGeZWaAgLcInWH4rpw6ojKOhljL6OrIQMs8p+QlBnWiDhb66TsB0AGxmx9kLBKDNVCF8Jy7Q1E51KuIgYDLPKfkJQZ1og4W+uk7AdABsZsfZCwSgzVQhfCcu0NROcc4MWVxTAAAIABAACAAAAAgAIAAIAAAAAAAQAAACIGAsoqpmsrNEuaZ0rGeZWaAgLcInWH4rpw6ojKOhljL6OrHIOPP/kwAACAAQAAgAAAAIACAACAAAAAAAEAAAAAAAABAUdRIQNWzRQre6KltOTcKdjtaRvPIsu9dwQ5T3cUsQ3TJAucBSED7/faz/3j9CAXm21IFPK4S1sqgx/iMVXCwtEksOiWebtSriICA1bNFCt7oqW05Nwp2O1pG88iy713BDlPdxSxDdMkC5wFHODFlcUwAACAAQAAgAAAAIACAACAAQAAAAAAAAAiAgPv99rP/eP0IBebbUgU8rhLWyqDH+IxVcLC0SSw6JZ5uxyDjz/5MAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAAA=="
+
+        psbt_obj = PSBT.parse_base64(testnet_psbt_b64, network="testnet")
+
+        psbt_described_want = {
+            "txid": "e1df7e9e4ab8831534e672f9beaa29b74e9cb91e593819c68d0d78665a68ed6f",
+            "tx_summary_text": "Batch PSBT sends 50,000 sats with a fee of 209 sats (0.21% of spend). Batch spend breakdown:\nmkHS9ne12qx9pS9VojpwU5xtRd4T7X7ZUt: 30,000 sats\ntb1qqcjv608pn5unmqgl7jzpwpdp2fpql9tfw6y55c33zsxk79jn85ksgqr6jd: 20,000 sats",
+            "locktime": 2065301,
+            "version": 2,
+            "network": "testnet",
+            "tx_fee_sats": 209,
+            "total_input_sats": 100000,
+            "total_output_sats": 99791,
+            "spend_sats": 50000,
+            "change_addr": "tb1q8m9lwve2rn76jeeyfmp72962djpd93nlj7lkrr58g04gd3x877rsjea3dl",
+            "change_sats": 49791,
+            "spend_addr": "",
+            "is_batch_tx": True,
+            "inputs_desc": [
+                {
+                    "quorum": "1-of-2",
+                    "bip32_derivs": [
+                        # agent x12
+                        {
+                            "pubkey": "02ca2aa66b2b344b9a674ac679959a0202dc227587e2ba70ea88ca3a19632fa3ab",
+                            "master_fingerprint": "838f3ff9",
+                            "path": "m/48'/1'/0'/2'/0/1",
+                            "xpub": "tpubDEyZdFTwneTjZe5Neu685w9ZfZPSFz41nE1TUhXMF1ap954UT6FDPTgrP6qAxvxeKVRU1KCpFC36A67j8AecYeU8eVJWb51HMEviTPj6g96",
+                        },
+                        # action x12
+                        {
+                            "pubkey": "032cf29f909419d688385beba4ec074006c66c7d90b04a0cd54217c272ed0d44e7",
+                            "master_fingerprint": "e0c595c5",
+                            "path": "m/48'/1'/0'/2'/0/1",
+                            "xpub": "tpubDErwirr9PdyV44W8DuEC5X8Usm58H6ocj8nbScFmRb7wvNntzTRjWdakBS44i6wNMoiRxUKpYXfaX9swGCYb13tDESNEeUJmFqMzZ513Cgh",
+                        },
+                    ],
+                    "prev_txhash": "78bfcbbd5c5bfc52a686ff2f3d77d3d55ca2bea7fb043b461538556eb955c8fb",
+                    "prev_idx": 1,
+                    "n_sequence": 4294967293,
+                    "sats": 100000,
+                    "addr": "tb1qcd2jlnrxs5myqx3kndxlxdz3f5zg6y4hsrszj92tqf7xysralupqh02tkx",
+                    "witness_script": "OP_1 02ca2aa66b2b344b9a674ac679959a0202dc227587e2ba70ea88ca3a19632fa3ab 032cf29f909419d688385beba4ec074006c66c7d90b04a0cd54217c272ed0d44e7 OP_2 OP_CHECKMULTISIG ",
+                }
+            ],
+            "outputs_desc": [
+                {
+                    "sats": 30000,
+                    "addr": "mkHS9ne12qx9pS9VojpwU5xtRd4T7X7ZUt",
+                    "addr_type": "P2PKH",
+                    "is_change": False,
+                },
+                {
+                    "sats": 20000,
+                    "addr": "tb1qqcjv608pn5unmqgl7jzpwpdp2fpql9tfw6y55c33zsxk79jn85ksgqr6jd",
+                    "addr_type": "P2WSH",
+                    "is_change": False,
+                },
+                {
+                    "sats": 49791,
+                    "addr": "tb1q8m9lwve2rn76jeeyfmp72962djpd93nlj7lkrr58g04gd3x877rsjea3dl",
+                    "addr_type": "P2WSH",
+                    "is_change": True,
+                    "witness_script": "OP_1 0356cd142b7ba2a5b4e4dc29d8ed691bcf22cbbd7704394f7714b10dd3240b9c05 03eff7dacffde3f420179b6d4814f2b84b5b2a831fe23155c2c2d124b0e89679bb OP_2 OP_CHECKMULTISIG ",
+                },
+            ],
+            "root_paths": {
+                "e0c595c5": {"m/48'/1'/0'/2'/0/1"},
+                "838f3ff9": {"m/48'/1'/0'/2'/0/1"},
+            },
+        }
+        # psbt has hd_pubs, so no need to pass in account map
+        psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx()
+        self.assertEqual(psbt_described, psbt_described_want)
+        hd_priv = HDPrivateKey.from_mnemonic("action " * 12, network="testnet")
+        private_keys = [
+            hd_priv.traverse(root_path).private_key
+            for root_path in psbt_described["root_paths"][hd_priv.fingerprint().hex()]
+        ]
+
+        self.assertTrue(psbt_obj.sign_with_private_keys(private_keys))
+
+        psbt_obj.finalize()
+        self.assertTrue(psbt_obj.validate())
+        psbt_want = "cHNidP8BAKsCAAAAAfvIVbluVTgVRjsE+6e+olzV03c9L/+GplL8W1y9y794AQAAAAD9////AzB1AAAAAAAAGXapFDRKD0jKFQ7CuQOBdmC5tosTpnAmiKwgTgAAAAAAACIAIAYkzTzhnTk9gR/0hBcFoVJCD5VpdolKYjEUDW8WUz0tf8IAAAAAAAAiACA+y/czKhz9qWckTsPlF0psgtLGf5e/YY6HQ+qGxMf3h5WDHwBPAQQ1h88Egfnuy4AAAAJawo0XlCalJkWVhdDk9Fodo/24Bk6o+YuRs/0CLKYO3AJ3mZ9qQXta3GcftjOQl2kCc8pn5ZH7EeYZ7lhbwLrPURTgxZXFMAAAgAEAAIAAAACAAgAAgE8BBDWHzwSRgKn2gAAAAgasAVjkXOyipvwTwT9/0uTqtNWQafo+SDoP0jhM33nyAiEWGx1WliYkGYn6aQIGO7D/t5gJoCsAP71NPQlRC3OKFIOPP/kwAACAAQAAgAAAAIACAACAAAEAlAIAAAABqDp74qKJDCSib7bFFPg/BRL99GYNZjLDqmMmW7hPPPcBAAAAFxYAFOun0nv1Hq/w1OiMPIs0wRrkLyAo/v///wLdhicAAAAAABYAFNIU/3w4wT3BPjReXzgeppmgiPchoIYBAAAAAAAiACDDVS/MZoU2QBo2m03zNFFNBI0St4DgKRVLAnxiQH3/ApWDHwABBwABCJMDAEgwRQIhAKpUTw/ovOzqJEsy31veiDtwwbz9IbbKv/GjrIe72Wj/AiBkvIOYQ7jSzSwLKf9o9U3ZwKKvT+aXHuS64ZaU4nuymAFHUSECyiqmays0S5pnSsZ5lZoCAtwidYfiunDqiMo6GWMvo6shAyzyn5CUGdaIOFvrpOwHQAbGbH2QsEoM1UIXwnLtDUTnUq4AAAABAUdRIQNWzRQre6KltOTcKdjtaRvPIsu9dwQ5T3cUsQ3TJAucBSED7/faz/3j9CAXm21IFPK4S1sqgx/iMVXCwtEksOiWebtSriICA1bNFCt7oqW05Nwp2O1pG88iy713BDlPdxSxDdMkC5wFHODFlcUwAACAAQAAgAAAAIACAACAAQAAAAAAAAAiAgPv99rP/eP0IBebbUgU8rhLWyqDH+IxVcLC0SSw6JZ5uxyDjz/5MAAAgAEAAIAAAACAAgAAgAEAAAAAAAAAAA=="
+        self.assertEqual(psbt_obj.serialize_base64(), psbt_want)
+        tx_obj = psbt_obj.final_tx()
+        # Was broadcast 2021-08:
+        self.assertEqual(
+            tx_obj.hash().hex(),
+            "e1df7e9e4ab8831534e672f9beaa29b74e9cb91e593819c68d0d78665a68ed6f",
+        )
+
     def test_describe_psbt_2of3(self):
         valid_output_record = "wsh(sortedmulti(2,[c7d0648a/48h/1h/0h/2h]tpubDEpefcgzY6ZyEV2uF4xcW2z8bZ3DNeWx9h2BcwcX973BHrmkQxJhpAXoSWZeHkmkiTtnUjfERsTDTVCcifW6po3PFR1JRjUUTJHvPpDqJhr/0/*,[12980eed/48h/1h/0h/2h]tpubDEkXGoQhYLFnYyzUGadtceUKbzVfXVorJEdo7c6VKJLHrULhpSVLC7fo89DDhjHmPvvNyrun2LTWH6FYmHh5VaQYPLEqLviVQKh45ufz8Ae/0/*,[f7d04090/48h/1h/0h/2h]tpubDF7FTuPECTePubPXNK73TYCzV3nRWaJnRwTXD28kh6Fz4LcaRzWwNtX153J7WeJFcQB2T6k9THd424Kmjs8Ps1FC1Xb81TXTxxbGZrLqQNp/0/*))#0stzl64e"
         # This is already parsed in test_descriptor.py, so not duplicating that here
@@ -1006,6 +1108,7 @@ class PSBTTest(TestCase):
         psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
             hdpubkey_map=hdpubkey_map
         )
+
         psbt_description_expected = {
             "txid": "def5df8d75b149b2ea6d1abb595a9e4afbfb360360e60add21c44ee35d067a37",
             "tx_summary_text": "PSBT sends 5,244 sats to tb1qcp0hhcs9668quvvcdr8njuyemfmppmtcftl95r with a fee of 756 sats (7.56% of spend)",
@@ -1014,11 +1117,12 @@ class PSBTTest(TestCase):
             "network": "testnet",
             "tx_fee_sats": 756,
             "total_input_sats": 10000,
-            "output_spend_sats": 5244,
+            "total_output_sats": 9244,
+            "spend_sats": 5244,
             "change_addr": "tb1qpl5aeay3umkkz5gnvsswjs3r8hlm78jfstnnz3lcdwuj083hq4pqhtg6kz",
-            "output_change_sats": 4000,
             "change_sats": 4000,
             "spend_addr": "tb1qcp0hhcs9668quvvcdr8njuyemfmppmtcftl95r",
+            "is_batch_tx": False,
             "inputs_desc": [
                 {
                     "quorum": "2-of-3",
