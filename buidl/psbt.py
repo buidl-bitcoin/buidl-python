@@ -876,7 +876,7 @@ class PSBT:
 
         This tool supports transactions with the following constraints:
         * ALL inputs have the exact same multisig wallet (quorum + xpubs)
-        * All outputs are either spend or proven to be change. For UX reasons, there can only not be >1 change address.
+        * All outputs are either spend or proven to be change. For UX reasons, there can not be >1 change address.
 
         A SuspiciousTransaction Exception does not strictly mean there is a problem with the transaction, it is likely just too complex for simple summary.
 
@@ -894,7 +894,6 @@ class PSBT:
 
         self.validate()
 
-        # TODO: make this work offline!
         tx_fee_sats = self.tx_obj.fee()
 
         if not hdpubkey_map:
