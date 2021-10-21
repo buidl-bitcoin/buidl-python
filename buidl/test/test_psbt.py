@@ -703,6 +703,7 @@ class PSBTTest(TestCase):
                     "sats": 100000,
                     "addr": "tb1q3re6e0s0rjh2chsecugz5wasulsrtarpfsu63lxavacmya4yglqq0gwqnl",
                     "witness_script": "OP_1 033823d1fde8b5c7ea68ea0b163a16fbbbf1cfa65579f7c4191b60e508e55ab685 03b8cd8ac73c899b289565c2d3cfdea5be59336e2bdb308f22a06deca4f50580d2 OP_2 OP_CHECKMULTISIG ",
+                    "redeem_script": None,
                 }
             ],
             "outputs_desc": [
@@ -736,7 +737,7 @@ class PSBTTest(TestCase):
 
             for hdpubkey_map in hdpubkey_map_tests:
                 psbt_obj = PSBT.parse_base64(psbt_with_xpubs, network="testnet")
-                psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
+                psbt_described = psbt_obj.describe_basic_multisig(
                     hdpubkey_map=hdpubkey_map,
                 )
                 self.assertEqual(psbt_described, psbt_description_want)
@@ -823,6 +824,7 @@ class PSBTTest(TestCase):
                     "n_sequence": 4294967293,
                     "sats": 2181,
                     "addr": "tb1qcklg00ymx85x7f5vzll3zypd2epywdxmhx05k7395e470pth8g8qvh62kw",
+                    "redeem_script": None,
                     "witness_script": "OP_1 023d596e951f563a20c5457ee9ddcc881836e6327d2a04903458721173a3d6165c 02c924cf0181f84eda4f789b0d621582a982d55a6b08752ae0e3159732894d901d 02df0619047bc5e61d04a6d2f4d2bb65d9110bb9f30f73e1c066ee9cc5e470b480 03d348316025cdfd4847eaccdb47e61dab9fa0c59378e409bfaee8206e452e48b4 OP_4 OP_CHECKMULTISIG ",
                 },
                 {
@@ -858,6 +860,7 @@ class PSBTTest(TestCase):
                     "n_sequence": 4294967293,
                     "sats": 819,
                     "addr": "tb1qf454te8pvz4txevejg8s8tx5kkyfxgtkpg6tu5xphnyf6l2gcjss5zw0jx",
+                    "redeem_script": None,
                     "witness_script": "OP_1 0236a6cf4254c8290a168ecab4aee771018d357ea87154a5b5fea9ed9baee2585e 0355ec1001c2c4f1dce2de940beacbdcb7d7746140281a9283000aa46d251d4631 03833d6e7c4121180fb79180b78a0573ad57c299825f18f49f6942cb38b6bf023a 03a9e341c32d8870706115443cf163bfc3d2da0ca8515a29bcc1a500c65cfb23bb OP_4 OP_CHECKMULTISIG ",
                 },
                 {
@@ -893,6 +896,7 @@ class PSBTTest(TestCase):
                     "n_sequence": 4294967293,
                     "sats": 2000,
                     "addr": "tb1qspxjz7ceqpf2fynwdzearwd8n40xanyv3lxr7ugr6sg2c822gf5sa28g6u",
+                    "redeem_script": None,
                     "witness_script": "OP_1 02b3d2f0d53261860be52ab88dd83066775ae56ff71fc27e45f0b4df220023d612 02dd3b9c2a1450bc6e833773644052117f26d7ccc4754358346bc5c4106dd5e8a7 030480aef0d2cff8194cf649ec18507cc74c080b3bfe4072b2bd6a3fb4f1606268 039c9ec3622fdff640d4375f6e4c9fefb96c60410e612ec4028b10c1ab4fe38f03 OP_4 OP_CHECKMULTISIG ",
                 },
                 {
@@ -929,6 +933,7 @@ class PSBTTest(TestCase):
                     "sats": 1000,
                     "addr": "tb1q0h74pkdpha5sz7ttpcp39s4un2rmahfys3krcu764svd3kxask3s7y0jsp",
                     "witness_script": "OP_1 0236cd37caa12615c2764c58b9ae158642589db8a64e634f4d9587d543f623ee1d 02c41a3cc1aa263144100321ded3d9f90478a42f6fbaf6b7c7e373f7afc130e2ed 0395633278a0f77056dee4410aed96839bc2db6a48c5cf558f2098a9be656e0e08 039974225d9e9984ac46749d07730b639c9ca296cded53839209cfddae048bdf59 OP_4 OP_CHECKMULTISIG ",
+                    "redeem_script": None,
                 },
             ],
             "outputs_desc": [
@@ -967,9 +972,7 @@ class PSBTTest(TestCase):
             },
         }
 
-        psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
-            hdpubkey_map=hdpubkey_map
-        )
+        psbt_described = psbt_obj.describe_basic_multisig(hdpubkey_map=hdpubkey_map)
         self.assertEqual(
             psbt_described,
             psbt_described_want,
@@ -1038,6 +1041,7 @@ class PSBTTest(TestCase):
                     "sats": 100000,
                     "addr": "tb1qcd2jlnrxs5myqx3kndxlxdz3f5zg6y4hsrszj92tqf7xysralupqh02tkx",
                     "witness_script": "OP_1 02ca2aa66b2b344b9a674ac679959a0202dc227587e2ba70ea88ca3a19632fa3ab 032cf29f909419d688385beba4ec074006c66c7d90b04a0cd54217c272ed0d44e7 OP_2 OP_CHECKMULTISIG ",
+                    "redeem_script": None,
                 }
             ],
             "outputs_desc": [
@@ -1059,6 +1063,7 @@ class PSBTTest(TestCase):
                     "addr_type": "P2WSH",
                     "is_change": True,
                     "witness_script": "OP_1 0356cd142b7ba2a5b4e4dc29d8ed691bcf22cbbd7704394f7714b10dd3240b9c05 03eff7dacffde3f420179b6d4814f2b84b5b2a831fe23155c2c2d124b0e89679bb OP_2 OP_CHECKMULTISIG ",
+                    "redeem_script": None,
                 },
             ],
             "root_paths": {
@@ -1067,7 +1072,7 @@ class PSBTTest(TestCase):
             },
         }
         # psbt has hd_pubs, so no need to pass in account map
-        psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx()
+        psbt_described = psbt_obj.describe_basic_multisig()
         self.assertEqual(psbt_described, psbt_described_want)
         hd_priv = HDPrivateKey.from_mnemonic("action " * 12, network="testnet")
         private_keys = [
@@ -1105,9 +1110,7 @@ class PSBTTest(TestCase):
 
         psbt_obj = PSBT.parse_base64(testnet_psbt_b64, network="testnet")
 
-        psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
-            hdpubkey_map=hdpubkey_map
-        )
+        psbt_described = psbt_obj.describe_basic_multisig(hdpubkey_map=hdpubkey_map)
 
         psbt_description_expected = {
             "txid": "def5df8d75b149b2ea6d1abb595a9e4afbfb360360e60add21c44ee35d067a37",
@@ -1151,6 +1154,7 @@ class PSBTTest(TestCase):
                     "n_sequence": 4294967293,
                     "sats": 10000,
                     "addr": "tb1q0cy5x39ezyvc4pfydrqedng0h9arh2hcw8lpfa6e9ama7ky7cffsmzmgx8",
+                    "redeem_script": None,
                     "witness_script": "OP_2 030aa80c24ae51cd0dbc98cae531254a128d90983890c608b3efec5c7011e631a8 03198076a8fb57861e3c162e7e61533ae627f0a1469fb76477e0ac35a2bd546c0a 03c3e78b4c077a6cb7d77516a147e2037950a15870f3ac76c1fef3a3ef2a00bf3d OP_3 OP_CHECKMULTISIG ",
                 }
             ],
@@ -1167,6 +1171,7 @@ class PSBTTest(TestCase):
                     "addr_type": "P2WSH",
                     "is_change": True,
                     "witness_script": "OP_2 0236a6cf4254c8290a168ecab4aee771018d357ea87154a5b5fea9ed9baee2585e 03833d6e7c4121180fb79180b78a0573ad57c299825f18f49f6942cb38b6bf023a 03a9e341c32d8870706115443cf163bfc3d2da0ca8515a29bcc1a500c65cfb23bb OP_3 OP_CHECKMULTISIG ",
+                    "redeem_script": None,
                 },
             ],
             "root_paths": {
@@ -1181,7 +1186,7 @@ class PSBTTest(TestCase):
             psbt_described,
         )
 
-        psbt_described_with_xfp = psbt_obj.describe_basic_p2wsh_multisig_tx(
+        psbt_described_with_xfp = psbt_obj.describe_basic_multisig(
             hdpubkey_map=hdpubkey_map
         )
         self.assertEqual(psbt_described_with_xfp, psbt_description_expected)

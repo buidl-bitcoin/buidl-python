@@ -759,8 +759,9 @@ class MultiWallet(Cmd):
                     key_record["xpub_parent"]
                 )
 
-        psbt_described = psbt_obj.describe_basic_p2wsh_multisig_tx(
-            hdpubkey_map=hdpubkey_map
+        psbt_described = psbt_obj.describe_basic_multisig(
+            hdpubkey_map=hdpubkey_map,
+            script_type="p2wsh",  # FIXME: add p2sh support!
         )
 
         # Gather TX info and validate

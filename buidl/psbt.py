@@ -644,7 +644,10 @@ class PSBT:
             if not was_replaced:
                 raise ValueError(f"xfp_hex {xfp_to_hide} not found in psbt")
 
-    def _describe_basic_p2wsh_inputs(self, hdpubkey_map):
+    def _describe_basic_multisig_inputs(self, hdpubkey_map, script_type="p2wsh"):
+
+        if script_type not in ("p2sh", "p2wsh"):
+            raise RuntimeError(f"Unsupported script type: {script_type}")
 
         # These will be used for all inputs and change outputs
         inputs_quorum_m, inputs_quorum_n = None, None
@@ -657,11 +660,24 @@ class PSBT:
         for cnt, psbt_in in enumerate(self.psbt_ins):
             psbt_in.validate()
 
-            if type(psbt_in.witness_script) != WitnessScript:
-                # TODO: add support for legacy TXs?
+            if script_type == "p2wsh":
+                script_for_psbtin = psbt_in.witness_script
+                if psbt_in.redeem_script:
+                    raise SuspiciousTransaction(
+                        f"p2wsh input #{cnt} has redeem script: {psbt_in.redeem_script}"
+                    )
+            elif script_type == "ps2h":
+                script_for_psbtin = psbt_in.redeem_script
+                if psbt_in.witness_script:
+                    raise SuspiciousTransaction(
+                        f"p2sh input #{cnt} has witness script: {psbt_in.witness_script}"
+                    )
+            else:
+                raise RuntimeError("Bad script_type logic: this shouldn't be possible")
+
+            if not script_for_psbtin:
                 raise SuspiciousTransaction(
-                    f"Input #{cnt} does not contain a witness script. "
-                    "This tool can only sign p2wsh transactions."
+                    f"{script_type} input #{cnt} does not contain a script to evaluate"
                 )
 
             # Be sure all xpubs are properly accounted for
@@ -671,13 +687,13 @@ class PSBT:
                     f"{len(hdpubkey_map)} xpubs supplied != {len(psbt_in.named_pubs)} named_pubs in PSBT input."
                 )
 
-            input_quorum_m, input_quorum_n = psbt_in.witness_script.get_quorum()
+            input_quorum_m, input_quorum_n = script_for_psbtin.get_quorum()
             if inputs_quorum_m is None:
                 inputs_quorum_m = input_quorum_m
             else:
                 if inputs_quorum_m != input_quorum_m:
                     raise SuspiciousTransaction(
-                        f"Previous input(s) set a quorum threshold of {inputs_quorum_m}, but this transaction is {input_quorum_m}"
+                        f"Previous input(s) set a quorum threshold of {inputs_quorum_m}, but this input is {input_quorum_m}"
                     )
 
             if inputs_quorum_n is None:
@@ -689,8 +705,10 @@ class PSBT:
             else:
                 if inputs_quorum_n != input_quorum_n:
                     raise SuspiciousTransaction(
-                        f"Previous input(s) set a max quorum of threshold of {inputs_quorum_n}, but this transaction is {input_quorum_n}"
+                        f"Previous input(s) set a max quorum of threshold of {inputs_quorum_n}, but this input is {input_quorum_n}"
                     )
+
+            spend_addr = script_for_psbtin.address(network=self.network)
 
             bip32_derivs = []
             for named_pub in psbt_in.named_pubs.values():
@@ -735,9 +753,13 @@ class PSBT:
                 "prev_idx": psbt_in.tx_in.prev_index,
                 "n_sequence": psbt_in.tx_in.sequence,
                 "sats": input_sats,
-                "addr": psbt_in.witness_script.address(network=self.network),
-                # if adding support for p2sh in the future, the address would be: psbt_in.witness_script.p2sh_address(network=self.network),
-                "witness_script": str(psbt_in.witness_script),
+                "addr": spend_addr,
+                "witness_script": str(psbt_in.witness_script)
+                if psbt_in.witness_script
+                else None,
+                "redeem_script": str(psbt_in.redeem_script)
+                if psbt_in.redeem_script
+                else None,
             }
             inputs_desc.append(input_desc)
 
@@ -754,12 +776,16 @@ class PSBT:
             "total_input_sats": total_input_sats,
         }
 
-    def _describe_basic_p2wsh_outputs(
+    def _describe_basic_multisig_outputs(
         self,
         expected_quorum_m,
         expected_quorum_n,
         hdpubkey_map={},
+        change_script_type="p2wsh",
     ):
+
+        if change_script_type not in ("p2sh", "p2wsh"):
+            raise RuntimeError(f"Unsupported script type: {change_script_type}")
 
         # intialize variable we'll loop through to set
         outputs_desc = []
@@ -780,11 +806,19 @@ class PSBT:
             total_sats += output_desc["sats"]
 
             if psbt_out.named_pubs:
-                # Confirm below that this is correct (throw error otherwise)
-                output_desc["is_change"] = True
+                # Output claims to be change, we will confirm it below before accepting that as fact
+
+                if change_script_type == "p2wsh":
+                    script_for_psbtout = psbt_out.witness_script
+                elif change_script_type == "p2sh":
+                    script_for_psbtout = psbt_out.redeem_script
+                else:
+                    raise RuntimeError(
+                        "Bad script_type logic: this shouldn't be possible"
+                    )
 
                 # FIXME: Confirm this works with a fake change test case
-                output_quorum_m, output_quorum_n = psbt_out.witness_script.get_quorum()
+                output_quorum_m, output_quorum_n = script_for_psbtout.get_quorum()
                 if expected_quorum_m != output_quorum_m:
                     raise SuspiciousTransaction(
                         f"Previous output(s) set a max quorum of threshold of {expected_quorum_m}, but this transaction is {output_quorum_m}"
@@ -844,7 +878,15 @@ class PSBT:
                 change_addr = output_desc["addr"]
                 change_sats = output_desc["sats"]
 
-                output_desc["witness_script"] = str(psbt_out.witness_script)
+                output_desc["witness_script"] = (
+                    str(psbt_out.witness_script) if psbt_out.witness_script else None
+                )
+                output_desc["redeem_script"] = (
+                    str(psbt_out.redeem_script) if psbt_out.redeem_script else None
+                )
+
+                # We have succesfully validated that this output matches the input parameters:
+                output_desc["is_change"] = True
 
             else:
                 output_desc["is_change"] = False
@@ -870,9 +912,9 @@ class PSBT:
             "is_batch_tx": spends_cnt > 1,
         }
 
-    def describe_basic_p2wsh_multisig_tx(self, hdpubkey_map={}):
+    def describe_basic_multisig(self, hdpubkey_map={}, script_type="p2wsh"):
         """
-        Describe a typical p2wsh multisig transaction in a human-readable way for manual verification before signing.
+        Describe a typical multisig transaction in a human-readable way for manual verification before signing.
 
         This tool supports transactions with the following constraints:
         * ALL inputs have the exact same multisig wallet (quorum + xpubs)
@@ -889,8 +931,11 @@ class PSBT:
 
         TODOS:
           - add helper method that accepts an output descriptor, converts it into an hdpubkey_map, and then calls this method
-          - add support for p2sh and other script types
+          - add support for p2wsh-wrapped-p2sh?
         """
+
+        if script_type not in ("p2sh", "p2wsh"):
+            raise RuntimeError(f"Unsupported script type: {script_type}")
 
         self.validate()
 
@@ -908,14 +953,18 @@ class PSBT:
                     hdpubkey.xpub()
                 )
 
-        inputs_described = self._describe_basic_p2wsh_inputs(hdpubkey_map=hdpubkey_map)
+        inputs_described = self._describe_basic_multisig_inputs(
+            hdpubkey_map=hdpubkey_map,
+            script_type=script_type,
+        )
         total_input_sats = inputs_described["total_input_sats"]
 
-        outputs_described = self._describe_basic_p2wsh_outputs(
+        outputs_described = self._describe_basic_multisig_outputs(
             hdpubkey_map=hdpubkey_map,
             # Tool requires m-of-n be same for inputs as outputs
             expected_quorum_m=inputs_described["inputs_quorum_m"],
             expected_quorum_n=inputs_described["inputs_quorum_n"],
+            change_script_type=script_type,
         )
         is_batch_tx = outputs_described["is_batch_tx"]
         total_output_sats = outputs_described["total_sats"]
