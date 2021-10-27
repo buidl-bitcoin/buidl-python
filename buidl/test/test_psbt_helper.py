@@ -290,7 +290,7 @@ class P2SHTest(TestCase):
         xfps = ["9a6a2580", "8c7e2500", "0586b1ce"]
 
         pubkey_records = []
-        for cnt, seed_word in enumerate("bacon", "flag", "gas"):
+        for cnt, seed_word in enumerate(("bacon", "flag", "gas")):
             seed_phrase = f"{seed_word} " * 24
             hd_obj = HDPrivateKey.from_mnemonic(seed_phrase, network="testnet")
 
