@@ -389,7 +389,14 @@ class PSBT:
             # add PSBTOut to arary
             psbt_outs.append(psbt_out)
         # return an instance with the Tx, PSBTIn array and PSBTOut array
-        psbt_obj = cls(tx_obj, psbt_ins, psbt_outs)
+        psbt_obj = cls(
+            tx_obj=tx_obj,
+            psbt_ins=psbt_ins,
+            psbt_outs=psbt_outs,
+            hd_pubs=None,
+            extra_map=None,
+            network=tx_obj.network,
+        )
 
         # append metadata
         if tx_lookup or pubkey_lookup:
@@ -399,6 +406,7 @@ class PSBT:
                 redeem_lookup=redeem_lookup,
                 witness_lookup=witness_lookup,
             )
+
         if hd_pubs:
             psbt_obj.hd_pubs = hd_pubs
 
@@ -410,10 +418,19 @@ class PSBT:
     def update(self, tx_lookup, pubkey_lookup, redeem_lookup={}, witness_lookup={}):
         # update each PSBTIn
         for psbt_in in self.psbt_ins:
-            psbt_in.update(tx_lookup, pubkey_lookup, redeem_lookup, witness_lookup)
+            psbt_in.update(
+                tx_lookup=tx_lookup,
+                pubkey_lookup=pubkey_lookup,
+                redeem_lookup=redeem_lookup,
+                witness_lookup=witness_lookup,
+            )
         # update each PSBTOut
         for psbt_out in self.psbt_outs:
-            psbt_out.update(pubkey_lookup, redeem_lookup, witness_lookup)
+            psbt_out.update(
+                pubkey_lookup=pubkey_lookup,
+                redeem_lookup=redeem_lookup,
+                witness_lookup=witness_lookup,
+            )
 
     def sign(self, hd_priv):
         """Signs appropriate inputs with the hd private key provided"""
@@ -908,7 +925,7 @@ class PSBT:
         These HDPublicKey's will be traversed according to the paths given in the PSBT.
 
         TODOS:
-          - add helper method that accepts an output descriptor, converts it into an hdpubkey_map, and then calls this method
+          - add helper method that accepts an output descriptor (converts it into an hdpubkey_map and then calls this method)
           - add support for p2wsh-wrapped-p2sh?
         """
 
