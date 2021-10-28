@@ -21,7 +21,7 @@ class MultiwalletTest(unittest.TestCase):
                 latest_char = self.child.read(1)
             except Exception as e:
                 raise Exception(
-                    f"Failed to find text `{text}` in buffer {buffer}.\nError: {e}"
+                    f"Failed to find text `{text}` in buffer `{buffer}`.\nError: `{e}`"
                 )
 
             try:
@@ -237,7 +237,7 @@ class MultiwalletTest(unittest.TestCase):
         self.child.sendline("Y")
         self.expect(
             "PSBT sends 99,487 sats to tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar with a fee of 513 sats (0.51% of spend)"[
-                -60:
+                -20:
             ]
         )
         self.expect("In Depth Transaction View?")
