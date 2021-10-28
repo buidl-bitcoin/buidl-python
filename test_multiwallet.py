@@ -235,17 +235,28 @@ class MultiwalletTest(unittest.TestCase):
         )
 
         self.child.sendline("Y")
-        self.expect(
-            "PSBT sends 99,487 sats to tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar with a fee of 513 sats (0.51% of spend)"[
-                -20:
-            ]
-        )
+
+        if not getenv("SKIP_UNRELIABLE_TESTS"):
+            # HACK!
+            # This test should always work locally, but something about how github does CLI app buffering prevents the text from rendering sometimes
+            # It is safe enough to skip this test as the detailed view below contains sufficient info for a smoke test
+            self.expect(
+                "PSBT sends 99,487 sats to tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar with a fee of 513 sats (0.51% of spend)"
+            )
         self.expect("In Depth Transaction View?")
 
         self.child.sendline("Y")
         self.expect("DETAILED VIEW")
         self.expect(
             "TXID: 8b8f537cff81ca69fbccb08f0f5e1f4190f417a06c8242ccfb2880fac45f9f39"
+        )
+        self.expect("1 Input")
+        self.expect(
+            "addr: tb1q3re6e0s0rjh2chsecugz5wasulsrtarpfsu63lxavacmya4yglqq0gwqnl"
+        )
+        self.expect("1 Output")
+        self.expect(
+            "addr: tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar"
         )
         self.expect("Sign this transaction?")
 
@@ -258,7 +269,7 @@ class MultiwalletTest(unittest.TestCase):
         self.child.sendline("N")
         self.expect("Signed PSBT to broadcast")
 
-        signed_psbt_b64 = ""
+        signed_psbt_b64 = "cHNidP8BAF4CAAAAAVnAAJBVdhn3JXR/+xnIV3909mMlK54ux56qruCYyDMxAAAAAAD9////AZ+EAQAAAAAAIgAghWi2ObHovaOzrJHz7w8+smg2+1eAamJxXoWGMhzN27FSfh8ATwEENYfPBIH57suAAAACWsKNF5QmpSZFlYXQ5PRaHaP9uAZOqPmLkbP9AiymDtwCd5mfakF7WtxnH7YzkJdpAnPKZ+WR+xHmGe5YW8C6z1EU4MWVxTAAAIABAACAAAAAgAIAAIBPAQQ1h88EkYCp9oAAAAIGrAFY5Fzsoqb8E8E/f9Lk6rTVkGn6Pkg6D9I4TN958gIhFhsdVpYmJBmJ+mkCBjuw/7eYCaArAD+9TT0JUQtzihSDjz/5MAAAgAEAAIAAAACAAgAAgAABAH0CAAAAAZt5QczPUEc5WphZD5A3659qq7bSTYLpCSu4cRZlWJezAAAAAAD+////AqCGAQAAAAAAIgAgiPOsvg8crqxeGccQKjuw5+A19GFMOaj83WdxsnakR8AKZ+QAAAAAABYAFA+VUziCYIHZLvUbTbABHskgY2f9wHofACICAzgj0f3otcfqaOoLFjoW+7vxz6ZVeffEGRtg5QjlWraFRjBDAiBYKJHJz/ohPKrqPpcgret62o1sTX53zReWz89D+2qD1gIfAbESsACm2Y9Z1VfwnEu/2cwIfphH3nDuIF1AlF8hHgEBAwQBAAAAAQVHUSEDOCPR/ei1x+po6gsWOhb7u/HPplV598QZG2DlCOVatoUhA7jNisc8iZsolWXC08/epb5ZM24r2zCPIqBt7KT1BYDSUq4iBgM4I9H96LXH6mjqCxY6Fvu78c+mVXn3xBkbYOUI5Vq2hRzgxZXFMAAAgAEAAIAAAACAAgAAgAAAAAAAAAAAIgYDuM2KxzyJmyiVZcLTz96lvlkzbivbMI8ioG3spPUFgNIcg48/+TAAAIABAACAAAAAgAIAAIAAAAAAAAAAAAAA"
         self.expect(signed_psbt_b64)
 
     def test_caravan_output_descriptors(self):
