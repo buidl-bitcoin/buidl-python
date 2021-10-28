@@ -80,7 +80,7 @@ def create_p2sh_multisig_psbt(
 
         # Prev tx stuff
         prev_tx_dict = input_dict["prev_tx_dict"]
-        prev_tx_obj = Tx.parse_hex(prev_tx_dict["hex"])
+        prev_tx_obj = Tx.parse_hex(prev_tx_dict["hex"], network=network)
         tx_lookup[prev_tx_obj.hash()] = prev_tx_obj
 
         if prev_tx_dict["hash_hex"] != prev_tx_obj.hash().hex():
@@ -178,6 +178,9 @@ def create_p2sh_multisig_psbt(
                 raise ValueError(
                     f"Invalid redeem script for output #{cnt}. Expecting {redeem_script.address(network=network)} but got {output_dict['address']}"
                 )
+
+            # For enhancing the PSBT for HWWs:
+            redeem_lookup[redeem_script.hash160()] = redeem_script
 
     tx_obj = Tx(
         version=1,

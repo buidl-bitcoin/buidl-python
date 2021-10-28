@@ -1,7 +1,7 @@
 from unittest import TestCase
 from copy import deepcopy
 
-from buidl.hd import HDPrivateKey
+from buidl.hd import HDPrivateKey, HDPublicKey
 from buidl.psbt_helper import create_p2sh_multisig_psbt
 from buidl.script import RedeemScript
 
@@ -173,7 +173,7 @@ class P2SHTest(TestCase):
                     "address": "2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8",
                     "quorum_m": 1,
                     "path_dict": {
-                        # xfp: root_path (m/.../1/*/{idx} is receiving addr branch)
+                        # xfp: root_path (m/.../1/*/{idx} is change addr branch)
                         "e0c595c5": "m/45'/0/1/0",
                         "838f3ff9": "m/45'/0/1/0",
                     },
@@ -187,7 +187,7 @@ class P2SHTest(TestCase):
             "fee_sats": 4000,
         }
 
-        expected_unsigned_psbt_b64 = "cHNidP8BAHIBAAAAAaKU/3O6/slfNAtmfA8FuWi7qxpbFO1U0iiFGN7Bkbw7AQAAAAD/////AugDAAAAAAAAF6kUTpOd3+VnlxaS0ZVZ8fktT65aoFaHiBMAAAAAAAAWABT/naVn5i8w6oZU+h1fvUe++OO+EwAAAABPAQQ1h88CF475zgAAAAAuMPm6dNx6/NwppaWSD/7GhT4UPlsn6KW0NrZYTVtOeAJ9I53eSRJwDV7g4Yzcwn86qD6fEQeXC5XtgEK6hPvjlgyDjz/5LQAAgAAAAABPAQQ1h88C4EhWVQAAAAAeelY9aAGd9a7a3O/1SPCzbumzSE4EcxBtmWlDpzmbgwM3j99+dzd6N9WWqQSAbu2U9fhpNL3al9TksC8YNBAoegzgxZXFLQAAgAAAAAAAAQDfAgAAAAABASxApoEPemcJE9Fx4fWyA8oB7UXtO/aLZJhQSR7stWAIAQAAAAD+////AqflCUEBAAAAFgAUezryJTYywwAPnN1TF0cQf+JJx9EQJwAAAAAAABepFFn7Y4qqVacRmgn69eiyzoqHnM4zhwJHMEQCIARmbYhTEJkOGwph6TsUkKyxctQyANb8+iLomQW38wlNAiBKcF5KT8jKuX99FG9IHnBxjuRWdIZ5ZTbRTHgIvj/YZgEhAsw7AdIZK1J10/2n+C6vWT37jKkzP3KW+T2kAfjRghM1YZ8eAAEER1EhAiblPHq2FdpGg2TKn1mHn1G9lCeMJqOcrFmiNafPgUWTIQLSIeF7uAzxMLsJMUNK+sXlXzd+2bKwA1GaUpzgKGJER1KuIgYCJuU8erYV2kaDZMqfWYefUb2UJ4wmo5ysWaI1p8+BRZMUg48/+S0AAIAAAAAAAAAAAAEAAAAiBgLSIeF7uAzxMLsJMUNK+sXlXzd+2bKwA1GaUpzgKGJERxTgxZXFLQAAgAAAAAAAAAAAAQAAAAAAAA=="
+        expected_unsigned_psbt_b64 = "cHNidP8BAHIBAAAAAaKU/3O6/slfNAtmfA8FuWi7qxpbFO1U0iiFGN7Bkbw7AQAAAAD/////AugDAAAAAAAAF6kUTpOd3+VnlxaS0ZVZ8fktT65aoFaHiBMAAAAAAAAWABT/naVn5i8w6oZU+h1fvUe++OO+EwAAAABPAQQ1h88CF475zgAAAAAuMPm6dNx6/NwppaWSD/7GhT4UPlsn6KW0NrZYTVtOeAJ9I53eSRJwDV7g4Yzcwn86qD6fEQeXC5XtgEK6hPvjlgyDjz/5LQAAgAAAAABPAQQ1h88C4EhWVQAAAAAeelY9aAGd9a7a3O/1SPCzbumzSE4EcxBtmWlDpzmbgwM3j99+dzd6N9WWqQSAbu2U9fhpNL3al9TksC8YNBAoegzgxZXFLQAAgAAAAAAAAQDfAgAAAAABASxApoEPemcJE9Fx4fWyA8oB7UXtO/aLZJhQSR7stWAIAQAAAAD+////AqflCUEBAAAAFgAUezryJTYywwAPnN1TF0cQf+JJx9EQJwAAAAAAABepFFn7Y4qqVacRmgn69eiyzoqHnM4zhwJHMEQCIARmbYhTEJkOGwph6TsUkKyxctQyANb8+iLomQW38wlNAiBKcF5KT8jKuX99FG9IHnBxjuRWdIZ5ZTbRTHgIvj/YZgEhAsw7AdIZK1J10/2n+C6vWT37jKkzP3KW+T2kAfjRghM1YZ8eAAEER1EhAiblPHq2FdpGg2TKn1mHn1G9lCeMJqOcrFmiNafPgUWTIQLSIeF7uAzxMLsJMUNK+sXlXzd+2bKwA1GaUpzgKGJER1KuIgYCJuU8erYV2kaDZMqfWYefUb2UJ4wmo5ysWaI1p8+BRZMUg48/+S0AAIAAAAAAAAAAAAEAAAAiBgLSIeF7uAzxMLsJMUNK+sXlXzd+2bKwA1GaUpzgKGJERxTgxZXFLQAAgAAAAAAAAAAAAQAAAAABAEdRIQJ3tPielqw9CAqDy+Tn23vo4cUxiYYGk/KWtw5ryOPJ3yEC1WIbkoA7VEDNWw0VmAntyxp6EY5IfZ7sbF1PNJklWFFSriICAne0+J6WrD0ICoPL5Ofbe+jhxTGJhgaT8pa3DmvI48nfFODFlcUtAACAAAAAAAEAAAAAAAAAIgIC1WIbkoA7VEDNWw0VmAntyxp6EY5IfZ7sbF1PNJklWFEUg48/+S0AAIAAAAAAAQAAAAAAAAAAAA=="
 
         # With p2sh, txid changes depending on which key signs
         tests = (
@@ -271,3 +271,249 @@ class P2SHTest(TestCase):
             "xfp_hex e0c595c5 with m/999 for in/output #0 not supplied in xpub_dict",
             str(cm.exception),
         )
+
+    def test_full_wallet_functionality(self):
+        """
+        Create a wallet, fund it, and spend it (validating on all devices first).
+        Do this both with and without change.
+        """
+
+        child_path = "m/0/0"
+        base_path = "m/45'/0"
+        xpubs = [
+            # Verified against electrum 2021-10
+            "tpubDAp5uHrhyCRnoQdMmF9xFU78bev55TKux39Viwn8VCnWywjTCBB3TFSA1i5i4scj8ZkD8RR37EZMPyqBwk4wD4VNpxyowgk2rQ7i8AdVauN",
+            "tpubDBxHJMmnouRSes7kweA5wUp2Jm5F1xEPCG3fjYRnBSiQM7hjsp9gp8Wsag16A8yrpMgJkPX8iddXmwuxKaUnAWfdcGcuXbiATYeGXCKkEXK",
+            "tpubDANTttKyukGYwXvhTmdCa6p1nHmsbFef2yRXb9b2JTvLGoekYk6ZG9oHXGHYJjTn5g3DijvQrZ4rH6EosYqpVngKiUx2jvWdPmq6ZSDr3ZE",
+        ]
+
+        xfps = ["9a6a2580", "8c7e2500", "0586b1ce"]
+
+        pubkey_records = []
+        for cnt, seed_word in enumerate(("bacon", "flag", "gas")):
+            seed_phrase = f"{seed_word} " * 24
+            hd_obj = HDPrivateKey.from_mnemonic(seed_phrase, network="testnet")
+
+            # takes the form xfp, child_xpub, base_path
+            pubkey_record = [
+                hd_obj.fingerprint().hex(),
+                hd_obj.traverse(base_path).xpub(),
+                base_path,
+            ]
+            pubkey_records.append(pubkey_record)
+
+            self.assertEqual(pubkey_record, [xfps[cnt], xpubs[cnt], base_path])
+
+        pubkey_hexes = [
+            HDPublicKey.parse(tpub).traverse(child_path).sec().hex() for tpub in xpubs
+        ]
+
+        rs_obj = RedeemScript.create_p2sh_multisig(
+            quorum_m=2, pubkey_hexes=pubkey_hexes, sort_keys=True
+        )
+
+        deposit_address = rs_obj.address(network="testnet")
+        # We funded this testnet address in 2021-10:
+        self.assertEqual(deposit_address, "2MzLzwPgo6ZTyPzkguNWKfFHgCXdZSJu9tL")
+
+        input_dicts = [
+            {
+                "quorum_m": 2,
+                "path_dict": {
+                    # xfp: root_path
+                    "9a6a2580": "m/45'/0/0/0",
+                    "8c7e2500": "m/45'/0/0/0",
+                    "0586b1ce": "m/45'/0/0/0",
+                },
+                "prev_tx_dict": {
+                    # This was the funding transaction send to 2MzLzwPgo6ZTyPzkguNWKfFHgCXdZSJu9tL
+                    "hex": "02000000000101045448b2faafc53a7586bd6a746a598d9a1cfc3dd548d8f8afd12c11c53c16740000000000feffffff02809a4b000000000017a914372becc78d20f8acb94059fa8d1e3219b67c1d9387a08601000000000017a9144de07b9788bc64143292f9610443a7f81cc5fc308702473044022059f2036e5b6da03e592863664082f957472dbb89330895d23ac66f94e3819f63022050d31d401cd86fe797c31ba7fb2a2cf9e12356bba8388897f4f522bc4999224f0121029c71554e111bb41463ad288b4808effef8136755da80d42aa2bcea12ed8a99bbba0e2000",
+                    "hash_hex": "838504ad934d97915d9ab58b0ece6900ed123abf3a51936563ba9d67b0e41fa4",
+                    "output_idx": 1,
+                    "output_sats": 100_000,
+                },
+            }
+        ]
+
+        base_description_want = {
+            "locktime": 0,
+            "version": 1,
+            "network": "testnet",
+            "spend_addr": "2MxvTasFXms6w1R6omwqtKKTYDyjrbhCTYd",
+            "is_batch_tx": False,
+            "inputs_desc": [
+                {
+                    "quorum": "2-of-3",
+                    "bip32_derivs": [
+                        {
+                            "pubkey": "02861f9fd125b4183cd3d5645ff7c7697573e7cf6da174aa993a25d498191f4ff4",
+                            "master_fingerprint": "0586b1ce",
+                            "path": "m/45'/0/0/0",
+                            "xpub": "tpubDANTttKyukGYwXvhTmdCa6p1nHmsbFef2yRXb9b2JTvLGoekYk6ZG9oHXGHYJjTn5g3DijvQrZ4rH6EosYqpVngKiUx2jvWdPmq6ZSDr3ZE",
+                        },
+                        {
+                            "pubkey": "03c46aea215fd0017576534cfad56aa06d14043947add8ffe4cb7b4ba1d9b023b3",
+                            "master_fingerprint": "8c7e2500",
+                            "path": "m/45'/0/0/0",
+                            "xpub": "tpubDBxHJMmnouRSes7kweA5wUp2Jm5F1xEPCG3fjYRnBSiQM7hjsp9gp8Wsag16A8yrpMgJkPX8iddXmwuxKaUnAWfdcGcuXbiATYeGXCKkEXK",
+                        },
+                        {
+                            "pubkey": "03f25b39eec4d2824883b2e4cb010adb7685f13540805767c763808a599fd8df36",
+                            "master_fingerprint": "9a6a2580",
+                            "path": "m/45'/0/0/0",
+                            "xpub": "tpubDAp5uHrhyCRnoQdMmF9xFU78bev55TKux39Viwn8VCnWywjTCBB3TFSA1i5i4scj8ZkD8RR37EZMPyqBwk4wD4VNpxyowgk2rQ7i8AdVauN",
+                        },
+                    ],
+                    "prev_txhash": "838504ad934d97915d9ab58b0ece6900ed123abf3a51936563ba9d67b0e41fa4",
+                    "prev_idx": 1,
+                    "n_sequence": 4294967295,
+                    "sats": 100000,
+                    "addr": "2MzLzwPgo6ZTyPzkguNWKfFHgCXdZSJu9tL",
+                    "witness_script": None,
+                    "redeem_script": "OP_2 02861f9fd125b4183cd3d5645ff7c7697573e7cf6da174aa993a25d498191f4ff4 03c46aea215fd0017576534cfad56aa06d14043947add8ffe4cb7b4ba1d9b023b3 03f25b39eec4d2824883b2e4cb010adb7685f13540805767c763808a599fd8df36 OP_3 OP_CHECKMULTISIG ",
+                }
+            ],
+            "root_paths": {
+                "0586b1ce": {"m/45'/0/0/0"},
+                "8c7e2500": {"m/45'/0/0/0"},
+                "9a6a2580": {"m/45'/0/0/0"},
+            },
+        }
+
+        # We broadcast this to the testnet blockchain (confirmed in block 000000000000000ce65761d5949a930daa84381a5fb86c930947ea88742c957d)
+        # Takes the form: (tx_output_dicts, psbt_outputs_desc, psbt_desc_want, expected_tx_hash)
+        sweep_test_output = (
+            # tx_output_dicts
+            [
+                # Sweep to faucet
+                {
+                    "sats": 60_000,
+                    "address": "2MxvTasFXms6w1R6omwqtKKTYDyjrbhCTYd",
+                },
+            ],
+            # psbt_outputs_desc
+            [
+                {
+                    "sats": 60_000,
+                    "addr": "2MxvTasFXms6w1R6omwqtKKTYDyjrbhCTYd",
+                    "addr_type": "P2SH",
+                    "is_change": False,
+                }
+            ],
+            # psbt_desc_want
+            {
+                "txid": "1b768c9e7bc19898fbe92d28a5b3ed482ea9719cd34a77b8b9bcb050a99466c7",
+                "tx_fee_sats": 40_000,
+                "total_input_sats": 100_000,
+                "total_output_sats": 60_000,
+                "spend_sats": 60_000,
+                "change_addr": "",
+                "change_sats": 0,
+                "tx_summary_text": "PSBT sends 60,000 sats to 2MxvTasFXms6w1R6omwqtKKTYDyjrbhCTYd with a fee of 40,000 sats (40.0% of spend)",
+            },
+            # expected_tx_hash
+            "229fd99a2abab6c2b193bde547920424d2903978c4129472b06c9d2ffaced025",
+        )
+
+        # We sign but don't broadcast this
+        # Takes the form: (tx_output_dicts, psbt_outputs_desc, psbt_desc_want, expected_tx_hash)
+        change_test_outputs = (
+            # tx_output_dicts
+            [
+                # Spend to faucet
+                {
+                    "sats": 50_000,
+                    "address": "2MxvTasFXms6w1R6omwqtKKTYDyjrbhCTYd",
+                },
+                # Change back to self
+                {
+                    "sats": 30_000,
+                    "address": "2MzJEYwRjTcpdpMa9J2sb9QQAWNB34umhbV",
+                    "quorum_m": 2,
+                    "path_dict": {
+                        # xfp: root_path (m/.../1/*/{idx} is change addr branch)
+                        "0586b1ce": "m/45'/0/1/0",
+                        "8c7e2500": "m/45'/0/1/0",
+                        "9a6a2580": "m/45'/0/1/0",
+                    },
+                },
+            ],
+            # psbt_outputs_desc
+            [
+                {
+                    "sats": 50_000,
+                    "addr": "2MxvTasFXms6w1R6omwqtKKTYDyjrbhCTYd",
+                    "addr_type": "P2SH",
+                    "is_change": False,
+                },
+                {
+                    "sats": 30_000,
+                    "addr": "2MzJEYwRjTcpdpMa9J2sb9QQAWNB34umhbV",
+                    "addr_type": "P2SH",
+                    "is_change": True,
+                    "witness_script": None,
+                    "redeem_script": "OP_2 02a1921eba209b568f6fa904c4b1e1b87790d2b73d48607aad4db91f977879a16b 02bae8e95f63062500fa18a5142e7103d1783cae028c56293735f7bddbf3ba7b15 032953df01093cab0c2d73067c90509039fe3599a2f80e9b90a6c2229eba432208 OP_3 OP_CHECKMULTISIG ",
+                },
+            ],
+            # psbt_desc_want
+            {
+                "txid": "076baed6061d88f2342b57e8c9b1b96cf155cec0dce93e6f7d80b2c540876166",
+                "tx_fee_sats": 20_000,
+                "total_input_sats": 100_000,
+                "total_output_sats": 80_000,
+                "spend_sats": 50_000,
+                "change_addr": "2MzJEYwRjTcpdpMa9J2sb9QQAWNB34umhbV",
+                "change_sats": 30_000,
+                "tx_summary_text": "PSBT sends 50,000 sats to 2MxvTasFXms6w1R6omwqtKKTYDyjrbhCTYd with a fee of 20,000 sats (20.0% of spend)",
+            },
+            # expected_tx_hash
+            "668a7d61aa09c01db90a477e6aabdc433712b161cf419d23e94f0c1fc3a89097",
+        )
+
+        test_outputs = (change_test_outputs, sweep_test_output)
+
+        for (
+            tx_output_dicts,
+            psbt_outputs_desc,
+            psbt_desc_want,
+            expected_tx_hash,
+        ) in test_outputs:
+
+            # Return all the funds to the faucet address
+            psbt_obj = create_p2sh_multisig_psbt(
+                public_key_records=pubkey_records,
+                input_dicts=input_dicts,
+                output_dicts=tx_output_dicts,
+                fee_sats=psbt_desc_want["tx_fee_sats"],
+            )
+
+            self.assertTrue(psbt_obj.validate())
+
+            description_want = {
+                **base_description_want,
+                **psbt_desc_want,
+                **{"outputs_desc": psbt_outputs_desc},
+            }
+
+            self.assertEqual(psbt_obj.describe_basic_multisig(), description_want)
+
+            # choosing to sign with these two seeds, could have signed with any 2-of-3
+            private_child_keys = []
+            for seed_word in ("bacon", "gas"):
+                seed_phrase = f"{seed_word} " * 24
+                hd_obj = HDPrivateKey.from_mnemonic(seed_phrase, network="testnet")
+                private_child_key = hd_obj.traverse(f"{base_path}/0/0").private_key
+                private_child_keys.append(private_child_key)
+
+            self.assertTrue(psbt_obj.sign_with_private_keys(private_child_keys))
+
+            psbt_obj.finalize()
+
+            self.assertTrue(psbt_obj.validate())
+
+            final_tx = psbt_obj.final_tx()
+
+            # We would broadcast this to the network:
+            # final_tx.serialize().hex()
+
+            self.assertEqual(final_tx.hash().hex(), expected_tx_hash)
