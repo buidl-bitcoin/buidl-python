@@ -23,8 +23,9 @@ class SinglesweepTest(unittest.TestCase):
                 # This will error out at the end of the buffer
                 latest_char = self.child.read(1)
             except Exception as e:
-                print("buffer", buffer)
-                raise Exception(f"Failed to find text `{text}`in buffer. Error: {e}")
+                raise Exception(
+                    f"Failed to find text `{text}` in buffer `{buffer}`.\nError: `{e}`"
+                )
 
             try:
                 latest_char = latest_char.decode()
