@@ -236,7 +236,7 @@ class MultiwalletTest(unittest.TestCase):
 
         self.child.sendline("Y")
 
-        if not getenv("SKIP_UNRELIABLE_TESTS"):
+        if not getenv("SKIP_GH_UNRELIABLE_TESTS"):
             # HACK!
             # This test should always work locally, but something about how github does CLI app buffering prevents the text from rendering sometimes
             # It is safe enough to skip this test as the detailed view below contains sufficient info for a smoke test

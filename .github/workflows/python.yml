@@ -36,9 +36,9 @@ jobs:
       run: |
         pytest -v test_multiwallet.py
       env:
-        SKIP_UNRELIABLE_TESTS: True
+        SKIP_GH_UNRELIABLE_TESTS: True
     - name: pytest CLI singlesig
       run: |
         pytest -v test_singlesweep.py
       env:
-        SKIP_UNRELIABLE_TESTS: True
+        SKIP_GH_UNRELIABLE_TESTS: True
