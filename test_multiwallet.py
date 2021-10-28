@@ -235,7 +235,9 @@ class MultiwalletTest(unittest.TestCase):
 
         self.child.sendline("Y")
         self.expect(
-            "PSBT sends 99,487 sats to tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar with a fee of 513 sats (0.51% of spend)"
+            "PSBT sends 99,487 sats to tb1qs45tvwd3az768vavj8e77re7kf5rd76hsp4xyu27skrry8xdmwcslqn7ar with a fee of 513 sats (0.51% of spend)"[
+                -60:
+            ]
         )
         self.expect("In Depth Transaction View?")
 
