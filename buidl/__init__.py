@@ -8,6 +8,7 @@ from .descriptor import *
 from .ecc import *
 from .hd import *
 from .helper import *
+from .libsec_status import *
 from .merkleblock import *
 from .mnemonic import *
 from .network import *
