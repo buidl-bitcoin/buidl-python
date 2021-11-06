@@ -37,14 +37,14 @@ def bcur_decode(data, checksum=None):
     return cbor_decode(cbor)
 
 
-def _parse_bcur_helper(bcur_string):
+def _parse_bcur_v1_helper(bcur_string):
     """
     This parses a bcur string and returns the following (or raises an error):
 
         payload, checksum, x, y
 
     Notes:
-    - Works for both BCURSingle and BCURMulti.
+    - Works for both BCURv1Single and BCURv1Multi.
     - All entries may be empty except for payload.
     - Checksums are not validated here, as checksum validation is different for single vs multi.
     """
@@ -106,7 +106,7 @@ def _parse_bcur_helper(bcur_string):
     return payload, checksum, x_int, y_int
 
 
-class BCURSingle:
+class BCURv1Single:
     def __init__(self, text_b64, encoded=None, checksum=None):
         binary_b64 = a2b_base64(text_b64)
         enc, enc_hash = bcur_encode(data=binary_b64)
@@ -132,13 +132,13 @@ class BCURSingle:
 
     @classmethod
     def parse(cls, to_parse):
-        """Parses (decodes) a BCURSingle from a single BCUR string"""
+        """Parses (decodes) a BCURv1Single from a single BCUR string"""
 
-        payload, checksum, x, y = _parse_bcur_helper(bcur_string=to_parse)
+        payload, checksum, x, y = _parse_bcur_v1_helper(bcur_string=to_parse)
 
         if x != 1 or y != 1:
             raise BCURStringFormatError(
-                f"BCURSingle must have x=1 and y=1, instead got x={x} and y={y}"
+                f"BCURv1Single must have x=1 and y=1, instead got x={x} and y={y}"
             )
 
         # will throw an error if checksum is incorrect
@@ -150,7 +150,7 @@ class BCURSingle:
         )
 
 
-class BCURMulti:
+class BCURv1Multi:
     def __init__(self, text_b64, encoded=None, checksum=None):
         binary_b64 = a2b_base64(text_b64)
         enc, enc_hash = bcur_encode(data=binary_b64)
@@ -174,7 +174,7 @@ class BCURMulti:
 
         If animate=False, then max_size_per_chunk is ignored and this returns a 1of1 with checksum.
 
-        Use parse() to return a BCURMulti object from this encoded result.
+        Use parse() to return a BCURv1Multi object from this encoded result.
 
         This algorithm makes all the chunks of about equal length.
         This makes sure that the last chunk is not (too) different in size which is visually noticeable when animation occurs
@@ -189,7 +189,7 @@ class BCURMulti:
 
         chunk_length = ceil(len(self.encoded) / number_of_chunks)
 
-        # For number_of_chunks == 1 (with no checksum) use BCURSingle
+        # For number_of_chunks == 1 (with no checksum) use BCURv1Single
 
         resulting_chunks = []
         for cnt in range(number_of_chunks):
@@ -203,7 +203,7 @@ class BCURMulti:
 
     @classmethod
     def parse(cls, to_parse):
-        """Parses a BCURMulti from a list of BCUR strings"""
+        """Parses a BCURv1Multi from a list of BCUR strings"""
         if type(to_parse) not in (list, tuple):
             raise BCURStringFormatError(
                 f"{to_parse} is of type {type(to_parse)}, not a list/tuple"
@@ -212,7 +212,7 @@ class BCURMulti:
         payloads = []
         global_checksum, global_y = "", 0
         for cnt, bcur_string in enumerate(to_parse):
-            entry_payload, entry_checksum, entry_x, entry_y = _parse_bcur_helper(
+            entry_payload, entry_checksum, entry_x, entry_y = _parse_bcur_v1_helper(
                 bcur_string=bcur_string
             )
             if cnt + 1 != entry_x:
