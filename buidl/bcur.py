@@ -6,11 +6,16 @@ from buidl.bech32 import (
     uses_only_bech32_chars,
 )
 from buidl.helper import is_intable
+from buidl.mnemonic import WordList
 
-from binascii import a2b_base64, b2a_base64
+from binascii import a2b_base64, b2a_base64, hexlify, unhexlify
 from math import ceil
 
 import hashlib
+import zlib
+
+
+BCUR_WORDS = WordList("bcur_bytewords.txt", 256)
 
 
 class BCURStringFormatError(RuntimeError):
@@ -35,6 +40,39 @@ def bcur_decode(data, checksum=None):
         if h != calculated_digest:
             raise ValueError(f"Calculated digest {calculated_digest} != {h}")
     return cbor_decode(cbor)
+
+
+def cbor_encode_string_to_hex(string):
+    return hexlify(cbor_encode(string.encode())).decode()
+
+
+def encode_hex_to_bytewords(hex_string, encoding="minimal"):
+    to_return = []
+    for i in range(0, len(hex_string), 2):
+        key = int(hex_string[i : i + 2], 16)
+        bcur_word = BCUR_WORDS[key]
+        if encoding == "minimal":
+            # First and last char only
+            to_return.append(f"{bcur_word[0]}{bcur_word[-1]}")
+        # TODO: add other encodings
+
+    return "".join(to_return)
+
+
+def calc_crc32_checksum_hex(hex_string):
+    # https://newbedev.com/how-to-calculate-crc32-with-python-to-match-online-results
+    return hex(zlib.crc32(unhexlify(hex_string)) & 0xFFFFFFFF)[2:]
+
+
+def encode_hex_to_bytewords_with_checksum(hex_string, encoding="minimal"):
+    payload_bytedwords_encoded = encode_hex_to_bytewords(
+        hex_string=hex_string, encoding=encoding
+    )
+    checksum_hex = calc_crc32_checksum_hex(hex_string=hex_string)
+    checksum_bytwords_encoded = encode_hex_to_bytewords(
+        hex_string=checksum_hex, encoding=encoding
+    )
+    return f"{payload_bytedwords_encoded}{checksum_bytwords_encoded}"
 
 
 def _parse_bcur_v1_helper(bcur_string):
