@@ -5,23 +5,26 @@ from io import BytesIO
 from os import getenv
 
 from buidl.block import Block
-from buidl.helper import decode_base58, decode_gcs
-from buidl.network import (
-    BASIC_FILTER_TYPE,
+from buidl.compactfilter import (
     CFCheckPointMessage,
     CFHeadersMessage,
     CFilterMessage,
-    FILTERED_BLOCK_DATA_TYPE,
-    GetDataMessage,
-    GetHeadersMessage,
     GetCFCheckPointMessage,
     GetCFHeadersMessage,
     GetCFiltersMessage,
+)
+from buidl.helper import decode_base58
+from buidl.network import (
+    BASIC_FILTER_TYPE,
+    FILTERED_BLOCK_DATA_TYPE,
+    GetDataMessage,
+    GetHeadersMessage,
     HeadersMessage,
     NetworkEnvelope,
     SimpleNode,
     VersionMessage,
 )
+from buidl.script import Script
 
 
 class NetworkEnvelopeTest(TestCase):
@@ -150,13 +153,16 @@ class CFilterTest(TestCase):
         cfilter = CFilterMessage.parse(BytesIO(expected))
         self.assertEqual(cfilter.filter_type, 0)
         self.assertEqual(cfilter.block_hash, stop_hash)
-        self.assertEqual(cfilter.hashes, {1341840, 1483084, 570774})
-        self.assertEqual(cfilter.hash(b"\x00"), 1322199)
-        included = bytes.fromhex(
-            "002027a5000c7917f785d8fc6e5a55adfca8717ecb973ebb7743849ff956d896a7ed"
+        self.assertEqual(cfilter.cf.hashes, {1341840, 1483084, 570774})
+        included = Script.parse(
+            BytesIO(
+                bytes.fromhex(
+                    "22002027a5000c7917f785d8fc6e5a55adfca8717ecb973ebb7743849ff956d896a7ed"
+                )
+            )
         )
-        self.assertTrue([included] in cfilter)
-        self.assertFalse([b"\x00"] in cfilter)
+        self.assertTrue(included in cfilter)
+        self.assertFalse(Script() in cfilter)
         with self.assertRaises(RuntimeError):
             GetCFiltersMessage()
 
@@ -165,21 +171,21 @@ class CFilterTest(TestCase):
         block_hash_hex = (
             "000000000000015d6077a411a8f5cc95caf775ccf11c54e27df75ce58d187313"
         )
+        block_hash = bytes.fromhex(block_hash_hex)
         filter_hex = "09027acea61b6cc3fb33f5d52f7d088a6b2f75d234e89ca800"
-        key = bytes.fromhex(block_hash_hex)[::-1][:16]
         filter_bytes = bytes.fromhex(filter_hex)
         cfilter = CFilterMessage(
             filter_type=BASIC_FILTER_TYPE,
-            block_hash=bytes.fromhex(block_hash_hex),
+            block_hash=block_hash,
             filter_bytes=filter_bytes,
-            hashes=decode_gcs(key, filter_bytes),
         )
-        for script, want in (
-            ("76a9143ebc40e411ed3c76f86711507ab952300890397288ac", True),
-            ("76a914c01a7ca16b47be50cbdbc60724f701d52d75156688ac", True),
-            ("76a914000000000000000000000000000000000000000088ac", False),  # made up
+        for raw_script, want in (
+            ("1976a9143ebc40e411ed3c76f86711507ab952300890397288ac", True),
+            ("1976a914c01a7ca16b47be50cbdbc60724f701d52d75156688ac", True),
+            ("1976a914000000000000000000000000000000000000000088ac", False),  # made up
         ):
-            self.assertEqual(bytes.fromhex(script) in cfilter, want)
+            script = Script.parse(BytesIO(bytes.fromhex(raw_script)))
+            self.assertEqual(script in cfilter, want)
 
 
 class CFHeaderTest(TestCase):
