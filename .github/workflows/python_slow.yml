@@ -18,6 +18,9 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Install pytest
+      run: |
+        python -m pip install --upgrade pytest
     - name: pytest unit tests
       run: |
         pytest -v buidl/test
