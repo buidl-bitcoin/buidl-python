@@ -67,7 +67,7 @@ jobs:
     # HACK: Since unit tests are super slow, we only install pytest and not the rest of the testing dependencies
     - name: Install pytest
       run: |
-        python -m pip install `cat requirements.txt | grep pytest`
+        python -m pip install `cat requirements-test.txt | grep pytest`
     - name: pytest unit tests
       run: |
         pytest -v buidl/test
