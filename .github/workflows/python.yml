@@ -14,6 +14,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
@@ -33,6 +35,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
@@ -53,6 +57,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
     # HACK: Since unit tests are super slow, we only install pytest and not the rest of the testing dependencies
     - name: Install pytest
       run: |
