@@ -1,0 +1,23 @@
+# https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
+
+name: Python Slow Unit Tests
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: pytest unit tests
+      run: |
+        pytest -v buidl/test
