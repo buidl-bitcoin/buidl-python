@@ -144,7 +144,7 @@ class ParseTest(TestCase):
 
 class BCURSingleTest(TestCase):
     def test_simple_bcur(self):
-        """ 1of1 with and without checksum """
+        """1of1 with and without checksum"""
 
         # Basic test
         bcur_single_obj = BCURSingle(text_b64="aaaa")
