@@ -1,27 +1,25 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
-name: Python package
+name: Python
 
 on: [push]
 
 jobs:
-  build:
 
-    runs-on: ubuntu-latest
+  lint:
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9]
-
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+        os: [ubuntu-20.04, macos-11, windows-2019]
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+    - uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
+    - name: Install python testing dependencies
       run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
+        pip install -r requirements-test.txt
     - name: Lint with black
       run: |
         black . --diff --check
@@ -29,9 +27,23 @@ jobs:
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --statistics
-    - name: pytest unit tests
+
+  cli-apps:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+        # TODO CLI app testing doesn't work on windows due to different handling of pexcept:
+        # https://github.com/pexpect/pexpect/issues/321
+        os: [ubuntu-20.04, macos-11]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install python testing dependencies
       run: |
-        pytest -v buidl/test
+        pip install -r requirements-test.txt
     - name: pytest CLI multisig
       run: |
         pytest -v test_multiwallet.py
@@ -40,5 +52,22 @@ jobs:
     - name: pytest CLI singlesig
       run: |
         pytest -v test_singlesweep.py
-      env:
-        SKIP_GH_UNRELIABLE_TESTS: True
+
+  unit-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+        os: [ubuntu-20.04, macos-11, windows-2019]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+    # HACK: Since unit tests are super slow, we only install pytest and not the rest of the testing dependencies
+    - name: Install pytest
+      run: |
+        python -m pip install pytest==6.2.5
+    - name: pytest unit tests
+      run: |
+        pytest -v buidl/test
