@@ -1,6 +1,6 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
-name: Python Tests
+name: Python
 
 on: [push]
 
@@ -19,7 +19,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install python testing dependencies
       run: |
-        if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
+        pip install -r requirements-test.txt
     - name: Lint with black
       run: |
         black . --diff --check
@@ -41,7 +41,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install python testing dependencies
       run: |
-        if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
+        pip install -r requirements-test.txt
     - name: pytest CLI multisig
       run: |
         pytest -v test_multiwallet.py
@@ -50,8 +50,6 @@ jobs:
     - name: pytest CLI singlesig
       run: |
         pytest -v test_singlesweep.py
-      env:
-        SKIP_GH_UNRELIABLE_TESTS: True
 
   unit-tests:
     runs-on: ubuntu-latest
