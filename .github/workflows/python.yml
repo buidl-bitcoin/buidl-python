@@ -10,7 +10,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10-dev"]
         os: [ubuntu-20.04, macos-11, windows-2019]
     steps:
     - uses: actions/checkout@v2
@@ -32,7 +32,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10-dev"]
         # TODO CLI app testing doesn't work on windows due to different handling of pexcept:
         # https://github.com/pexpect/pexpect/issues/321
         os: [ubuntu-20.04, macos-11]
@@ -57,7 +57,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10-dev"]
         os: [ubuntu-20.04, macos-11, windows-2019]
     steps:
     - uses: actions/checkout@v2
