@@ -1,6 +1,6 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
-name: Python package
+name: Python Tests
 
 on: [push]
 
@@ -23,7 +23,7 @@ jobs:
         python -m pip install --upgrade pip
 
   lint:
-    runs-on: build
+    needs: build
     steps:
     - name: Install python testing dependencies
       run: |
@@ -37,7 +37,7 @@ jobs:
         flake8 . --count --statistics
 
   cli-apps:
-    runs-on: build
+    needs: build
     steps:
     - name: Install python testing dependencies
       run: |
@@ -55,7 +55,7 @@ jobs:
 
   unit-tests:
     # HACK: These are super slow, so for speed we only install pytest
-    runs-on: build
+    needs: build
     steps:
     - name: Install pytest
       run: |
