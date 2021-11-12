@@ -11,6 +11,7 @@ from buidl.helper import (
     int_to_big_endian,
     raw_decode_base58,
 )
+from buidl.schnorr import tagged_hash, xor_bytes
 
 
 class FieldElement:
@@ -203,7 +204,10 @@ class S256Field(FieldElement):
         return self.hex()
 
     def sqrt(self):
-        return self ** ((P + 1) // 4)
+        s = self ** ((P + 1) // 4)
+        if s * s != self:
+            raise ValueError(f"{self} does not have a square root in {P:x}")
+        return s
 
 
 class S256Point(Point):
@@ -235,6 +239,9 @@ class S256Point(Point):
         else:
             return super().__add__(other)
 
+    def negate(self):
+        return -1 * self
+
     def sec(self, compressed=True):
         # returns the binary version of the sec format, NOT hex
         # if compressed, starts with b'\x02' if self.y.num is even, b'\x03' if self.y is odd
@@ -250,6 +257,12 @@ class S256Point(Point):
             # if non-compressed, starts with b'\x04' followod by self.x and then self.y
             y = int_to_big_endian(self.y.num, 32)
             return b"\x04" + x + y
+
+    def bip340(self):
+        # returns the binary version of BIP340 pubkey
+        if self.x is None:
+            return int_to_big_endian(0, 32)
+        return int_to_big_endian(self.x.num, 32)
 
     def hash160(self, compressed=True):
         # get the sec
@@ -311,13 +324,35 @@ class S256Point(Point):
         # verify the message using the self.verify method
         return self.verify(z, sig)
 
+    def verify_schnorr(self, msg, schnorr_sig):
+        if self.y.num % 2 == 1:
+            point = self.negate()
+        else:
+            point = self
+        if schnorr_sig.r.x is None:
+            return False
+        message = schnorr_sig.r.bip340() + point.bip340() + msg
+        e = big_endian_to_int(tagged_hash("challenge", message)) % N
+        result = schnorr_sig.s * G + (N - e) * point
+        return result == schnorr_sig.r
+
     @classmethod
-    def parse(self, sec_bin):
-        """returns a Point object from a compressed sec binary (not hex)"""
+    def parse(cls, binary):
+        """returns a Point object from a SEC or BIP340 pubkey"""
+        if len(binary) == 32:
+            return cls.parse_bip340(binary)
+        elif len(binary) in (33, 65):
+            return cls.parse_sec(binary)
+        else:
+            raise ValueError(f"Unknown public key format {binary.hex()}")
+
+    @classmethod
+    def parse_sec(cls, sec_bin):
+        """returns a Point object from a SEC pubkey"""
         if sec_bin[0] == 4:
             x = int(sec_bin[1:33].hex(), 16)
             y = int(sec_bin[33:65].hex(), 16)
-            return S256Point(x=x, y=y)
+            return cls(x=x, y=y)
         is_even = sec_bin[0] == 2
         x = S256Field(int(sec_bin[1:].hex(), 16))
         # right side of the equation y^2 = x^3 + 7
@@ -331,9 +366,25 @@ class S256Point(Point):
             even_beta = S256Field(P - beta.num)
             odd_beta = beta
         if is_even:
-            return S256Point(x, even_beta)
+            return cls(x, even_beta)
         else:
-            return S256Point(x, odd_beta)
+            return cls(x, odd_beta)
+
+    @classmethod
+    def parse_bip340(cls, bip340_bin):
+        """returns a Point object from a BIP340 pubkey"""
+        n = big_endian_to_int(bip340_bin)
+        if n == 0:
+            # point at infinity
+            return cls(None, None)
+        x = S256Field(n)
+        # right side of the equation y^2 = x^3 + 7
+        alpha = x ** 3 + S256Field(B)
+        # solve for left side
+        beta = alpha.sqrt()
+        if beta.num % 2 == 1:
+            beta = S256Field(P - beta.num)
+        return cls(x, beta)
 
 
 G = S256Point(
@@ -398,9 +449,37 @@ class Signature:
         return cls(r, s)
 
 
+class SchnorrSignature:
+    def __init__(self, r, s):
+        self.r = r
+        if s >= N:
+            raise ValueError(f"{s:x} is greater than or equal to {N:x}")
+        self.s = s
+
+    def __repr__(self):
+        return f"SchnorrSignature({self.r},{self.s:x})"
+
+    def __eq__(self, other):
+        return self.r == other.r and self.s == other.s
+
+    def serialize(self):
+        return self.r.bip340() + int_to_big_endian(self.s, 32)
+
+    @classmethod
+    def parse(cls, signature_bin):
+        stream = BytesIO(signature_bin)
+        r = S256Point.parse(stream.read(32))
+        s = big_endian_to_int(stream.read(32))
+        return cls(r, s)
+
+
 class PrivateKey:
     def __init__(self, secret, network="mainnet", compressed=True):
         self.secret = secret
+        if secret > N - 1:
+            raise RuntimeError("secret too big")
+        if secret < 1:
+            raise RuntimeError("secret too small")
         self.point = secret * G
         self.network = network
         self.compressed = compressed
@@ -422,6 +501,29 @@ class PrivateKey:
         # return an instance of Signature:
         # Signature(r, s)
         return Signature(r, s)
+
+    def sign_schnorr(self, msg, aux):
+        if len(msg) != 32:
+            raise ValueError("msg needs to be 32 bytes")
+        if len(aux) != 32:
+            raise ValueError("aux needs to be 32 bytes")
+        if self.point.y.num % 2 == 0:
+            d = self.secret
+        else:
+            d = N - self.secret
+        t = xor_bytes(int_to_big_endian(d, 32), tagged_hash("aux", aux))
+        k = big_endian_to_int(tagged_hash("nonce", t + self.point.bip340() + msg)) % N
+        r = k * G
+        if r.y.num % 2 == 1:
+            k = N - k
+            r = k * G
+        message = r.bip340() + self.point.bip340() + msg
+        e = big_endian_to_int(tagged_hash("challenge", message)) % N
+        s = (k + e * d) % N
+        sig = SchnorrSignature(r, s)
+        if not self.point.verify_schnorr(msg, sig):
+            raise RuntimeError("bad sig")
+        return sig
 
     def deterministic_k(self, z):
         k = b"\x00" * 32

@@ -50,13 +50,18 @@ class S256Point:
         coef = coefficient % N
         new_key = ffi.new("secp256k1_pubkey *")
         s = self.sec(compressed=False)
-        lib.secp256k1_ec_pubkey_parse(GLOBAL_CTX, new_key, s, len(s))
-        lib.secp256k1_ec_pubkey_tweak_mul(GLOBAL_CTX, new_key, coef.to_bytes(32, "big"))
+        if not lib.secp256k1_ec_pubkey_parse(GLOBAL_CTX, new_key, s, len(s)):
+            raise RuntimeError("libsecp256k1 parse error")
+        if not lib.secp256k1_ec_pubkey_tweak_mul(
+            GLOBAL_CTX, new_key, coef.to_bytes(32, "big")
+        ):
+            raise RuntimeError("libsecp256k1 multiplication error")
         serialized = ffi.new("unsigned char [65]")
         output_len = ffi.new("size_t *", 65)
-        lib.secp256k1_ec_pubkey_serialize(
+        if not lib.secp256k1_ec_pubkey_serialize(
             GLOBAL_CTX, serialized, output_len, new_key, lib.SECP256K1_EC_UNCOMPRESSED
-        )
+        ):
+            raise RuntimeError("libsecp256k1 serialization error")
         return self.__class__(usec=bytes(serialized))
 
     def __add__(self, scalar):
@@ -64,19 +69,34 @@ class S256Point:
         coef = scalar % N
         new_key = ffi.new("secp256k1_pubkey *")
         s = self.sec(compressed=False)
-        lib.secp256k1_ec_pubkey_parse(GLOBAL_CTX, new_key, s, len(s))
-        lib.secp256k1_ec_pubkey_tweak_add(GLOBAL_CTX, new_key, coef.to_bytes(32, "big"))
+        if not lib.secp256k1_ec_pubkey_parse(GLOBAL_CTX, new_key, s, len(s)):
+            raise RuntimeError("libsecp256k1 parse error")
+        if not lib.secp256k1_ec_pubkey_tweak_add(
+            GLOBAL_CTX, new_key, coef.to_bytes(32, "big")
+        ):
+            raise RuntimeError("libsecp256k1 add error")
         serialized = ffi.new("unsigned char [65]")
         output_len = ffi.new("size_t *", 65)
-        lib.secp256k1_ec_pubkey_serialize(
+        if not lib.secp256k1_ec_pubkey_serialize(
             GLOBAL_CTX, serialized, output_len, new_key, lib.SECP256K1_EC_UNCOMPRESSED
-        )
+        ):
+            raise RuntimeError("libsecp256k1 serialize error")
         return self.__class__(usec=bytes(serialized))
 
     def verify(self, z, sig):
         msg = z.to_bytes(32, "big")
         sig_data = sig.cdata()
         return lib.secp256k1_ecdsa_verify(GLOBAL_CTX, sig_data, msg, self.c)
+
+    def verify_schnorr(self, msg, sig):
+        xonly_key = ffi.new("secp256k1_xonly_pubkey *")
+        if not lib.secp256k1_xonly_pubkey_from_pubkey(
+            GLOBAL_CTX, xonly_key, ffi.NULL, self.c
+        ):
+            raise RuntimeError("libsecp256k1 xonly pubkey error")
+        return lib.secp256k1_schnorrsig_verify(
+            GLOBAL_CTX, sig.raw, msg, len(msg), xonly_key
+        )
 
     def sec(self, compressed=True):
         """returns the binary version of the SEC format"""
@@ -85,13 +105,14 @@ class S256Point:
                 serialized = ffi.new("unsigned char [33]")
                 output_len = ffi.new("size_t *", 33)
 
-                lib.secp256k1_ec_pubkey_serialize(
+                if not lib.secp256k1_ec_pubkey_serialize(
                     GLOBAL_CTX,
                     serialized,
                     output_len,
                     self.c,
                     lib.SECP256K1_EC_COMPRESSED,
-                )
+                ):
+                    raise RuntimeError("libsecp256k1 serialize error")
                 self.csec = bytes(ffi.buffer(serialized, 33))
             return self.csec
         else:
@@ -99,15 +120,28 @@ class S256Point:
                 serialized = ffi.new("unsigned char [65]")
                 output_len = ffi.new("size_t *", 65)
 
-                lib.secp256k1_ec_pubkey_serialize(
+                if not lib.secp256k1_ec_pubkey_serialize(
                     GLOBAL_CTX,
                     serialized,
                     output_len,
                     self.c,
                     lib.SECP256K1_EC_UNCOMPRESSED,
-                )
+                ):
+                    raise RuntimeError("libsecp256k1 serialize error")
                 self.usec = bytes(ffi.buffer(serialized, 65))
             return self.usec
+
+    def bip340(self):
+        # returns the binary version of BIP340 pubkey
+        xonly_key = ffi.new("secp256k1_xonly_pubkey *")
+        if not lib.secp256k1_xonly_pubkey_from_pubkey(
+            GLOBAL_CTX, xonly_key, ffi.NULL, self.c
+        ):
+            raise RuntimeError("libsecp256k1 xonly pubkey error")
+        output32 = ffi.new("unsigned char [32]")
+        if not lib.secp256k1_xonly_pubkey_serialize(GLOBAL_CTX, output32, xonly_key):
+            raise RuntimeError("libsecp256k1 xonly serialize error")
+        return bytes(ffi.buffer(output32, 32))
 
     def hash160(self, compressed=True):
         # get the sec
@@ -158,12 +192,27 @@ class S256Point:
         return self.verify(z, sig)
 
     @classmethod
-    def parse(self, sec_bin):
+    def parse(cls, binary):
+        """returns a Point object from a SEC or BIP340 pubkey"""
+        if len(binary) == 32:
+            return cls.parse_bip340(binary)
+        elif len(binary) in (33, 65):
+            return cls.parse_sec(binary)
+        else:
+            raise ValueError(f"Unknown public key format {binary.hex()}")
+
+    @classmethod
+    def parse_sec(cls, sec_bin):
         """returns a Point object from a SEC binary (not hex)"""
         if sec_bin[0] == 4:
-            return S256Point(usec=sec_bin)
+            return cls(usec=sec_bin)
         else:
-            return S256Point(csec=sec_bin)
+            return cls(csec=sec_bin)
+
+    @classmethod
+    def parse_bip340(cls, binary):
+        sec_bin = b"\x02" + binary
+        return cls(csec=sec_bin)
 
 
 G = S256Point(
@@ -198,9 +247,10 @@ class Signature:
         if not self.der_cache:
             der = ffi.new("unsigned char[72]")
             der_length = ffi.new("size_t *", 72)
-            lib.secp256k1_ecdsa_signature_serialize_der(
+            if not lib.secp256k1_ecdsa_signature_serialize_der(
                 GLOBAL_CTX, der, der_length, self.c
-            )
+            ):
+                raise RuntimeError("libsecp256k1 der serialize error")
             self.der_cache = bytes(ffi.buffer(der, der_length[0]))
         return self.der_cache
 
@@ -210,6 +260,34 @@ class Signature:
     @classmethod
     def parse(cls, der):
         return cls(der=der)
+
+
+class SchnorrSignature:
+    def __init__(self, raw):
+        self.raw = raw
+        # check that the sig's R is valid
+        if big_endian_to_int(raw[:32]) == 0:
+            raise AssertionError("R should not be zero")
+        xonly_key = ffi.new("secp256k1_xonly_pubkey *")
+        if not lib.secp256k1_xonly_pubkey_parse(GLOBAL_CTX, xonly_key, raw[:32]):
+            raise ValueError(f"invalid signature {raw[:32].hex()}")
+        s = big_endian_to_int(raw[32:])
+        if s >= N:
+            raise ValueError(f"{s:x} is greater than or equal to {N:x}")
+
+    def __repr__(self):
+        return f"SchnorrSignature({self.raw[:32].hex()},{self.raw[32:].hex()})"
+
+    def __eq__(self, other):
+        print(self.raw.hex(), other.raw.hex())
+        return self.raw == other.raw
+
+    def serialize(self):
+        return self.raw
+
+    @classmethod
+    def parse(cls, raw):
+        return cls(raw)
 
 
 class PrivateKey:
@@ -229,11 +307,26 @@ class PrivateKey:
         if not lib.secp256k1_ecdsa_sign(
             GLOBAL_CTX, csig, msg, secret, ffi.NULL, ffi.NULL
         ):
-            raise RuntimeError("something went wrong with c signing")
+            raise RuntimeError("libsecp256k1 ecdsa signing problem")
         sig = Signature(c=csig)
         if not self.point.verify(z, sig):
-            raise RuntimeError("something went wrong with signing")
+            raise RuntimeError("generated signature doesn't verify")
         return sig
+
+    def sign_schnorr(self, msg, aux):
+        if len(msg) != 32:
+            raise ValueError("msg needs to be 32 bytes")
+        if len(aux) != 32:
+            raise ValueError("aux needs to be 32 bytes")
+        keypair = ffi.new("secp256k1_keypair *")
+        if not lib.secp256k1_keypair_create(
+            GLOBAL_CTX, keypair, int_to_big_endian(self.secret, 32)
+        ):
+            raise RuntimeError("libsecp256k1 keypair creation problem")
+        raw_sig = ffi.new("unsigned char [64]")
+        if not lib.secp256k1_schnorrsig_sign(GLOBAL_CTX, raw_sig, msg, keypair, aux):
+            raise RuntimeError("libsecp256k1 schnorr signing problem")
+        return SchnorrSignature(bytes(ffi.buffer(raw_sig, 64)))
 
     def deterministic_k(self, z):
         k = b"\x00" * 32
