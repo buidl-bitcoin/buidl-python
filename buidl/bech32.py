@@ -9,6 +9,8 @@ GEN = [0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3]
 
 BECH32_CHARS_RE = re.compile("^[qpzry9x8gf2tvdw0s3jn54khce6mua7l]*$")
 
+BECH32M_CONSTANT = 0x2BC830A3
+
 
 def uses_only_bech32_chars(string):
     return bool(BECH32_CHARS_RE.match(string.lower()))
@@ -38,6 +40,18 @@ def bech32_verify_checksum(hrp, data):
 def bech32_create_checksum(hrp, data):
     values = bech32_hrp_expand(hrp) + data
     polymod = bech32_polymod(values + [0, 0, 0, 0, 0, 0]) ^ 1
+    return [(polymod >> 5 * (5 - i)) & 31 for i in range(6)]
+
+
+# next two functions are straight from BIP0350:
+# https://github.com/bitcoin/bips/blob/master/bip-0350.mediawiki
+def bech32m_verify_checksum(hrp, data):
+    return bech32_polymod(bech32_hrp_expand(hrp) + data) == BECH32M_CONSTANT
+
+
+def bech32m_create_checksum(hrp, data):
+    values = bech32_hrp_expand(hrp) + data
+    polymod = bech32_polymod(values + [0, 0, 0, 0, 0, 0]) ^ BECH32M_CONSTANT
     return [(polymod >> 5 * (5 - i)) & 31 for i in range(6)]
 
 
@@ -158,9 +172,11 @@ def encode_bech32_checksum(s, network="mainnet"):
         version -= 0x50
     length = s[1]
     data = [version] + group_32(s[2 : 2 + length])
-    checksum = bech32_create_checksum(prefix, data)
-    bech32 = encode_bech32(data + checksum)
-    return prefix + "1" + bech32
+    if version == 0:
+        checksum = bech32_create_checksum(prefix, data)
+    else:
+        checksum = bech32m_create_checksum(prefix, data)
+    return prefix + "1" + encode_bech32(data + checksum)
 
 
 def decode_bech32(s):
@@ -173,9 +189,13 @@ def decode_bech32(s):
     else:
         raise ValueError("unknown human readable part: {}".format(hrp))
     data = [BECH32_ALPHABET.index(c) for c in raw_data]
-    if not bech32_verify_checksum(hrp, data):
-        raise ValueError("bad address: {}".format(s))
     version = data[0]
+    if version == 0:
+        if not bech32_verify_checksum(hrp, data):
+            raise ValueError("bad address: {}".format(s))
+    else:
+        if not bech32m_verify_checksum(hrp, data):
+            raise ValueError("bad address: {}".format(s))
     number = 0
     for digit in data[1:-6]:
         number = (number << 5) + digit
