@@ -1,5 +1,7 @@
 # `buidl` Bitcoin Library
 
+[![Python](https://github.com/buidl-bitcoin/buidl-python/actions/workflows/python.yml/badge.svg)](https://github.com/buidl-bitcoin/buidl-python/actions/workflows/python.yml)
+
 `buidl` is a `python3` bitcoin library with 0 dependencies.
 It is easy-to-read, has extensive test coverage, simple to install on airgapped computers (just copy over this directory).
 
@@ -78,7 +80,6 @@ You can speed this library up ~100x by using C-bindings to [bitcoin core's `libs
 ```
 $ brew tap buidl-bitcoin/homebrew-libsecp256k1
 $ brew install pkg-config libffi libsecp256k1
-
 ```
 
 #### Hard (Linux/Mac)
@@ -92,7 +93,7 @@ $ make
 $ sudo make install
 ```
 
-#### `buidl` Installation
+### `buidl` Installation
 
 ```bash
 $ git clone git@github.com:buidl-bitcoin/buidl-python.git && cd buidl-python && python3 -m pip3 install -r requirements-libsec.txt && python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
