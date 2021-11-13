@@ -71,12 +71,18 @@ $ flake8 .
 
 You can speed this library up ~100x by using C-bindings to [bitcoin core's `libsecp256k1` library](https://github.com/bitcoin-core/secp256k1).
 
-#### `libsec256k1` Dependency Installation
+### `libsec256k1` Dependency Installation
 
-Note that you'll have to compile libsecp256k1 from scratch with experimental modules enabled to make Schnorr signatures work.
 
-Here are the instructions on Linux/Mac:
+#### Easy (MacOS only)
+```
+$ brew tap buidl-bitcoin/homebrew-libsecp256k1
+$ brew install pkg-config libffi libsecp256k1
 
+```
+
+#### Hard (Linux/Mac)
+Compile libsecp256k1 from scratch with experimental modules enabled to make Schnorr signatures work:
 ```bash
 $ git clone https://github.com/bitcoin-core/secp256k1
 $ cd secp256k1
@@ -89,5 +95,6 @@ $ sudo make install
 #### `buidl` Installation
 
 ```bash
-$ git clone git@github.com:buidl-bitcoin/buidl-python.git && cd buidl-python && python3 -m pip install -r requirements-libsec.txt && python3 -m pip install --editable . && cd buidl && python libsec_build.py && cd ..
+$ git clone git@github.com:buidl-bitcoin/buidl-python.git && cd buidl-python && python3 -m pip3 install -r requirements-libsec.txt && python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
+
 ```
