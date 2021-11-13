@@ -477,6 +477,26 @@ class HDTest(TestCase):
         want = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
         self.assertEqual(first_key.bech32_address(), want)
 
+    def test_p2tr_address(self):
+        mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+        password = b""
+        path = "m"
+        hd_priv_key = HDPrivateKey.from_mnemonic(
+            mnemonic, password, path=path, network="mainnet"
+        )
+        self.assertEqual(
+            hd_priv_key.get_p2tr_change_address(),
+            "bc1p3qkhfews2uk44qtvauqyr2ttdsw7svhkl9nkm9s9c3x4ax5h60wqwruhk7",
+        )
+        self.assertEqual(
+            hd_priv_key.get_p2tr_receiving_address(),
+            "bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr",
+        )
+        self.assertEqual(
+            hd_priv_key.get_p2tr_receiving_address(address=1),
+            "bc1p4qhjn9zdvkux4e44uhx8tc55attvtyu358kutcqkudyccelu0was9fqzwh",
+        )
+
     def test_zprv(self):
         mnemonic, priv = HDPrivateKey.generate(extra_entropy=1 << 128)
         for word in mnemonic.split():

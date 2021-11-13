@@ -7,13 +7,20 @@ import json
 from buidl.helper import (
     big_endian_to_int,
     decode_base58,
-    hash256,
     encode_varint,
+    encode_varstr,
+    hash256,
+    hash_tapsighash,
     int_to_byte,
     int_to_little_endian,
     little_endian_to_int,
     read_varint,
+    sha256,
     SIGHASH_ALL,
+    SIGHASH_DEFAULT,
+    SIGHASH_NONE,
+    SIGHASH_SINGLE,
+    SIGHASH_ANYONECANPAY,
 )
 from buidl.script import (
     P2PKHScriptPubKey,
@@ -90,6 +97,11 @@ class Tx:
         self._hash_prevouts = None
         self._hash_sequence = None
         self._hash_outputs = None
+        self._sha_prevouts = None
+        self._sha_amounts = None
+        self._sha_script_pubkeys = None
+        self._sha_sequence = None
+        self._sha_outputs = None
 
     def __repr__(self):
         tx_ins = ""
@@ -264,9 +276,16 @@ class Tx:
         # return input sum - output sum
         return input_sum - output_sum
 
-    def sig_hash(self, input_index, redeem_script=None):
+    def sig_hash_legacy(self, input_index, redeem_script=None, hash_type=SIGHASH_ALL):
         """Returns the integer representation of the hash that needs to get
         signed for index input_index"""
+
+        # consensus bugs related to invalid input indices
+        DEFAULT = 1 << 248
+        if input_index >= len(self.tx_ins):
+            return DEFAULT
+        elif hash_type & 3 == SIGHASH_SINGLE and input_index >= len(self.tx_outs):
+            return DEFAULT
         # create the serialization per spec
         # start with version: int_to_little_endian in 4 bytes
         s = int_to_little_endian(self.version, 4)
@@ -274,6 +293,7 @@ class Tx:
         s += encode_varint(len(self.tx_ins))
         # loop through each input: for i, tx_in in enumerate(self.tx_ins)
         for i, tx_in in enumerate(self.tx_ins):
+            sequence = tx_in.sequence
             # if the input index is the one we're signing
             if i == input_index:
                 # if the RedeemScript was passed in, that's the ScriptSig
@@ -285,25 +305,40 @@ class Tx:
             # Otherwise, the ScriptSig is empty
             else:
                 script_sig = None
+                if hash_type & 3 in (SIGHASH_NONE, SIGHASH_SINGLE):
+                    sequence = 0
             # create a TxIn object with the prev_tx, prev_index and sequence
             # the same as the current tx_in and the script_sig from above
             new_tx_in = TxIn(
                 prev_tx=tx_in.prev_tx,
                 prev_index=tx_in.prev_index,
                 script_sig=script_sig,
-                sequence=tx_in.sequence,
+                sequence=sequence,
             )
             # add the serialization of the TxIn object
-            s += new_tx_in.serialize()
+            if hash_type & SIGHASH_ANYONECANPAY:
+                if i == input_index:
+                    s += new_tx_in.serialize()
+            else:
+                s += new_tx_in.serialize()
         # add how many outputs there are using encode_varint
         s += encode_varint(len(self.tx_outs))
         # add the serialization of each output
-        for tx_out in self.tx_outs:
-            s += tx_out.serialize()
+        for i, tx_out in enumerate(self.tx_outs):
+            if hash_type & 3 == SIGHASH_NONE:
+                continue
+            elif hash_type & 3 == SIGHASH_SINGLE:
+                if i == input_index:
+                    s += tx_out.serialize()
+                    break
+                else:
+                    s += b"\xff\xff\xff\xff\xff\xff\xff\xff\x00"
+            else:
+                s += tx_out.serialize()
         # add the locktime using int_to_little_endian in 4 bytes
         s += int_to_little_endian(self.locktime, 4)
         # add SIGHASH_ALL using int_to_little_endian in 4 bytes
-        s += int_to_little_endian(SIGHASH_ALL, 4)
+        s += int_to_little_endian(hash_type, 4)
         # hash256 the serialization
         h256 = hash256(s)
         # convert the result to an integer using big_endian_to_int(x)
@@ -335,7 +370,13 @@ class Tx:
             self._hash_outputs = hash256(all_outputs)
         return self._hash_outputs
 
-    def sig_hash_bip143(self, input_index, redeem_script=None, witness_script=None):
+    def sig_hash_bip143(
+        self,
+        input_index,
+        redeem_script=None,
+        witness_script=None,
+        hash_type=SIGHASH_ALL,
+    ):
         """Returns the integer representation of the hash that needs to get
         signed for index input_index"""
         # grab the input being signed by looking up the input_index
@@ -343,7 +384,12 @@ class Tx:
         # start with the version in 4 bytes, little endian
         s = int_to_little_endian(self.version, 4)
         # add the HashPrevouts and HashSequence
-        s += self.hash_prevouts() + self.hash_sequence()
+        if hash_type & SIGHASH_ANYONECANPAY != SIGHASH_ANYONECANPAY:
+            s += self.hash_prevouts()
+        if hash_type & SIGHASH_ANYONECANPAY != SIGHASH_ANYONECANPAY and (
+            hash_type & 3
+        ) not in (SIGHASH_SINGLE, SIGHASH_NONE):
+            s += self.hash_sequence()
         # add the previous transaction hash in little endian
         s += tx_in.prev_tx[::-1]
         # add the previous transaction index in 4 bytes, little endian
@@ -372,16 +418,95 @@ class Tx:
         # add the sequence of the input in 4 bytes, little endian
         s += int_to_little_endian(tx_in.sequence, 4)
         # add the HashOutputs
-        s += self.hash_outputs()
+        if (hash_type & 3) not in (SIGHASH_SINGLE, SIGHASH_NONE):
+            s += self.hash_outputs()
+        elif hash_type & SIGHASH_SINGLE == SIGHASH_SINGLE:
+            s += self.tx_outs[input_index].serialize()
         # add the locktime in 4 bytes, little endian
         s += int_to_little_endian(self.locktime, 4)
         # add the sighash (SIGHASH_ALL) in 4 bytes, little endian
-        s += int_to_little_endian(SIGHASH_ALL, 4)
+        s += int_to_little_endian(hash_type, 4)
         # hash256 the whole thing, interpret the as a big endian integer using int_to_big_endian
         return big_endian_to_int(hash256(s))
 
-    def verify_input(self, input_index):
-        """Returns whether the input has a valid signature"""
+    def sha_prevouts(self):
+        if self._sha_prevouts is None:
+            all_prevouts = b""
+            all_amounts = b""
+            all_script_pubkeys = b""
+            all_sequence = b""
+            for tx_in in self.tx_ins:
+                all_prevouts += tx_in.prev_tx[::-1] + int_to_little_endian(
+                    tx_in.prev_index, 4
+                )
+                all_amounts += int_to_little_endian(tx_in.value(self.network), 8)
+                all_script_pubkeys += tx_in.script_pubkey(self.network).serialize()
+                all_sequence += int_to_little_endian(tx_in.sequence, 4)
+            self._sha_prevouts = sha256(all_prevouts)
+            self._sha_amounts = sha256(all_amounts)
+            self._sha_script_pubkeys = sha256(all_script_pubkeys)
+            self._sha_sequences = sha256(all_sequence)
+        return self._sha_prevouts
+
+    def sha_amounts(self):
+        if self._sha_amounts is None:
+            self.sha_prevouts()  # this should calculate self._sha_amounts
+        return self._sha_amounts
+
+    def sha_script_pubkeys(self):
+        if self._sha_script_pubkeys is None:
+            self.sha_prevouts()  # this should calculate self._sha_script_pubkeys
+        return self._sha_script_pubkeys
+
+    def sha_sequences(self):
+        if self._sha_sequences is None:
+            self.sha_prevouts()  # this should calculate self._sha_sequences
+        return self._sha_sequences
+
+    def sha_outputs(self):
+        if self._sha_outputs is None:
+            all_outputs = b""
+            for tx_out in self.tx_outs:
+                all_outputs += tx_out.serialize()
+            self._sha_outputs = sha256(all_outputs)
+        return self._sha_outputs
+
+    def sig_hash_bip341(self, input_index, ext_flag=0, hash_type=SIGHASH_DEFAULT):
+        """Returns the root message being signed for p2tr"""
+        tx_in = self.tx_ins[input_index]
+        s = b"\x00"
+        s += int_to_byte(hash_type)
+        s += int_to_little_endian(self.version, 4)
+        s += int_to_little_endian(self.locktime, 4)
+        if not hash_type & SIGHASH_ANYONECANPAY:
+            s += self.sha_prevouts()
+            s += self.sha_amounts()
+            s += self.sha_script_pubkeys()
+            s += self.sha_sequences()
+        if (hash_type & 3) not in (SIGHASH_NONE, SIGHASH_SINGLE):
+            s += self.sha_outputs()
+        spend_type = ext_flag * 2
+        if tx_in.witness.has_annex():
+            spend_type += 1
+        s += int_to_byte(spend_type)
+        if hash_type & SIGHASH_ANYONECANPAY:
+            s += tx_in.prev_tx[::-1] + int_to_little_endian(tx_in.prev_index, 4)
+            s += int_to_little_endian(tx_in.value(), 8)
+            s += tx_in.script_pubkey().serialize()
+            s += int_to_little_endian(tx_in.sequence, 4)
+        else:
+            s += int_to_little_endian(input_index, 4)
+        if hash_type & SIGHASH_SINGLE == SIGHASH_SINGLE:
+            s += sha256(self.tx_outs[input_index].serialize())
+        if tx_in.witness.has_annex():
+            s += sha256(encode_varstr(tx_in.witness[-1]))
+        if ext_flag == 1:
+            tapleaf_hash = tx_in.witness.tap_leaf().hash()
+            # extension defined in BIP0342
+            s += tapleaf_hash + b"\x00\xff\xff\xff\xff"
+        return hash_tapsighash(s)
+
+    def sig_hash(self, input_index, hash_type):
         # get the relevant input
         tx_in = self.tx_ins[input_index]
         # get the script_pubkey of the input
@@ -409,15 +534,31 @@ class Tx:
             or script_pubkey.is_p2wsh()
             or (redeem_script and redeem_script.is_p2wsh())
         ):
-            # calculate the z using sig_hash_bip143
-            z = self.sig_hash_bip143(input_index, redeem_script, witness_script)
+            return self.sig_hash_bip143(
+                input_index,
+                redeem_script=redeem_script,
+                witness_script=witness_script,
+                hash_type=hash_type,
+            )
+        elif script_pubkey.is_p2tr():
+            if len(tx_in.witness) > 1:
+                ext_flag = 1
+            else:
+                ext_flag = 0
+            return self.sig_hash_bip341(
+                input_index, ext_flag=ext_flag, hash_type=hash_type
+            )
         else:
-            # calculate z using legacy
-            z = self.sig_hash(input_index, redeem_script)
+            return self.sig_hash_legacy(input_index, redeem_script, hash_type=hash_type)
+
+    def verify_input(self, input_index):
+        """Returns whether the input has a valid signature"""
+        # get the relevant input
+        tx_in = self.tx_ins[input_index]
         # combine the scripts
         combined_script = tx_in.script_sig + tx_in.script_pubkey(self.network)
         # evaluate the combined script
-        return combined_script.evaluate(z, tx_in.witness)
+        return combined_script.evaluate(self, input_index)
 
     def verify(self):
         """Verify this transaction"""
@@ -463,7 +604,35 @@ class Tx:
         # return whether sig is valid using self.verify_input
         return self.verify_input(input_index)
 
-    def sign_input(self, input_index, private_key, redeem_script=None):
+    def sign_p2tr_keypath(
+        self, input_index, private_key, hash_type=SIGHASH_DEFAULT, aux=b"\x00" * 32
+    ):
+        sig = self.get_sig_taproot(
+            input_index, private_key, hash_type=hash_type, aux=aux
+        )
+        self.tx_ins[input_index].finalize_p2tr_keypath(sig)
+        return self.verify_input(input_index)
+
+    def sign_p2tr_scriptpath(
+        self,
+        input_index,
+        private_key,
+        control_block,
+        tap_script,
+        hash_type=SIGHASH_DEFAULT,
+        aux=b"\x00" * 32,
+    ):
+        tx_in = self.tx_ins[input_index]
+        tx_in.witness = Witness([tap_script.raw_serialize(), control_block.serialize()])
+        sig = self.get_sig_taproot(
+            input_index, private_key, ext_flag=1, hash_type=hash_type, aux=aux
+        )
+        tx_in.witness.items = [sig] + tx_in.witness.items
+        return self.verify_input(input_index)
+
+    def sign_input(
+        self, input_index, private_key, redeem_script=None, hash_type=SIGHASH_ALL
+    ):
         """Signs the input by figuring out what type of ScriptPubKey the previous output was"""
         # get the input
         tx_in = self.tx_ins[input_index]
@@ -478,13 +647,15 @@ class Tx:
         # if the script_pubkey is p2sh and RedeemScript p2wpkh, send to sign_p2sh_p2wpkh
         elif redeem_script and redeem_script.is_p2wpkh():
             return self.sign_p2sh_p2wpkh(input_index, private_key)
+        elif script_pubkey.is_p2tr():
+            return self.sign_p2tr_keypath(input_index, private_key, hash_type=hash_type)
         # else return a RuntimeError
         else:
             raise RuntimeError("Unknown ScriptPubKey")
 
     def get_sig_legacy(self, input_index, private_key, redeem_script=None):
         # get the sig hash (z)
-        z = self.sig_hash(input_index, redeem_script=redeem_script)
+        z = self.sig_hash_legacy(input_index, redeem_script=redeem_script)
         # get der signature of z from private key
         der = private_key.sign(z).der()
         # append the SIGHASH_ALL with int_to_byte(SIGHASH_ALL)
@@ -500,9 +671,27 @@ class Tx:
         # append the SIGHASH_ALL with int_to_byte(SIGHASH_ALL)
         return der + int_to_byte(SIGHASH_ALL)
 
+    def get_sig_taproot(
+        self,
+        input_index,
+        private_key,
+        ext_flag=0,
+        hash_type=SIGHASH_DEFAULT,
+        aux=b"\x00" * 32,
+    ):
+        # get the sig_hash (z)
+        msg = self.sig_hash_bip341(input_index, ext_flag=ext_flag, hash_type=hash_type)
+        # get der signature of z from private key
+        schnorr = private_key.sign_schnorr(msg, aux).serialize()
+        # append the SIGHASH_ALL with int_to_byte(SIGHASH_ALL)
+        if hash_type:
+            return schnorr + int_to_byte(hash_type)
+        else:
+            return schnorr
+
     def check_sig_legacy(self, input_index, point, signature, redeem_script=None):
         # get the sig_hash (z)
-        z = self.sig_hash(input_index, redeem_script)
+        z = self.sig_hash_legacy(input_index, redeem_script)
         # return whether the signature verifies
         return point.verify(z, signature)
 
@@ -538,10 +727,8 @@ class Tx:
             return None
         # grab the first input
         script_sig = self.tx_ins[0].script_sig
-        # get the first byte of the scriptsig, which is the length
-        length = script_sig.coinbase[0]
         # get the next length bytes
-        command = script_sig.coinbase[1 : 1 + length]
+        command = script_sig.commands[0]
         # convert the command from little endian to int
         return little_endian_to_int(command)
 
@@ -604,8 +791,7 @@ class TxIn:
         prev_index = little_endian_to_int(s.read(4))
         # script_sig is a variable field (length followed by the data)
         # you can use Script.parse to get the actual script
-        coinbase_mode = prev_tx == b"\x00" * 32 and prev_index == 0xFFFFFFFF
-        script_sig = Script.parse(s, coinbase_mode)
+        script_sig = Script.parse(s)
         # sequence is 4 bytes, little-endian, interpret as int
         sequence = little_endian_to_int(s.read(4))
         # return an instance of the class (cls(...))
@@ -689,6 +875,9 @@ class TxIn:
         # set the ScriptSig of the tx_in to be a new script, which is just the RedeemScript raw-serialized
         self.script_sig = Script([redeem_script.raw_serialize()])
 
+    def finalize_p2tr_keypath(self, sig):
+        self.witness = Witness([sig])
+
 
 class TxOut:
     def __init__(self, amount, script_pubkey):
@@ -697,6 +886,14 @@ class TxOut:
 
     def __repr__(self):
         return "{}:{}".format(self.amount, self.script_pubkey)
+
+    def serialize(self):
+        """Returns the byte serialization of the transaction output"""
+        # serialize amount, 8 bytes, little endian
+        result = int_to_little_endian(self.amount, 8)
+        # serialize the script_pubkey
+        result += self.script_pubkey.serialize()
+        return result
 
     @classmethod
     def parse(cls, s):
@@ -711,11 +908,3 @@ class TxOut:
         script_pubkey = ScriptPubKey.parse(s)
         # return an instance of the class (cls(...))
         return cls(amount, script_pubkey)
-
-    def serialize(self):
-        """Returns the byte serialization of the transaction output"""
-        # serialize amount, 8 bytes, little endian
-        result = int_to_little_endian(self.amount, 8)
-        # serialize the script_pubkey
-        result += self.script_pubkey.serialize()
-        return result

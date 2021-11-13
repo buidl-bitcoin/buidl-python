@@ -2,6 +2,7 @@ import hashlib
 
 from buidl.ecc import (
     S256Point,
+    SchnorrSignature,
     Signature,
 )
 
@@ -653,18 +654,20 @@ def op_hash256(stack):
     return True
 
 
-def op_checksig(stack, z):
+def op_checksig(stack, tx_obj, input_index):
     # check to see if there's at least 2 elements
     if len(stack) < 2:
         return False
     # get the sec_pubkey with stack.pop()
     sec_pubkey = stack.pop()
     # get the der_signature with stack.pop()[:-1] (last byte is removed)
-    der_signature = stack.pop()[:-1]
+    tmp = stack.pop()
+    der_signature, hash_type = tmp[:-1], tmp[-1]
     # parse the sec format pubkey with S256Point
     point = S256Point.parse(sec_pubkey)
     # parse the der format signature with Signature
     sig = Signature.parse(der_signature)
+    z = tx_obj.sig_hash(input_index, hash_type)
     # verify using the point, z and signature
     # if verified add encode_num(1) to the end, otherwise encode_num(0)
     if point.verify(z, sig):
@@ -674,11 +677,64 @@ def op_checksig(stack, z):
     return True
 
 
-def op_checksigverify(stack, z):
-    return op_checksig(stack, z) and op_verify(stack)
+def op_checksigverify(stack, tx_obj, input_index):
+    return op_checksig(stack, tx_obj, input_index) and op_verify(stack)
 
 
-def op_checkmultisig(stack, z):
+def op_checksig_schnorr(stack, tx_obj, input_index):
+    # check to see if there's at least 2 elements
+    if len(stack) < 2:
+        return False
+    pubkey = stack.pop()
+    signature = stack.pop()
+    point = S256Point.parse_bip340(pubkey)
+    if len(signature) == 65:
+        hash_type = signature[-1]
+        signature = signature[:-1]
+    elif len(signature) == 0:
+        stack.append(encode_num(0))
+        return True
+    else:
+        hash_type = 0
+    sig = SchnorrSignature.parse(signature)
+    msg = tx_obj.sig_hash(input_index, hash_type)
+    if point.verify_schnorr(msg, sig):
+        stack.append(encode_num(1))
+    else:
+        stack.append(encode_num(0))
+    return True
+
+
+def op_checksigverify_schnorr(stack, tx_obj, input_index):
+    return op_checksig_schnorr(stack, tx_obj, input_index) and op_verify(stack)
+
+
+def op_checksigadd_schnorr(stack, tx_obj, input_index):
+    # check to see if there's at least 3 elements
+    if len(stack) < 3:
+        return False
+    pubkey = stack.pop()
+    n = decode_num(stack.pop())
+    signature = stack.pop()
+    point = S256Point.parse_bip340(pubkey)
+    if len(signature) == 65:
+        hash_type = signature[-1]
+        signature = signature[:-1]
+    elif len(signature) == 0:
+        stack.append(encode_num(n))
+        return True
+    else:
+        hash_type = 0
+    sig = SchnorrSignature.parse(signature)
+    msg = tx_obj.sig_hash(input_index, hash_type)
+    if point.verify_schnorr(msg, sig):
+        stack.append(encode_num(n + 1))
+    else:
+        stack.append(encode_num(n))
+    return True
+
+
+def op_checkmultisig(stack, tx_obj, input_index):
     if len(stack) < 1:
         return False
     n = decode_num(stack.pop())
@@ -692,17 +748,18 @@ def op_checkmultisig(stack, z):
         return False
     der_signatures = []
     for _ in range(m):
-        # signature is assumed to be using SIGHASH_ALL
-        der_signatures.append(stack.pop()[:-1])
+        tmp = stack.pop()
+        der, hash_type = tmp[:-1], tmp[-1]
+        der_signatures.append((der, hash_type))
     # OP_CHECKMULTISIG bug
     stack.pop()
     try:
         # parse the sec pubkeys into an array of points
         points = [S256Point.parse(sec) for sec in sec_pubkeys]
-        # parse the der_signatures into an array of signatures
-        sigs = [Signature.parse(der) for der in der_signatures]
         # loop through the signatures
-        for sig in sigs:
+        for der_signature, hash_type in der_signatures:
+            sig = Signature.parse(der_signature)
+            z = tx_obj.sig_hash(input_index, hash_type)
             # bail early if we don't have any points left
             if len(points) == 0:
                 print("signatures no good or not in right order")
@@ -723,8 +780,8 @@ def op_checkmultisig(stack, z):
     return True
 
 
-def op_checkmultisigverify(stack, z):
-    return op_checkmultisig(stack, z) and op_verify(stack)
+def op_checkmultisigverify(stack, tx_obj, input_index):
+    return op_checkmultisig(stack, tx_obj, input_index) and op_verify(stack)
 
 
 def op_checklocktimeverify(stack, locktime, sequence):
@@ -759,6 +816,10 @@ def op_checksequenceverify(stack, version, sequence):
             return False
         elif element & 0xFFFF > sequence & 0xFFFF:
             return False
+    return True
+
+
+def op_success(stack):
     return True
 
 
@@ -901,6 +962,181 @@ OP_CODE_FUNCTIONS = {
     185: op_nop,
 }
 
+TAPROOT_OP_CODE_FUNCTIONS = {
+    0: op_0,
+    79: op_1negate,
+    80: op_success,
+    81: op_1,
+    82: op_2,
+    83: op_3,
+    84: op_4,
+    85: op_5,
+    86: op_6,
+    87: op_7,
+    88: op_8,
+    89: op_9,
+    90: op_10,
+    91: op_11,
+    92: op_12,
+    93: op_13,
+    94: op_14,
+    95: op_15,
+    96: op_16,
+    97: op_nop,
+    98: op_success,
+    99: op_if,
+    100: op_notif,
+    105: op_verify,
+    106: op_return,
+    107: op_toaltstack,
+    108: op_fromaltstack,
+    109: op_2drop,
+    110: op_2dup,
+    111: op_3dup,
+    112: op_2over,
+    113: op_2rot,
+    114: op_2swap,
+    115: op_ifdup,
+    116: op_depth,
+    117: op_drop,
+    118: op_dup,
+    119: op_nip,
+    120: op_over,
+    121: op_pick,
+    122: op_roll,
+    123: op_rot,
+    124: op_swap,
+    125: op_tuck,
+    126: op_success,
+    127: op_success,
+    128: op_success,
+    129: op_success,
+    130: op_size,
+    131: op_success,
+    132: op_success,
+    133: op_success,
+    134: op_success,
+    135: op_equal,
+    136: op_equalverify,
+    137: op_success,
+    138: op_success,
+    139: op_1add,
+    140: op_1sub,
+    141: op_success,
+    142: op_success,
+    143: op_negate,
+    144: op_abs,
+    145: op_not,
+    146: op_0notequal,
+    147: op_add,
+    148: op_sub,
+    149: op_success,
+    150: op_success,
+    151: op_success,
+    152: op_success,
+    153: op_success,
+    154: op_booland,
+    155: op_boolor,
+    156: op_numequal,
+    157: op_numequalverify,
+    158: op_numnotequal,
+    159: op_lessthan,
+    160: op_greaterthan,
+    161: op_lessthanorequal,
+    162: op_greaterthanorequal,
+    163: op_min,
+    164: op_max,
+    165: op_within,
+    166: op_ripemd160,
+    167: op_sha1,
+    168: op_sha256,
+    169: op_hash160,
+    170: op_hash256,
+    172: op_checksig_schnorr,
+    173: op_checksigverify_schnorr,
+    174: op_return,
+    175: op_return,
+    176: op_nop,
+    177: op_checklocktimeverify,
+    178: op_checksequenceverify,
+    179: op_nop,
+    180: op_nop,
+    181: op_nop,
+    182: op_nop,
+    183: op_nop,
+    184: op_nop,
+    185: op_nop,
+    186: op_checksigadd_schnorr,
+    187: op_success,
+    188: op_success,
+    189: op_success,
+    190: op_success,
+    191: op_success,
+    192: op_success,
+    193: op_success,
+    194: op_success,
+    195: op_success,
+    196: op_success,
+    197: op_success,
+    198: op_success,
+    199: op_success,
+    200: op_success,
+    201: op_success,
+    202: op_success,
+    203: op_success,
+    204: op_success,
+    205: op_success,
+    206: op_success,
+    207: op_success,
+    208: op_success,
+    209: op_success,
+    210: op_success,
+    211: op_success,
+    212: op_success,
+    213: op_success,
+    214: op_success,
+    215: op_success,
+    216: op_success,
+    217: op_success,
+    218: op_success,
+    219: op_success,
+    220: op_success,
+    221: op_success,
+    222: op_success,
+    223: op_success,
+    224: op_success,
+    225: op_success,
+    226: op_success,
+    227: op_success,
+    228: op_success,
+    229: op_success,
+    230: op_success,
+    231: op_success,
+    232: op_success,
+    233: op_success,
+    234: op_success,
+    235: op_success,
+    236: op_success,
+    237: op_success,
+    238: op_success,
+    239: op_success,
+    240: op_success,
+    241: op_success,
+    242: op_success,
+    243: op_success,
+    244: op_success,
+    245: op_success,
+    246: op_success,
+    247: op_success,
+    248: op_success,
+    249: op_success,
+    250: op_success,
+    251: op_success,
+    252: op_success,
+    253: op_success,
+    254: op_success,
+}
+
 OP_CODE_NAMES = {
     0: "OP_0",
     76: "OP_PUSHDATA1",
@@ -992,4 +1228,5 @@ OP_CODE_NAMES = {
     183: "OP_NOP8",
     184: "OP_NOP9",
     185: "OP_NOP10",
+    186: "OP_CHECKSIGADD",
 }

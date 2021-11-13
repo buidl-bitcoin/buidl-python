@@ -128,6 +128,9 @@ class HDPrivateKey:
     def p2sh_p2wpkh_address(self):
         return self.pub.p2sh_p2wpkh_address()
 
+    def p2tr_address(self):
+        return self.pub.p2tr_address()
+
     def __repr__(self):
         return self.xprv()
 
@@ -301,14 +304,7 @@ class HDPrivateKey:
             pub_version=None,
         )
 
-    def _get_address(self, purpose, account=0, external=True, address=0):
-        """Returns the proper address among purposes 44', 49' and 84'.
-        p2pkh for 44', p2sh-p2wpkh for 49' and p2wpkh for 84'."""
-        # if purpose is not one of 44', 49' or 84', raise ValueError
-        if purpose not in ("44'", "49'", "84'"):
-            raise ValueError(
-                "Cannot create an address without a proper purpose: {}".format(purpose)
-            )
+    def get_private_key(self, purpose, account=0, external=True, address=0):
         # if testnet/signet, coin is 1', otherwise 0'
         if self.network == "mainnet":
             coin = "0'"
@@ -323,15 +319,29 @@ class HDPrivateKey:
         path = "m/{}/{}/{}'/{}/{}".format(purpose, coin, account, chain, address)
         # get the HDPrivateKey at that location
         hd_priv = self.traverse(path)
+        return hd_priv.private_key
+
+    def _get_address(self, purpose, account=0, external=True, address=0):
+        """Returns the proper address among purposes 44', 49' and 84'.
+        p2pkh for 44', p2sh-p2wpkh for 49' and p2wpkh for 84'."""
+        # if purpose is not one of 44', 49' or 84', raise ValueError
+        point = self.get_private_key(purpose, account, external, address).point
         # if 44', return the address
         if purpose == "44'":
-            return hd_priv.address()
+            return point.address(network=self.network)
         # if 49', return the p2sh_p2wpkh_address
         elif purpose == "49'":
-            return hd_priv.p2sh_p2wpkh_address()
+            return point.p2sh_p2wpkh_address(network=self.network)
         # if 84', return the bech32_address
         elif purpose == "84'":
-            return hd_priv.bech32_address()
+            return point.bech32_address(network=self.network)
+        # if 86', return the p2tr_address
+        elif purpose == "86'":
+            return point.p2tr_address(network=self.network)
+        else:
+            raise ValueError(
+                "Cannot create an address without a proper purpose: {}".format(purpose)
+            )
 
     def get_p2pkh_receiving_address(self, account=0, address=0):
         return self._get_address("44'", account, True, address)
@@ -350,6 +360,18 @@ class HDPrivateKey:
 
     def get_p2wpkh_change_address(self, account=0, address=0):
         return self._get_address("84'", account, False, address)
+
+    def get_p2tr_receiving_address(self, account=0, address=0):
+        return self._get_address("86'", account, True, address)
+
+    def get_p2tr_change_address(self, account=0, address=0):
+        return self._get_address("86'", account, False, address)
+
+    def get_p2tr_receiving_privkey(self, account=0, address=0):
+        return self.get_private_key("86'", account, True, address)
+
+    def get_p2tr_change_privkey(self, account=0, address=0):
+        return self.get_private_key("86'", account, False, address)
 
     @classmethod
     def generate(
@@ -493,6 +515,9 @@ class HDPublicKey:
 
     def p2sh_p2wpkh_address(self):
         return self.point.p2sh_p2wpkh_address(network=self.network)
+
+    def p2tr_address(self):
+        return self.point.p2tr_address(network=self.network)
 
     def fingerprint(self):
         """Fingerprint is the hash160's first 4 bytes"""
