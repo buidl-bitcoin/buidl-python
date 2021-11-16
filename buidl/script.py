@@ -1,6 +1,7 @@
 from io import BytesIO
 
 from buidl.bech32 import decode_bech32, encode_bech32_checksum
+from buidl.ecc import S256Point
 from buidl.helper import (
     decode_base58,
     encode_base58_checksum,
@@ -9,27 +10,29 @@ from buidl.helper import (
     little_endian_to_int,
     int_to_byte,
     int_to_little_endian,
-    read_varint,
+    read_varstr,
     sha256,
 )
 from buidl.op import (
     number_to_op_code,
+    op_checksig_schnorr,
     op_code_to_number,
     op_equal,
     op_hash160,
     op_verify,
     OP_CODE_FUNCTIONS,
     OP_CODE_NAMES,
+    TAPROOT_OP_CODE_FUNCTIONS,
 )
 
 
 class Script:
-    def __init__(self, commands=None, coinbase=None):
+    def __init__(self, commands=None):
         if commands is None:
             self.commands = []
         else:
             self.commands = commands
-        self.coinbase = coinbase
+        self.raw = None
 
     def __repr__(self):
         result = ""
@@ -51,11 +54,11 @@ class Script:
         return Script(self.commands + other.commands)
 
     @classmethod
-    def parse(cls, s, coinbase_mode=False):
+    def parse(cls, stream):
         # get the length of the entire field
-        length = read_varint(s)
-        if coinbase_mode:
-            return cls([], coinbase=s.read(length))
+        raw = read_varstr(stream)
+        length = len(raw)
+        s = BytesIO(raw)
         # initialize the commands array
         commands = []
         # initialize the number of bytes we've read to 0
@@ -96,13 +99,15 @@ class Script:
                 op_code = current_byte
                 # add the op_code to the list of commands
                 commands.append(op_code)
+        obj = cls(commands)
         if count != length:
-            raise RuntimeError("parsing script failed")
-        return cls(commands)
+            print(f"mismatch between length and consumed bytes {count} vs {length}")
+            obj.raw = raw
+        return obj
 
     def raw_serialize(self):
-        if self.coinbase:
-            return self.coinbase
+        if self.raw:
+            return self.raw
         # initialize what we'll send back
         result = b""
         # go through each command
@@ -138,17 +143,22 @@ class Script:
         # encode_varstr the result
         return encode_varstr(result)
 
-    def evaluate(self, z, witness):
+    def evaluate(self, tx_obj, input_index):
         # create a copy as we may need to add to this list if we have a
         # RedeemScript
         commands = self.commands[:]
+        if tx_obj.tx_ins[input_index].witness:
+            witness = tx_obj.tx_ins[input_index].witness.clone()
+        else:
+            witness = None
         stack = []
         altstack = []
+        op_lookup = OP_CODE_FUNCTIONS
         while len(commands) > 0:
             command = commands.pop(0)
             if type(command) == int:
                 # do what the op code says
-                operation = OP_CODE_FUNCTIONS[command]
+                operation = op_lookup[command]
                 if command in (99, 100):
                     # op_if/op_notif require the commands array
                     if not operation(stack, commands):
@@ -159,10 +169,10 @@ class Script:
                     if not operation(stack, altstack):
                         print("bad op: {}".format(OP_CODE_NAMES[command]))
                         return False
-                elif command in (172, 173, 174, 175):
-                    # these are signing operations, they need a sig_hash
+                elif command in (172, 173, 174, 175, 186):
+                    # these are signing operations, they need the tx and input index
                     # to check against
-                    if not operation(stack, z):
+                    if not operation(stack, tx_obj, input_index):
                         print("bad op: {}".format(OP_CODE_NAMES[command]))
                         return False
                 else:
@@ -208,7 +218,7 @@ class Script:
                     commands.extend(P2PKHScriptPubKey(h160).commands)
                 # witness program version 0 rule. if stack commands are:
                 # 0 <32 byte hash> this is p2wsh
-                if len(stack) == 2 and stack[0] == b"" and len(stack[1]) == 32:
+                elif len(stack) == 2 and stack[0] == b"" and len(stack[1]) == 32:
                     s256 = stack.pop()
                     stack.pop()
                     commands.extend(witness.items[:-1])
@@ -224,6 +234,36 @@ class Script:
                     stream = BytesIO(encode_varstr(witness_script))
                     witness_script_commands = Script.parse(stream).commands
                     commands.extend(witness_script_commands)
+                # witness program version 1 rule. if stack commands are:
+                # 0 <32 byte hash> this is p2tr
+                elif len(stack) == 2 and stack[0] == b"\x01" and len(stack[1]) == 32:
+                    if len(witness) == 0:
+                        print("stack in witness v1 empty")
+                        return False
+                    if witness.has_annex():
+                        # ignore the annex
+                        witness.items.pop()
+                    if len(witness) == 1:
+                        # this is a key path spend
+                        sig = witness[0]
+                        # pubkey is already at stack[1], so assign sig
+                        stack[0] = sig
+                        op_checksig_schnorr(stack, tx_obj, input_index)
+                    elif len(witness) > 1:
+                        # this is a script path spend
+                        control_block = witness.control_block()
+                        tap_leaf = witness.tap_leaf()
+                        tweak_point = control_block.tweak_point(tap_leaf)
+                        # the tweak point should be what's on the stack
+                        if tweak_point.parity != control_block.parity:
+                            return False
+                        if tweak_point.bip340() != stack.pop():
+                            return False
+                        # pop off the 1 and start fresh
+                        stack.pop()
+                        tap_script = witness.tap_script()
+                        commands = witness[:-2] + tap_script.commands[:]
+                        op_lookup = TAPROOT_OP_CODE_FUNCTIONS
         if len(stack) == 0:
             return False
         if stack.pop() == b"":
@@ -279,6 +319,16 @@ class Script:
             and len(self.commands[1]) == 32
         )
 
+    def is_p2tr(self):
+        """Returns whether the script follows the
+        OP_1 <32 byte hash> pattern."""
+        return (
+            len(self.commands) == 2
+            and self.commands[0] == 0x51
+            and type(self.commands[1]) == bytes
+            and len(self.commands[1]) == 32
+        )
+
     def has_op_return(self):
         return 106 in self.commands
 
@@ -303,6 +353,8 @@ class ScriptPubKey(Script):
             return P2WPKHScriptPubKey(script_pubkey.commands[1])
         elif script_pubkey.is_p2wsh():
             return P2WSHScriptPubKey(script_pubkey.commands[1])
+        elif script_pubkey.is_p2tr():
+            return P2TRScriptPubKey(script_pubkey.commands[1])
         else:
             return script_pubkey
 
@@ -465,6 +517,37 @@ class P2WSHScriptPubKey(SegwitPubKey):
         if type(s256) != bytes:
             raise TypeError("To initialize P2WSHScriptPubKey, a sha256 is needed")
         self.commands = [0x00, s256]
+
+
+class P2TRScriptPubKey(ScriptPubKey):
+    def __init__(self, point):
+        super().__init__()
+        if type(point) == S256Point:
+            raw_point = point.bip340()
+        elif type(point) == bytes:
+            raw_point = point
+        else:
+            raise TypeError("To initialize P2TRScriptPubKey, a point is needed")
+        self.commands = [0x51, raw_point]
+
+    def address(self, network="mainnet"):
+        """return the bech32m address for p2tr"""
+        # witness program is the raw serialization
+        witness_program = self.raw_serialize()
+        # convert to bech32 address using encode_bech32_checksum
+        return encode_bech32_checksum(witness_program, network)
+
+
+class P2PKTapScript(ScriptPubKey):
+    def __init__(self, point):
+        super().__init__()
+        if type(point) == S256Point:
+            raw_point = point.bip340()
+        elif type(point) == bytes:
+            raw_point = point
+        else:
+            raise TypeError(f"To initialize P2PKTapScript, a point is needed {point}")
+        self.commands = [raw_point, 0xAC]
 
 
 class WitnessScript(Script):

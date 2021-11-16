@@ -100,7 +100,7 @@ class TxTest(TestCase):
         want = int(
             "27e0c5994dec7824e56dec6b2fcb342eb7cdb0d0957c2fce9882f715e85d81a6", 16
         )
-        self.assertEqual(tx.sig_hash(0), want)
+        self.assertEqual(tx.sig_hash_legacy(0), want)
 
     def test_sig_hash_bip143(self):
         raw_tx = "0100000000010115e180dc28a2327e687facc33f10f2a20da717e5548406f7ae8b4c811072f8560100000000ffffffff0100b4f505000000001976a9141d7cd6c75c2e86f4cbf98eaed221b30bd9a0b92888ac02483045022100df7b7e5cda14ddf91290e02ea10786e03eb11ee36ec02dd862fe9a326bbcb7fd02203f5b4496b667e6e281cc654a2da9e4f08660c620a1051337fa8965f727eb19190121038262a6c6cec93c2d3ecd6c6072efea86d02ff8e3328bbd0242b20af3425990ac00000000"
@@ -108,9 +108,9 @@ class TxTest(TestCase):
         want = int(
             "12bb9e0988736b8d1c3a180acd828b8a7eddae923a6a4bf0b4c14c40cd7327d1", 16
         )
-        self.assertEqual(tx.sig_hash(0), want)
+        self.assertEqual(tx.sig_hash_legacy(0), want)
         tx = Tx.parse_hex(raw_tx, network="signet")
-        self.assertEqual(tx.sig_hash(0), want)
+        self.assertEqual(tx.sig_hash_legacy(0), want)
 
     def test_verify_p2pkh(self):
         tx = TxFetcher.fetch(

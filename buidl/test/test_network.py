@@ -5,6 +5,7 @@ from io import BytesIO
 from os import getenv
 
 from buidl.block import Block
+from buidl.bloomfilter import BloomFilter
 from buidl.compactfilter import (
     CFCheckPointMessage,
     CFHeadersMessage,
@@ -113,8 +114,6 @@ class SimpleNodeTest(TestCase):
         node.handshake()
 
     def test_get_filtered_txs(self):
-        from buidl.bloomfilter import BloomFilter
-
         bf = BloomFilter(30, 5, 90210)
         h160 = decode_base58("mseRGXB89UTFVkWJhTRTzzZ9Ujj4ZPbGK5")
         bf.add(h160)

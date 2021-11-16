@@ -25,9 +25,11 @@ except ModuleNotFoundError:
         return sip.hash()
 
 
+SIGHASH_DEFAULT = 0
 SIGHASH_ALL = 1
 SIGHASH_NONE = 2
 SIGHASH_SINGLE = 3
+SIGHASH_ANYONECANPAY = 0x80
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 PBKDF2_ROUNDS = 2048
 GOLOMB_P = 19
@@ -445,3 +447,50 @@ def is_intable(int_as_string):
         return True
     except ValueError:
         return False
+
+
+TAGS = {
+    "aux": sha256(b"BIP0340/aux") * 2,
+    "nonce": sha256(b"BIP0340/nonce") * 2,
+    "challenge": sha256(b"BIP0340/challenge") * 2,
+    "tapbranch": sha256(b"TapBranch") * 2,
+    "tapleaf": sha256(b"TapLeaf") * 2,
+    "tapsighash": sha256(b"TapSighash") * 2,
+    "taptweak": sha256(b"TapTweak") * 2,
+}
+
+
+def _tagged_hash(tag, msg):
+    return sha256(TAGS[tag] + msg)
+
+
+def hash_aux(msg):
+    return _tagged_hash("aux", msg)
+
+
+def hash_challenge(msg):
+    return _tagged_hash("challenge", msg)
+
+
+def hash_nonce(msg):
+    return _tagged_hash("nonce", msg)
+
+
+def hash_tapbranch(msg):
+    return _tagged_hash("tapbranch", msg)
+
+
+def hash_tapleaf(msg):
+    return _tagged_hash("tapleaf", msg)
+
+
+def hash_tapsighash(msg):
+    return _tagged_hash("tapsighash", msg)
+
+
+def hash_taptweak(msg):
+    return _tagged_hash("taptweak", msg)
+
+
+def xor_bytes(a, b):
+    return bytes(x ^ y for x, y in zip(a, b))

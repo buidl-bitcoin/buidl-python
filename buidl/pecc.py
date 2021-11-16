@@ -8,10 +8,13 @@ from buidl.helper import (
     encode_base58_checksum,
     hash160,
     hash256,
+    hash_aux,
+    hash_challenge,
+    hash_nonce,
     int_to_big_endian,
     raw_decode_base58,
+    xor_bytes,
 )
-from buidl.schnorr import tagged_hash, xor_bytes
 
 
 class FieldElement:
@@ -217,6 +220,12 @@ class S256Point(Point):
             super().__init__(x=S256Field(x), y=S256Field(y), a=a, b=b)
         else:
             super().__init__(x=x, y=y, a=a, b=b)
+        if x is None:
+            return
+        if self.y.num % 2 == 1:
+            self.parity = 1
+        else:
+            self.parity = 0
 
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
@@ -249,10 +258,10 @@ class S256Point(Point):
         # remember, you have to convert self.x.num/self.y.num to binary using int_to_big_endian
         x = int_to_big_endian(self.x.num, 32)
         if compressed:
-            if self.y.num % 2 == 0:
-                return b"\x02" + x
-            else:
+            if self.parity:
                 return b"\x03" + x
+            else:
+                return b"\x02" + x
         else:
             # if non-compressed, starts with b'\x04' followod by self.x and then self.y
             y = int_to_big_endian(self.y.num, 32)
@@ -290,6 +299,20 @@ class S256Point(Point):
         """Returns the RedeemScript for a p2sh-p2wpkh redemption"""
         return self.p2wpkh_script().redeem_script()
 
+    def p2tr_script(self):
+        """Returns the p2tr Script object"""
+        # avoid circular dependency
+        from buidl.taproot import TapRoot
+
+        return TapRoot(self).script_pubkey()
+
+    def p2pk_tap_script(self):
+        """Returns the p2tr Script object"""
+        # avoid circular dependency
+        from buidl.script import P2PKTapScript
+
+        return P2PKTapScript(self)
+
     def address(self, compressed=True, network="mainnet"):
         """Returns the p2pkh address string"""
         return self.p2pkh_script(compressed).address(network)
@@ -301,6 +324,10 @@ class S256Point(Point):
     def p2sh_p2wpkh_address(self, network="mainnet"):
         """Returns the p2sh-p2wpkh base58 address string"""
         return self.p2wpkh_script().p2sh_address(network)
+
+    def p2tr_address(self, network="mainnet"):
+        """Returns the p2tr bech32m address string"""
+        return self.p2tr_script().address(network)
 
     def verify(self, z, sig):
         # remember sig.r and sig.s are the main things we're checking
@@ -332,7 +359,7 @@ class S256Point(Point):
         if schnorr_sig.r.x is None:
             return False
         message = schnorr_sig.r.bip340() + point.bip340() + msg
-        e = big_endian_to_int(tagged_hash("challenge", message)) % N
+        e = big_endian_to_int(hash_challenge(message)) % N
         result = schnorr_sig.s * G + (N - e) * point
         return result == schnorr_sig.r
 
@@ -511,14 +538,14 @@ class PrivateKey:
             d = self.secret
         else:
             d = N - self.secret
-        t = xor_bytes(int_to_big_endian(d, 32), tagged_hash("aux", aux))
-        k = big_endian_to_int(tagged_hash("nonce", t + self.point.bip340() + msg)) % N
+        t = xor_bytes(int_to_big_endian(d, 32), hash_aux(aux))
+        k = big_endian_to_int(hash_nonce(t + self.point.bip340() + msg)) % N
         r = k * G
         if r.y.num % 2 == 1:
             k = N - k
             r = k * G
         message = r.bip340() + self.point.bip340() + msg
-        e = big_endian_to_int(tagged_hash("challenge", message)) % N
+        e = big_endian_to_int(hash_challenge(message)) % N
         s = (k + e * d) % N
         sig = SchnorrSignature(r, s)
         if not self.point.verify_schnorr(msg, sig):
@@ -571,6 +598,14 @@ class PrivateKey:
             suffix = b""
         # encode_base58_checksum the whole thing
         return encode_base58_checksum(prefix + secret_bytes + suffix)
+
+    def tweaked(self, tweak):
+        if self.point.parity:
+            s = N - self.secret
+        else:
+            s = self.secret
+        new_secret = (s + tweak) % N
+        return self.__class__(new_secret, network=self.network)
 
     @classmethod
     def parse(cls, wif):

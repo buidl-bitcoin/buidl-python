@@ -68,6 +68,11 @@ class SchnorrTest(TestCase):
                 "4DF3C3F68FCC83B27E9D42C90431A72499F17875C81A599B566C9889B9696703",
                 "00000000000000000000003B78CE563F89A0ED9414F5AA28AD0D96D6795F9C6376AFB1548AF603B3EB45C9F8207DEE1060CB71C04E80F593060B07D28308D7F4",
             ),
+            (
+                "d0fa46cb883e940ac3dc5421f05b03859972639f51ed2eccbf3dc5a62e2e1b15",
+                "11864b0142c248fdb090d08893745e0b36a78f988a8334d2056814ad5f541596",
+                "23b1d4ff27b16af4b0fcb9672df671701a1a7f5a6bb7352b051f461edbc614aa6068b3e5313a174f90f3d95dc4e06f69bebd9cf5a3098fde034b01e69e8e7889",
+            ),
         ]
         for bip340_pk, message, signature in tests:
             public_key = S256Point.parse(bytes.fromhex(bip340_pk))

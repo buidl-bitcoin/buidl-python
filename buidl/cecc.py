@@ -28,10 +28,12 @@ class S256Point:
             self.usec = usec
             self.csec = None
             sec_cache = usec
+            self.parity = usec[-1] & 1
         elif csec:
             self.csec = csec
             self.usec = None
             sec_cache = csec
+            self.parity = csec[0] - 2
         else:
             raise RuntimeError("need a serialization")
         self.c = ffi.new("secp256k1_pubkey *")
@@ -53,7 +55,7 @@ class S256Point:
         if not lib.secp256k1_ec_pubkey_parse(GLOBAL_CTX, new_key, s, len(s)):
             raise RuntimeError("libsecp256k1 parse error")
         if not lib.secp256k1_ec_pubkey_tweak_mul(
-            GLOBAL_CTX, new_key, coef.to_bytes(32, "big")
+            GLOBAL_CTX, new_key, int_to_big_endian(coef, 32)
         ):
             raise RuntimeError("libsecp256k1 multiplication error")
         serialized = ffi.new("unsigned char [65]")
@@ -72,7 +74,7 @@ class S256Point:
         if not lib.secp256k1_ec_pubkey_parse(GLOBAL_CTX, new_key, s, len(s)):
             raise RuntimeError("libsecp256k1 parse error")
         if not lib.secp256k1_ec_pubkey_tweak_add(
-            GLOBAL_CTX, new_key, coef.to_bytes(32, "big")
+            GLOBAL_CTX, new_key, int_to_big_endian(coef, 32)
         ):
             raise RuntimeError("libsecp256k1 add error")
         serialized = ffi.new("unsigned char [65]")
@@ -84,7 +86,7 @@ class S256Point:
         return self.__class__(usec=bytes(serialized))
 
     def verify(self, z, sig):
-        msg = z.to_bytes(32, "big")
+        msg = int_to_big_endian(z, 32)
         sig_data = sig.cdata()
         return lib.secp256k1_ecdsa_verify(GLOBAL_CTX, sig_data, msg, self.c)
 
@@ -169,6 +171,20 @@ class S256Point:
         """Returns the RedeemScript for a p2sh-p2wpkh redemption"""
         return self.p2wpkh_script().redeem_script()
 
+    def p2tr_script(self):
+        """Returns the p2tr Script object"""
+        # avoid circular dependency
+        from buidl.taproot import TapRoot
+
+        return TapRoot(self).script_pubkey()
+
+    def p2pk_tap_script(self):
+        """Returns the p2tr Script object"""
+        # avoid circular dependency
+        from buidl.script import P2PKTapScript
+
+        return P2PKTapScript(self)
+
     def address(self, compressed=True, network="mainnet"):
         """Returns the p2pkh address string"""
         return self.p2pkh_script(compressed).address(network)
@@ -180,6 +196,10 @@ class S256Point:
     def p2sh_p2wpkh_address(self, network="mainnet"):
         """Returns the p2sh-p2wpkh base58 address string"""
         return self.p2wpkh_script().p2sh_address(network)
+
+    def p2tr_address(self, network="mainnet"):
+        """Returns the p2tr bech32m address string"""
+        return self.p2tr_script().address(network)
 
     def verify_message(self, message, sig):
         """Verify a message in the form of bytes. Assumes that the z
@@ -265,12 +285,14 @@ class Signature:
 class SchnorrSignature:
     def __init__(self, raw):
         self.raw = raw
+        if len(raw) != 64:
+            raise ValueError("signature should be 64 bytes")
         # check that the sig's R is valid
         if big_endian_to_int(raw[:32]) == 0:
             raise AssertionError("R should not be zero")
         xonly_key = ffi.new("secp256k1_xonly_pubkey *")
         if not lib.secp256k1_xonly_pubkey_parse(GLOBAL_CTX, xonly_key, raw[:32]):
-            raise ValueError(f"invalid signature {raw[:32].hex()}")
+            raise ValueError(f"libsecp256k1 invalid R {raw[:32].hex()}")
         s = big_endian_to_int(raw[32:])
         if s >= N:
             raise ValueError(f"{s:x} is greater than or equal to {N:x}")
@@ -279,7 +301,6 @@ class SchnorrSignature:
         return f"SchnorrSignature({self.raw[:32].hex()},{self.raw[32:].hex()})"
 
     def __eq__(self, other):
-        print(self.raw.hex(), other.raw.hex())
         return self.raw == other.raw
 
     def serialize(self):
@@ -301,8 +322,8 @@ class PrivateKey:
         return "{:x}".format(self.secret).zfill(64)
 
     def sign(self, z):
-        secret = self.secret.to_bytes(32, "big")
-        msg = z.to_bytes(32, "big")
+        secret = int_to_big_endian(self.secret, 32)
+        msg = int_to_big_endian(z, 32)
         csig = ffi.new("secp256k1_ecdsa_signature *")
         if not lib.secp256k1_ecdsa_sign(
             GLOBAL_CTX, csig, msg, secret, ffi.NULL, ffi.NULL
@@ -359,6 +380,30 @@ class PrivateKey:
         # sign the message using the self.sign method
         return self.sign(z)
 
+    def wif(self, compressed=True):
+        # convert the secret from integer to a 32-bytes in big endian using int_to_big_endian(num, 32)
+        secret_bytes = int_to_big_endian(self.secret, 32)
+        # prepend b'\xef' on testnet, b'\x80' on mainnet
+        if self.network == "mainnet":
+            prefix = b"\x80"
+        else:
+            prefix = b"\xef"
+        # append b'\x01' if compressed
+        if compressed:
+            suffix = b"\x01"
+        else:
+            suffix = b""
+        # encode_base58_checksum the whole thing
+        return encode_base58_checksum(prefix + secret_bytes + suffix)
+
+    def tweaked(self, tweak):
+        if self.point.parity:
+            s = N - self.secret
+        else:
+            s = self.secret
+        new_secret = (s + tweak) % N
+        return self.__class__(new_secret, network=self.network)
+
     @classmethod
     def parse(cls, wif):
         """Converts WIF to a PrivateKey object"""
@@ -378,19 +423,3 @@ class PrivateKey:
         else:
             raise ValueError("Invalid WIF")
         return cls(secret, network=network, compressed=compressed)
-
-    def wif(self, compressed=True):
-        # convert the secret from integer to a 32-bytes in big endian using num.to_bytes(32, 'big')
-        secret_bytes = self.secret.to_bytes(32, "big")
-        # prepend b'\xef' on testnet, b'\x80' on mainnet
-        if self.network == "mainnet":
-            prefix = b"\x80"
-        else:
-            prefix = b"\xef"
-        # append b'\x01' if compressed
-        if compressed:
-            suffix = b"\x01"
-        else:
-            suffix = b""
-        # encode_base58_checksum the whole thing
-        return encode_base58_checksum(prefix + secret_bytes + suffix)
