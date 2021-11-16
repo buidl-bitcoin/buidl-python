@@ -75,7 +75,7 @@ def create_p2sh_multisig_psbt(
                     f"Mixed networks in public key records: {public_key_records}"
                 )
 
-    tx_ins = []
+    tx_ins, total_input_sats = [], 0
     for cnt, input_dict in enumerate(input_dicts):
 
         # Prev tx stuff
@@ -89,7 +89,7 @@ def create_p2sh_multisig_psbt(
             )
 
         # pubkey lookups needed for validation
-        input_pubkey_hexes, total_input_sats = [], 0
+        input_pubkey_hexes = []
         for xfp_hex, root_path in input_dict["path_dict"].items():
             # Get the correct xpub/path
             child_hd_pubkey = _safe_get_child_hdpubkey(
