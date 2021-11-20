@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="buidl",
-    version="0.2.31",
+    version="0.2.32",
     author="Example Author",
     author_email="author@example.com",
     description="An easy-to-use and fully featured bitcoin library written in pure python (no dependencies).",

@@ -122,8 +122,8 @@ class HDPrivateKey:
     def address(self):
         return self.pub.address()
 
-    def bech32_address(self):
-        return self.pub.bech32_address()
+    def p2wpkh_address(self):
+        return self.pub.p2wpkh_address()
 
     def p2sh_p2wpkh_address(self):
         return self.pub.p2sh_p2wpkh_address()
@@ -332,9 +332,9 @@ class HDPrivateKey:
         # if 49', return the p2sh_p2wpkh_address
         elif purpose == "49'":
             return point.p2sh_p2wpkh_address(network=self.network)
-        # if 84', return the bech32_address
+        # if 84', return the p2wpkh_address
         elif purpose == "84'":
-            return point.bech32_address(network=self.network)
+            return point.p2wpkh_address(network=self.network)
         # if 86', return the p2tr_address
         elif purpose == "86'":
             return point.p2tr_address(network=self.network)
@@ -510,8 +510,8 @@ class HDPublicKey:
     def address(self):
         return self.point.address(network=self.network)
 
-    def bech32_address(self):
-        return self.point.bech32_address(network=self.network)
+    def p2wpkh_address(self):
+        return self.point.p2wpkh_address(network=self.network)
 
     def p2sh_p2wpkh_address(self):
         return self.point.p2sh_p2wpkh_address(network=self.network)

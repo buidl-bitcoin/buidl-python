@@ -23,7 +23,7 @@ class HDTest(TestCase):
         }
         for network, want in tests.items():
             priv = HDPrivateKey.from_seed(seed, network=network)
-            addr = priv.bech32_address()
+            addr = priv.p2wpkh_address()
             self.assertEqual(addr, want)
 
     def test_child(self):
@@ -48,11 +48,11 @@ class HDTest(TestCase):
         for network, want1, want2 in tests:
             priv = HDPrivateKey.from_seed(seed, network=network)
             pub = priv.pub
-            addr = priv.child(0).bech32_address()
+            addr = priv.child(0).p2wpkh_address()
             self.assertEqual(addr, want1)
-            addr = pub.child(0).bech32_address()
+            addr = pub.child(0).p2wpkh_address()
             self.assertEqual(addr, want1)
-            addr = priv.child(0x80000002).bech32_address()
+            addr = priv.child(0x80000002).p2wpkh_address()
             self.assertEqual(addr, want2)
             with self.assertRaises(ValueError):
                 pub.child(0x80000002)
@@ -69,12 +69,12 @@ class HDTest(TestCase):
             pub = priv.pub
             path = "m/1/2/3/4"
             self.assertEqual(
-                priv.traverse(path).bech32_address(),
-                pub.traverse(path).bech32_address(),
+                priv.traverse(path).p2wpkh_address(),
+                pub.traverse(path).p2wpkh_address(),
             )
             path = "m/0/1'/2/3'"
             self.assertEqual(
-                priv.traverse(path).bech32_address(),
+                priv.traverse(path).p2wpkh_address(),
                 want,
             )
 
@@ -462,7 +462,7 @@ class HDTest(TestCase):
         self.assertEqual(account0_first_key.private_key.point.sec(), want)
         self.assertEqual(pub_first_key.address(), account0_first_key.address())
 
-    def test_bech32_address(self):
+    def test_p2wpkh_address(self):
         mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
         password = b""
         path = "m/84'/0'/0'"
@@ -475,7 +475,7 @@ class HDTest(TestCase):
         self.assertEqual(account.xpub(version=bytes.fromhex("04b24746")), want)
         first_key = account.child(0).child(0)
         want = "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
-        self.assertEqual(first_key.bech32_address(), want)
+        self.assertEqual(first_key.p2wpkh_address(), want)
 
     def test_p2tr_address(self):
         mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"

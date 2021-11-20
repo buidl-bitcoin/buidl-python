@@ -234,7 +234,7 @@ class S256Point(Point):
         if self.x is None:
             return "S256Point(infinity)"
         else:
-            return "S256Point({},{})".format(hex(self.x.num), hex(self.y.num))
+            return f"S256Point({self.sec().hex()})"
 
     def __rmul__(self, coefficient):
         # we want to mod by N to make this simple
@@ -247,9 +247,6 @@ class S256Point(Point):
             return super().__add__(other * G)
         else:
             return super().__add__(other)
-
-    def negate(self):
-        return -1 * self
 
     def sec(self, compressed=True):
         # returns the binary version of the sec format, NOT hex
@@ -317,7 +314,7 @@ class S256Point(Point):
         """Returns the p2pkh address string"""
         return self.p2pkh_script(compressed).address(network)
 
-    def bech32_address(self, network="mainnet"):
+    def p2wpkh_address(self, network="mainnet"):
         """Returns the p2wpkh bech32 address string"""
         return self.p2wpkh_script().address(network)
 
@@ -352,16 +349,20 @@ class S256Point(Point):
         return self.verify(z, sig)
 
     def verify_schnorr(self, msg, schnorr_sig):
-        if self.y.num % 2 == 1:
-            point = self.negate()
+        if self.parity:
+            point = -1 * self
         else:
             point = self
         if schnorr_sig.r.x is None:
             return False
         message = schnorr_sig.r.bip340() + point.bip340() + msg
-        e = big_endian_to_int(hash_challenge(message)) % N
-        result = schnorr_sig.s * G + (N - e) * point
-        return result == schnorr_sig.r
+        challenge = big_endian_to_int(hash_challenge(message)) % N
+        result = -challenge * point + schnorr_sig.s
+        if result.x is None:
+            return False
+        if result.parity:
+            return False
+        return result.bip340() == schnorr_sig.r.bip340()
 
     @classmethod
     def parse(cls, binary):
@@ -412,6 +413,13 @@ class S256Point(Point):
         if beta.num % 2 == 1:
             beta = S256Field(P - beta.num)
         return cls(x, beta)
+
+    @classmethod
+    def combine(cls, points):
+        sum_point = points[0]
+        for point in points[1:]:
+            sum_point += point
+        return sum_point
 
 
 G = S256Point(
@@ -530,18 +538,18 @@ class PrivateKey:
         return Signature(r, s)
 
     def sign_schnorr(self, msg, aux):
+        if self.point.parity:
+            d = N - self.secret
+        else:
+            d = self.secret
         if len(msg) != 32:
             raise ValueError("msg needs to be 32 bytes")
         if len(aux) != 32:
             raise ValueError("aux needs to be 32 bytes")
-        if self.point.y.num % 2 == 0:
-            d = self.secret
-        else:
-            d = N - self.secret
         t = xor_bytes(int_to_big_endian(d, 32), hash_aux(aux))
         k = big_endian_to_int(hash_nonce(t + self.point.bip340() + msg)) % N
         r = k * G
-        if r.y.num % 2 == 1:
+        if r.parity:
             k = N - k
             r = k * G
         message = r.bip340() + self.point.bip340() + msg
@@ -549,7 +557,7 @@ class PrivateKey:
         s = (k + e * d) % N
         sig = SchnorrSignature(r, s)
         if not self.point.verify_schnorr(msg, sig):
-            raise RuntimeError("bad sig")
+            raise RuntimeError("Bad Signature")
         return sig
 
     def deterministic_k(self, z):

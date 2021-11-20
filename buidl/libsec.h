@@ -39,7 +39,12 @@ int secp256k1_ec_pubkey_tweak_mul(
     secp256k1_pubkey *pubkey,
     const unsigned char *tweak
 );
-
+int secp256k1_ec_pubkey_combine(
+    const secp256k1_context* ctx,
+    secp256k1_pubkey *out,
+    const secp256k1_pubkey * const * ins,
+    size_t n
+);
 typedef struct {
     unsigned char data[64];
 } secp256k1_ecdsa_signature;

@@ -1,18 +1,27 @@
-from buidl.ecc import S256Point
+from itertools import combinations
+
+from buidl.ecc import N, S256Point, SchnorrSignature
 from buidl.helper import (
     big_endian_to_int,
+    hash_challenge,
     hash_tapbranch,
     hash_tapleaf,
     hash_taptweak,
+    int_to_big_endian,
     int_to_byte,
+    sha256,
 )
-from buidl.script import P2TRScriptPubKey
+from buidl.op import number_to_op_code
+from buidl.script import ScriptPubKey, P2TRScriptPubKey
 
 
 class TapLeaf:
-    def __init__(self, tapleaf_version, tap_script):
-        self.tapleaf_version = tapleaf_version
+    def __init__(self, tap_script, tapleaf_version=0xC0):
         self.tap_script = tap_script
+        self.tapleaf_version = tapleaf_version
+
+    def __repr__(self):
+        return f"{self.tap_script}"
 
     def __eq__(self, other):
         return (
@@ -67,6 +76,15 @@ class TapBranch:
         else:
             return None
 
+    @classmethod
+    def combine(cls, nodes):
+        if len(nodes) == 1:
+            return nodes[0]
+        half_way = len(nodes) // 2
+        left = cls.combine(nodes[:half_way])
+        right = cls.combine(nodes[half_way:])
+        return cls(left, right)
+
 
 class TapRoot:
     def __init__(self, internal_pubkey, tap_node=None, merkle_root=None):
@@ -90,6 +108,12 @@ class TapRoot:
 
     def bip340(self):
         return self.tweak_point.bip340()
+
+    def leaves(self):
+        if self.tap_node:
+            return self.tap_node.leaves()
+        else:
+            return []
 
     def script_pubkey(self):
         return P2TRScriptPubKey(self.tweak_point)
@@ -153,3 +177,146 @@ class ControlBlock:
         m = (b_len - 33) // 32
         hashes = [b[33 + 32 * i : 65 + 32 * i] for i in range(m)]
         return cls(tapleaf_version, parity, internal_pubkey, hashes)
+
+
+class TapScript(ScriptPubKey):
+    def tap_leaf(self):
+        return TapLeaf(self)
+
+
+class P2PKTapScript(TapScript):
+    def __init__(self, point):
+        super().__init__()
+        if type(point) == S256Point:
+            raw_point = point.bip340()
+        elif type(point) == bytes:
+            raw_point = point
+        else:
+            raise TypeError("To initialize P2PKTapScript, a point is needed")
+        self.commands = [raw_point, 0xAC]
+
+
+class MultiSigTapScript(TapScript):
+    def __init__(self, points, k):
+        super().__init__()
+        if len(points) == 0:
+            raise ValueError("To initialize MultiSigTapScript at least one point")
+        bip340s = sorted([p.bip340() for p in points])
+        self.points = [S256Point.parse_bip340(b) for b in bip340s]
+        self.commands = [bip340s[0], 0xAC]
+        for bip340 in bip340s[1:]:
+            self.commands.extend([bip340, 0xBA])
+        self.commands.extend([number_to_op_code(k), 0x87])
+
+
+class MuSigTapScript(TapScript):
+    def __init__(self, points):
+        super().__init__()
+        if len(points) == 0:
+            raise ValueError("Need at least one public key")
+        bip340s = sorted([p.bip340() for p in points])
+        self.points = [S256Point.parse_bip340(b) for b in bip340s]
+        preimage = b""
+        for b in bip340s:
+            preimage += b
+        self.commitment = sha256(preimage)
+        self.hashes = [big_endian_to_int(sha256(self.commitment + b)) for b in bip340s]
+        self.hash_lookup = {b: h for h, b in zip(self.hashes, bip340s)}
+        points = [h * p for h, p in zip(self.hashes, self.points)]
+        self.point = S256Point.combine(points)
+        self.commands = [self.point.bip340(), 0xAC]
+
+    def get_tweak_point(self, tweak):
+        if self.point.parity:
+            return -1 * self.point + tweak
+        else:
+            return self.point + tweak
+
+    def sign(self, private_key, k, r, sig_hash, tweak=0):
+        tweak_point = self.get_tweak_point(tweak)
+        msg = r.bip340() + tweak_point.bip340() + sig_hash
+        challenge = big_endian_to_int(hash_challenge(msg)) % N
+        h_i = self.hash_lookup[private_key.point.bip340()]
+        c_i = h_i * challenge % N
+        if r.parity == tweak_point.parity:
+            k_real = k
+        else:
+            k_real = -k
+        if self.point.parity == private_key.point.parity:
+            secret = private_key.secret
+        else:
+            secret = -private_key.secret
+        return (k_real + c_i * secret) % N
+
+    def get_signature(self, s_sum, r, sig_hash, tweak=0):
+        tweak_point = self.get_tweak_point(tweak)
+        if tweak:
+            msg = r.bip340() + tweak_point.bip340() + sig_hash
+            challenge = big_endian_to_int(hash_challenge(msg)) % N
+            if tweak_point.parity:
+                s = (s_sum - challenge * tweak) % N
+            else:
+                s = (s_sum + challenge * tweak) % N
+        else:
+            s = s_sum % N
+        s_raw = int_to_big_endian(s, 32)
+        sig = r.bip340() + s_raw
+        schnorrsig = SchnorrSignature.parse(sig)
+        if not tweak_point.verify_schnorr(sig_hash, schnorrsig):
+            raise ValueError("Invalid inputs for signature")
+        return schnorrsig
+
+
+class TapRootMultiSig:
+    def __init__(self, points, k):
+        self.n = len(points)
+        if self.n < k or k < 1:
+            raise ValueError(f"{k} is invalid for {self.n} keys")
+        self.k = k
+        self.points = points
+        self.default_internal_pubkey = MuSigTapScript(self.points).point
+
+    def single_leaf(self):
+        return MultiSigTapScript(self.points, self.k).tap_leaf()
+
+    def single_leaf_tap_root(self, internal_pubkey=None):
+        if internal_pubkey is None:
+            internal_pubkey = self.default_internal_pubkey
+        return TapRoot(internal_pubkey, self.single_leaf())
+
+    def multi_leaf_tap_node(self):
+        leaves = []
+        for pubkeys in combinations(self.points, self.k):
+            leaves.append(MultiSigTapScript(pubkeys, self.k).tap_leaf())
+        return TapBranch.combine(leaves)
+
+    def multi_leaf_tap_root(self, internal_pubkey=None):
+        if internal_pubkey is None:
+            internal_pubkey = self.default_internal_pubkey
+        return TapRoot(internal_pubkey, self.multi_leaf_tap_node())
+
+    def musig_tap_node(self):
+        leaves = []
+        for pubkeys in combinations(self.points, self.k):
+            leaves.append(MuSigTapScript(pubkeys).tap_leaf())
+        return TapBranch.combine(leaves)
+
+    def musig_tap_root(self, internal_pubkey=None):
+        if internal_pubkey is None:
+            internal_pubkey = self.default_internal_pubkey
+        return TapRoot(internal_pubkey, self.musig_tap_node())
+
+    def musig_and_single_leaf_tap_root(self, internal_pubkey=None):
+        if internal_pubkey is None:
+            internal_pubkey = self.default_internal_pubkey
+        node = TapBranch(self.single_leaf(), self.musig_tap_node())
+        return TapRoot(internal_pubkey, node)
+
+    def everything_tap_root(self, internal_pubkey=None):
+        if internal_pubkey is None:
+            internal_pubkey = self.default_internal_pubkey
+        node = TapBranch(
+            self.single_leaf(),
+            TapBranch(self.multi_leaf_tap_node(), self.musig_tap_node()),
+        )
+        return TapRoot(internal_pubkey, node)
