@@ -85,7 +85,7 @@ If you run into Homebrew installation issues with an M1 chip on MacOS [this SO p
 ```
 
 #### Hard (Linux/Mac)
-Compile libsecp256k1 from scratch with experimental modules enabled to make Schnorr signatures work:
+Compile `libsecp256k1` from scratch with experimental modules enabled to make Schnorr signatures work:
 ```bash
 $ git clone https://github.com/bitcoin-core/secp256k1
 $ cd secp256k1
