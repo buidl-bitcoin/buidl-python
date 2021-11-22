@@ -77,7 +77,7 @@ You can speed this library up ~100x by using C-bindings to [bitcoin core's `libs
 
 
 #### Easy (MacOS only)
-Use `[brew](https://brew.sh/)` to install `libsecp256k1`:
+Use [brew](https://brew.sh/) to install `libsecp256k1`:
 ```
 $ brew tap buidl-bitcoin/homebrew-libsecp256k1
 $ brew install pkg-config libffi libsecp256k1
