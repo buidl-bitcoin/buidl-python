@@ -73,13 +73,15 @@ $ flake8 .
 
 You can speed this library up ~100x by using C-bindings to [bitcoin core's `libsecp256k1` library](https://github.com/bitcoin-core/secp256k1).
 
-### `libsec256k1` Dependency Installation
+### `libsecp256k1` Dependency Installation
 
 
 #### Easy (MacOS only)
+Use `[brew](https://brew.sh/)` to install `libsecp256k1`:
 ```
 $ brew tap buidl-bitcoin/homebrew-libsecp256k1
 $ brew install pkg-config libffi libsecp256k1
+If you run into Homebrew installation issues with an M1 chip on MacOS [this SO post](https://stackoverflow.com/questions/64963370/error-cannot-install-in-homebrew-on-arm-processor-in-intel-default-prefix-usr) may be helpful.
 ```
 
 #### Hard (Linux/Mac)
