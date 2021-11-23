@@ -20,7 +20,7 @@ from buidl.helper import (
 class FieldElement:
     def __init__(self, num, prime):
         if num >= prime or num < 0:
-            error = "Num {} not in field range 0 to {}".format(num, prime - 1)
+            error = f"Num {num} not in field range 0 to {prime - 1}"
             raise ValueError(error)
         self.num = num
         self.prime = prime
@@ -35,7 +35,7 @@ class FieldElement:
         return not (self == other)
 
     def __repr__(self):
-        return "FieldElement_{}({})".format(self.prime, self.num)
+        return f"FieldElement_{self.prime}({self.num})"
 
     def __add__(self, other):
         if self.prime != other.prime:
@@ -113,7 +113,7 @@ class Point:
         # y**2 == x**3 + a*x + b
         if self.y ** 2 != self.x ** 3 + a * x + b:
             # if not, raise a ValueError
-            raise ValueError("({}, {}) is not on the curve".format(self.x, self.y))
+            raise ValueError(f"({self.x}, {self.y}) is not on the curve")
 
     def __eq__(self, other):
         return (
@@ -131,13 +131,11 @@ class Point:
         if self.x is None:
             return "Point(infinity)"
         else:
-            return "Point({},{})_{}".format(self.x.num, self.y.num, self.x.prime)
+            return f"Point({self.x.num},{self.y.num})_{self.x.prime}"
 
     def __add__(self, other):
         if self.a != other.a or self.b != other.b:
-            raise TypeError(
-                "Points {}, {} are not on the same curve".format(self, other)
-            )
+            raise TypeError(f"Points {self}, {other} are not on the same curve")
         # Case 0.0: self is the point at infinity, return other
         if self.x is None:
             return other

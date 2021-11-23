@@ -304,28 +304,33 @@ class HDPrivateKey:
             pub_version=None,
         )
 
-    def get_private_key(self, purpose, account=0, external=True, address=0):
+    def get_private_key(self, purpose, account_num=0, is_external=True, address_num=0):
         # if testnet/signet, coin is 1', otherwise 0'
         if self.network == "mainnet":
             coin = "0'"
         else:
             coin = "1'"
         # if external, chain is 0, otherwise 1
-        if external:
+        if is_external:
             chain = "0"
         else:
             chain = "1"
-        # create the path m/purpose'/coin'/account'/chain/address
-        path = "m/{}/{}/{}'/{}/{}".format(purpose, coin, account, chain, address)
+        # create the path
+        path = f"m/{purpose}/{coin}/{account_num}'/{chain}/{address_num}"
         # get the HDPrivateKey at that location
         hd_priv = self.traverse(path)
         return hd_priv.private_key
 
-    def _get_address(self, purpose, account=0, external=True, address=0):
+    def _get_address(self, purpose, account_num=0, is_external=True, address_num=0):
         """Returns the proper address among purposes 44', 49' and 84'.
         p2pkh for 44', p2sh-p2wpkh for 49' and p2wpkh for 84'."""
         # if purpose is not one of 44', 49' or 84', raise ValueError
-        point = self.get_private_key(purpose, account, external, address).point
+        point = self.get_private_key(
+            purpose=purpose,
+            account_num=account_num,
+            is_external=is_external,
+            address_num=address_num,
+        ).point
         # if 44', return the address
         if purpose == "44'":
             return point.address(network=self.network)
@@ -340,38 +345,88 @@ class HDPrivateKey:
             return point.p2tr_address(network=self.network)
         else:
             raise ValueError(
-                "Cannot create an address without a proper purpose: {}".format(purpose)
+                f"Cannot create an address without a proper purpose: {purpose}"
             )
 
-    def get_p2pkh_receiving_address(self, account=0, address=0):
-        return self._get_address("44'", account, True, address)
+    def get_p2pkh_receiving_address(self, account_num=0, address_num=0):
+        return self._get_address(
+            purpose="44'",
+            account_num=account_num,
+            is_external=True,
+            address_num=address_num,
+        )
 
-    def get_p2pkh_change_address(self, account=0, address=0):
-        return self._get_address("44'", account, False, address)
+    def get_p2pkh_change_address(self, account_num=0, address_num=0):
+        return self._get_address(
+            purpose="44'",
+            account_num=account_num,
+            is_external=False,
+            address_num=address_num,
+        )
 
-    def get_p2sh_p2wpkh_receiving_address(self, account=0, address=0):
-        return self._get_address("49'", account, True, address)
+    def get_p2sh_p2wpkh_receiving_address(self, account_num=0, address_num=0):
+        return self._get_address(
+            purpose="49'",
+            account_num=account_num,
+            is_external=True,
+            address_num=address_num,
+        )
 
-    def get_p2sh_p2wpkh_change_address(self, account=0, address=0):
-        return self._get_address("49'", account, False, address)
+    def get_p2sh_p2wpkh_change_address(self, account_num=0, address_num=0):
+        return self._get_address(
+            purpose="49'",
+            account_num=account_num,
+            is_external=False,
+            address_num=address_num,
+        )
 
-    def get_p2wpkh_receiving_address(self, account=0, address=0):
-        return self._get_address("84'", account, True, address)
+    def get_p2wpkh_receiving_address(self, account_num=0, address_num=0):
+        return self._get_address(
+            purpose="84'",
+            account_num=account_num,
+            is_external=True,
+            address_num=address_num,
+        )
 
-    def get_p2wpkh_change_address(self, account=0, address=0):
-        return self._get_address("84'", account, False, address)
+    def get_p2wpkh_change_address(self, account_num=0, address_num=0):
+        return self._get_address(
+            purpose="84'",
+            account_num=account_num,
+            is_external=False,
+            address_num=address_num,
+        )
 
-    def get_p2tr_receiving_address(self, account=0, address=0):
-        return self._get_address("86'", account, True, address)
+    def get_p2tr_receiving_address(self, account_num=0, address_num=0):
+        return self._get_address(
+            purpose="86'",
+            account_num=account_num,
+            is_external=True,
+            address_num=address_num,
+        )
 
-    def get_p2tr_change_address(self, account=0, address=0):
-        return self._get_address("86'", account, False, address)
+    def get_p2tr_change_address(self, account_num=0, address_num=0):
+        return self._get_address(
+            purpose="86'",
+            account_num=account_num,
+            is_external=False,
+            address_num=address_num,
+        )
 
-    def get_p2tr_receiving_privkey(self, account=0, address=0):
-        return self.get_private_key("86'", account, True, address)
+    def get_p2tr_receiving_privkey(self, account_num=0, address_num=0):
+        return self.get_private_key(
+            purpose="86'",
+            account_num=account_num,
+            is_external=True,
+            address_num=address_num,
+        )
 
-    def get_p2tr_change_privkey(self, account=0, address=0):
-        return self.get_private_key("86'", account, False, address)
+    def get_p2tr_change_privkey(self, account_num=0, address_num=0):
+        return self.get_private_key(
+            purpose="86'",
+            account_num=account_num,
+            is_external=False,
+            address_num=address_num,
+        )
 
     @classmethod
     def generate(

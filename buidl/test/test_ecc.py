@@ -182,15 +182,15 @@ class S256Test(TestCase):
 
 class SignatureTest(TestCase):
     def test_der(self):
-        tests = (
-            "3045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed",
-        )
-        for der_hex in tests:
-            der = bytes.fromhex(der_hex)
-            sig = Signature.parse(der)
-            self.assertTrue("Signature" in sig.__repr__())
-            computed = sig.der()
-            self.assertEqual(der, computed)
+        der_hex = "3045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed"
+        der = bytes.fromhex(der_hex)
+        sig = Signature.parse(der)
+        self.assertTrue("Signature" in sig.__repr__())
+        computed = sig.der()
+        self.assertEqual(der, computed)
+
+        # simple test to show repr works (otherwise this would throw an error)
+        str(sig)
 
 
 class PrivateKeyTest(TestCase):

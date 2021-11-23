@@ -189,7 +189,7 @@ def encode_varint(i):
     elif i < 0x10000000000000000:
         return b"\xff" + int_to_little_endian(i, 8)
     else:
-        raise RuntimeError("integer too large: {}".format(i))
+        raise RuntimeError(f"integer too large: {i}")
 
 
 def read_varstr(s):
@@ -355,7 +355,7 @@ def child_to_path(child_number):
     else:
         hardened = ""
         index = child_number
-    return "/{}{}".format(index, hardened)
+    return f"/{index}{hardened}"
 
 
 def path_network(root_path):
@@ -370,7 +370,7 @@ def path_network(root_path):
 
 def parse_binary_path(bin_path):
     if len(bin_path) % 4 != 0:
-        raise ValueError("Not a valid binary path: {}".format(bin_path.hex()))
+        raise ValueError(f"Not a valid binary path: {bin_path.hex()}")
     path_data = bin_path
     path = "m"
     while len(path_data):

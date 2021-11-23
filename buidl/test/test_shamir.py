@@ -337,8 +337,12 @@ class ShamirTest(TestCase):
             ],
         ]
         for test_name, mnemonics, expected in test_cases:
-            share_set = ShareSet([Share.parse(m) for m in mnemonics])
+            share_objs = [Share.parse(m) for m in mnemonics]
+            share_set = ShareSet(share_objs)
             self.assertEqual(share_set.recover(b"TREZOR").hex(), expected, test_name)
+
+        # simple test to show repr works (otherwise this would throw an error)
+        str(share_objs[0])
 
     def test_split(self):
         secret = bytes.fromhex("7c3397a292a5941682d7a4ae2d898d11")

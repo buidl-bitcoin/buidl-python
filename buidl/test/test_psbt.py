@@ -23,6 +23,9 @@ class NamedHDPublicKeyTest(TestCase):
         hex_named_hd = "4f01043587cf034d513c1580000000fb406c9fec09b6957a3449d2102318717b0c0d230b657d0ebc6698abd52145eb02eaf3397fea02c5dac747888a9e535eaf3c7e7cb9d5f2da77ddbdd943592a14af10fbfef36f2c0000800100008000000080"
         stream = BytesIO(bytes.fromhex(hex_named_hd))
         named_hd = NamedHDPublicKey.parse(read_varstr(stream), stream)
+        # simple test to show repr works (otherwise this would throw an error)
+        str(named_hd)
+
         redeem_script_lookup = named_hd.redeem_script_lookup(
             max_external=1, max_internal=1
         )
@@ -76,6 +79,13 @@ class PSBTTest(TestCase):
         psbt = PSBT.create(tx_obj)
         want = "cHNidP8BAJoCAAAAAljoeiG1ba8MI76OcHBFbDNvfLqlyHV5JPVFiHuyq911AAAAAAD/////g40EJ9DsZQpoqka7CwmK6kQiwHGyyng1Kgd5WdB86h0BAAAAAP////8CcKrwCAAAAAAWABTYXCtx0AYLCcmIauuBXlCZHdoSTQDh9QUAAAAAFgAUAK6pouXw+HaliN9VRuh0LR2HAI8AAAAAAAAAAAA="
         self.assertEqual(psbt.serialize_base64(), want)
+
+        # simple test to show repr works (otherwise this would throw an error)
+        str(psbt)
+        for psbt_in in psbt.psbt_ins:
+            str(psbt_in)
+        for psbt_out in psbt.psbt_outs:
+            str(psbt_out)
 
     def test_update_p2pkh(self):
         psbt_obj = PSBT.parse(
@@ -466,7 +476,7 @@ class PSBTTest(TestCase):
         )
         pubkey_lookup = {}
         for i in range(6):
-            root_path = "m/0'/0'/{}'".format(i)
+            root_path = f"m/0'/0'/{i}'"
             named_pubkey = NamedHDPublicKey.from_hd_priv(
                 root_hd_priv=hd_priv, path=root_path
             )
