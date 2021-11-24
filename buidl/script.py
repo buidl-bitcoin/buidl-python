@@ -235,7 +235,7 @@ class Script:
                     witness_script_commands = Script.parse(stream).commands
                     commands.extend(witness_script_commands)
                 # witness program version 1 rule. if stack commands are:
-                # 0 <32 byte hash> this is p2tr
+                # 1 <32 byte hash> this is p2tr
                 elif len(stack) == 2 and stack[0] == b"\x01" and len(stack[1]) == 32:
                     if len(witness) == 0:
                         print("stack in witness v1 empty")
