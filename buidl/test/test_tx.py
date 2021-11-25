@@ -152,6 +152,83 @@ class TxTest(TestCase):
         )
         self.assertTrue(tx.verify())
 
+    def test_verify_p2sh_p2wsh(self):
+        tx = TxFetcher.fetch(
+            "954f43dbb30ad8024981c07d1f5eb6c9fd461e2cf1760dd1283f052af746fc88",
+            network="testnet",
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_if(self):
+        tx = TxFetcher.fetch(
+            "61ba3a8b40706931b72929628cf1a07d604f158c8350055725c664d544d00030",
+            network="testnet",
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_cltv(self):
+        tx = TxFetcher.fetch(
+            "ca2c7347aa2fdff68052f026fa9a092448c2451f774ca53f3a2b05d74405addc",
+            network="testnet",
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_csv(self):
+        tx = TxFetcher.fetch(
+            "d208b659eaca2640f732b07b11ea9800c1a0bb4ffdc03aaf82af76c1787570ac",
+            network="testnet",
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_csv_2(self):
+        tx = TxFetcher.fetch(
+            "807d464fff227ce98cfb5f1292069e2793e99f21b0539a1729cc460af32add77",
+            network="testnet",
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_local_success(self):
+        tx = TxFetcher.fetch(
+            "0191535bfda21f5dfec1c904775c5e2fbee8a985815c88d77258a0b42dba3526"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_local_penalty(self):
+        tx = TxFetcher.fetch(
+            "0da5e5dba5e793d50820c2275dab74912b121c8b7e34ce32a9dbfd4567a9bf8e"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_sender_timeout(self):
+        tx = TxFetcher.fetch(
+            "a16f6d78a58d31fe7459887adf5bd6b4dd95277ea375d250c700cde9fa908bdb"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_sender_preimage(self):
+        tx = TxFetcher.fetch(
+            "89c744f0806a57a9b4634c320703cc941aaf272f290296373b709499064335e5"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_receiver_timeout(self):
+        tx = TxFetcher.fetch(
+            "f9af9b93d66c7e5ee7dcbe0b53faa3d17aa6b9f4cc5b19f0985917b57d82c59a"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_receiver_preimage(self):
+        tx = TxFetcher.fetch(
+            "36b1aff2ad0076be95b1ee1dc4036374998760c80c6583a6478a699e86658ac0"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_sha1_pinata(self):
+        tx = TxFetcher.fetch(
+            "8d31992805518fd62daa3bdd2a5c4fd2cd3054c9b3dca1d78055e9528cff6adc"
+        )
+        self.assertTrue(tx.verify())
+
     def test_sign_p2pkh(self):
         private_key = PrivateKey(secret=8675309)
         tx_ins = []

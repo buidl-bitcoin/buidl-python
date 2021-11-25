@@ -11,8 +11,24 @@ from buidl.helper import (
     int_to_byte,
     sha256,
 )
-from buidl.op import number_to_op_code
+from buidl.op import (
+    encode_minimal_num,
+    number_to_op_code,
+)
 from buidl.script import ScriptPubKey, P2TRScriptPubKey
+from buidl.timelock import Locktime, Sequence
+
+
+def locktime_commands(locktime):
+    assert type(locktime) == Locktime, f"{locktime} needs to be Locktime"
+    # 0xB1 is OP_CLTV, 0x75 is OP_DROP
+    return [encode_minimal_num(locktime), 0xB1, 0x75]
+
+
+def sequence_commands(sequence):
+    assert type(sequence) == Sequence, f"{sequence} needs to be Sequence"
+    # 0xB2 is OP_CSV, 0x75 is OP_DROP
+    return [encode_minimal_num(sequence), 0xB2, 0x75]
 
 
 class TapLeaf:
@@ -197,20 +213,35 @@ class P2PKTapScript(TapScript):
 
 
 class MultiSigTapScript(TapScript):
-    def __init__(self, points, k):
+    def __init__(self, points, k, locktime=None, sequence=None):
+        if locktime is not None and sequence is not None:
+            raise ValueError(
+                "Both locktime and sequence are defined. Only one of them should be."
+            )
         super().__init__()
         if len(points) == 0:
             raise ValueError("To initialize MultiSigTapScript at least one point")
         bip340s = sorted([p.bip340() for p in points])
         self.points = [S256Point.parse_bip340(b) for b in bip340s]
-        self.commands = [bip340s[0], 0xAC]
-        for bip340 in bip340s[1:]:
-            self.commands.extend([bip340, 0xBA])
-        self.commands.extend([number_to_op_code(k), 0x87])
+        if locktime is not None:
+            self.commands = locktime_commands(locktime)
+        elif sequence is not None:
+            self.commands = sequence_commands(sequence)
+        else:
+            self.commands = []
+        self.commands += [bip340s[0], 0xAC]
+        if len(points) > 1:
+            for bip340 in bip340s[1:]:
+                self.commands += [bip340, 0xBA]
+            self.commands += [number_to_op_code(k), 0x87]
 
 
 class MuSigTapScript(TapScript):
-    def __init__(self, points):
+    def __init__(self, points, locktime=None, sequence=None):
+        if locktime is not None and sequence is not None:
+            raise ValueError(
+                "Both locktime and sequence are defined. Only one of them should be."
+            )
         super().__init__()
         if len(points) == 0:
             raise ValueError("Need at least one public key")
@@ -224,7 +255,13 @@ class MuSigTapScript(TapScript):
         self.hash_lookup = {b: h for h, b in zip(self.hashes, bip340s)}
         points = [h * p for h, p in zip(self.hashes, self.points)]
         self.point = S256Point.combine(points)
-        self.commands = [self.point.bip340(), 0xAC]
+        if locktime is not None:
+            self.commands = locktime_commands(locktime)
+        elif sequence is not None:
+            self.commands = sequence_commands(sequence)
+        else:
+            self.commands = []
+        self.commands += [self.point.bip340(), 0xAC]
 
     def get_tweak_point(self, tweak):
         if self.point.parity:
@@ -276,47 +313,110 @@ class TapRootMultiSig:
         self.points = points
         self.default_internal_pubkey = MuSigTapScript(self.points).point
 
-    def single_leaf(self):
-        return MultiSigTapScript(self.points, self.k).tap_leaf()
+    def single_leaf(self, locktime=None, sequence=None):
+        tap_script = MultiSigTapScript(
+            self.points, self.k, locktime=locktime, sequence=sequence
+        )
+        return tap_script.tap_leaf()
 
-    def single_leaf_tap_root(self, internal_pubkey=None):
+    def single_leaf_tap_root(self, internal_pubkey=None, locktime=None, sequence=None):
         if internal_pubkey is None:
             internal_pubkey = self.default_internal_pubkey
-        return TapRoot(internal_pubkey, self.single_leaf())
+        return TapRoot(
+            internal_pubkey, self.single_leaf(locktime=locktime, sequence=sequence)
+        )
 
-    def multi_leaf_tap_node(self):
+    def multi_leaf_tap_node(self, locktime=None, sequence=None):
         leaves = []
         for pubkeys in combinations(self.points, self.k):
-            leaves.append(MultiSigTapScript(pubkeys, self.k).tap_leaf())
+            tap_script = MultiSigTapScript(pubkeys, self.k, locktime, sequence)
+            leaves.append(tap_script.tap_leaf())
         return TapBranch.combine(leaves)
 
-    def multi_leaf_tap_root(self, internal_pubkey=None):
+    def multi_leaf_tap_root(self, internal_pubkey=None, locktime=None, sequence=None):
         if internal_pubkey is None:
             internal_pubkey = self.default_internal_pubkey
-        return TapRoot(internal_pubkey, self.multi_leaf_tap_node())
+        return TapRoot(
+            internal_pubkey,
+            self.multi_leaf_tap_node(locktime=locktime, sequence=sequence),
+        )
 
-    def musig_tap_node(self):
+    def musig_tap_node(self, locktime=None, sequence=None):
         leaves = []
         for pubkeys in combinations(self.points, self.k):
-            leaves.append(MuSigTapScript(pubkeys).tap_leaf())
+            tap_script = MuSigTapScript(pubkeys, locktime=locktime, sequence=sequence)
+            leaves.append(tap_script.tap_leaf())
         return TapBranch.combine(leaves)
 
-    def musig_tap_root(self, internal_pubkey=None):
+    def musig_tap_root(self, internal_pubkey=None, locktime=None, sequence=None):
         if internal_pubkey is None:
             internal_pubkey = self.default_internal_pubkey
-        return TapRoot(internal_pubkey, self.musig_tap_node())
+        return TapRoot(
+            internal_pubkey, self.musig_tap_node(locktime=locktime, sequence=sequence)
+        )
 
-    def musig_and_single_leaf_tap_root(self, internal_pubkey=None):
-        if internal_pubkey is None:
-            internal_pubkey = self.default_internal_pubkey
-        node = TapBranch(self.single_leaf(), self.musig_tap_node())
-        return TapRoot(internal_pubkey, node)
-
-    def everything_tap_root(self, internal_pubkey=None):
+    def musig_and_single_leaf_tap_root(
+        self, internal_pubkey=None, locktime=None, sequence=None
+    ):
         if internal_pubkey is None:
             internal_pubkey = self.default_internal_pubkey
         node = TapBranch(
-            self.single_leaf(),
-            TapBranch(self.multi_leaf_tap_node(), self.musig_tap_node()),
+            self.single_leaf(locktime=locktime, sequence=sequence),
+            self.musig_tap_node(locktime=locktime, sequence=sequence),
         )
         return TapRoot(internal_pubkey, node)
+
+    def everything_tap_root(self, internal_pubkey=None, locktime=None, sequence=None):
+        if internal_pubkey is None:
+            internal_pubkey = self.default_internal_pubkey
+        node = TapBranch(
+            self.single_leaf(locktime=locktime, sequence=sequence),
+            TapBranch(
+                self.multi_leaf_tap_node(locktime=locktime, sequence=sequence),
+                self.musig_tap_node(locktime=locktime, sequence=sequence),
+            ),
+        )
+        return TapRoot(internal_pubkey, node)
+
+    def degrading_multisig_tap_node(
+        self, sequence_block_interval=None, sequence_time_interval=None
+    ):
+        """Can unlock with multisig as k-of-n, or (k-1)-of-n after a
+        sequence_block_interval/sequence_time_interval amount of time,
+        (k-2)-of-n after 2*sequence_block_interval/sequence_time_interval
+        amount of time, (k-3)-of-n after 3*sequence_block_interval/
+        sequence_time_interval amount of time and so on."""
+        leaves = []
+        for num_keys_needed in range(self.k, 0, -1):
+            if num_keys_needed == self.k:
+                sequence = None
+            elif sequence_block_interval:
+                sequence = Sequence.from_relative_blocks(
+                    sequence_block_interval * (self.k - num_keys_needed)
+                )
+            elif sequence_time_interval:
+                sequence = Sequence.from_relative_time(
+                    sequence_time_interval * (self.k - num_keys_needed)
+                )
+            for pubkeys in combinations(self.points, num_keys_needed):
+                tap_script = MultiSigTapScript(
+                    pubkeys, num_keys_needed, sequence=sequence
+                )
+                leaves.append(tap_script.tap_leaf())
+        return TapBranch.combine(leaves)
+
+    def degrading_multisig_tap_root(
+        self,
+        internal_pubkey=None,
+        sequence_block_interval=None,
+        sequence_time_interval=None,
+    ):
+        if internal_pubkey is None:
+            internal_pubkey = self.default_internal_pubkey
+        return TapRoot(
+            internal_pubkey,
+            self.degrading_multisig_tap_node(
+                sequence_block_interval=sequence_block_interval,
+                sequence_time_interval=sequence_time_interval,
+            ),
+        )

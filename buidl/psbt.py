@@ -1563,9 +1563,9 @@ Witness:\n{self.witness}
                 raise RuntimeError(
                     f"Cannot finalize p2wsh or p2sh-p2wsh because {len(self.sigs)} sigs were provided where {num_sigs} were needed"
                 )
-            # create a list of items for the Witness. Start with b'\x00' for the
+            # create a list of items for the Witness. Start with b'' for the
             #  OP_CHECKMULTISIG off-by-one error
-            witness_items = [b"\x00"]
+            witness_items = [b""]
             # for each command in the WitnessScript
             for command in self.witness_script.commands:
                 # grab the sig for the pubkey

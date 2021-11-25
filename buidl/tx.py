@@ -1,5 +1,4 @@
 from io import BytesIO
-
 from urllib.request import Request, urlopen
 
 import json
@@ -31,6 +30,7 @@ from buidl.script import (
     WitnessScript,
 )
 from buidl.taproot import MultiSigTapScript
+from buidl.timelock import Locktime, Sequence
 from buidl.witness import Witness
 
 
@@ -88,12 +88,15 @@ class Tx:
     command = b"tx"
 
     def __init__(
-        self, version, tx_ins, tx_outs, locktime, network="mainnet", segwit=False
+        self, version, tx_ins, tx_outs, locktime=None, network="mainnet", segwit=False
     ):
         self.version = version
         self.tx_ins = tx_ins
         self.tx_outs = tx_outs
-        self.locktime = locktime
+        if locktime is None:
+            self.locktime = Locktime()
+        else:
+            self.locktime = Locktime(locktime)
         self.network = network
         self.segwit = segwit
         self._hash_prevouts = None
@@ -130,6 +133,12 @@ tx_outs:\n{tx_outs}
     def hash(self):
         """Binary hash of the legacy serialization"""
         return hash256(self.serialize_legacy())[::-1]
+
+    def vbytes(self):
+        if self.segwit:
+            return len(self.serialize()) - (len(self.serialize_witness()) + 2) * 3 // 4
+        else:
+            return len(self.serialize())
 
     @classmethod
     def parse_hex(cls, s, network="mainnet"):
@@ -171,7 +180,7 @@ tx_outs:\n{tx_outs}
         for _ in range(num_outputs):
             outputs.append(TxOut.parse(s))
         # locktime is 4 bytes, little-endian
-        locktime = little_endian_to_int(s.read(4))
+        locktime = Locktime.parse(s)
         # return an instance of the class (cls(...))
         return cls(version, inputs, outputs, locktime, network=network, segwit=False)
 
@@ -203,7 +212,7 @@ tx_outs:\n{tx_outs}
         for tx_in in inputs:
             tx_in.witness = Witness.parse(s)
         # locktime is 4 bytes, little-endian
-        locktime = little_endian_to_int(s.read(4))
+        locktime = Locktime.parse(s)
         # return an instance of the class (cls(...))
         return cls(version, inputs, outputs, locktime, network=network, segwit=True)
 
@@ -230,7 +239,15 @@ tx_outs:\n{tx_outs}
             # serialize each output
             result += tx_out.serialize()
         # serialize locktime (4 bytes, little endian)
-        result += int_to_little_endian(self.locktime, 4)
+        result += self.locktime.serialize()
+        return result
+
+    def serialize_witness(self):
+        result = b""
+        # add the witness data for each input
+        for tx_in in self.tx_ins:
+            # serialize the witness field
+            result += tx_in.witness.serialize()
         return result
 
     def serialize_segwit(self):
@@ -251,12 +268,9 @@ tx_outs:\n{tx_outs}
         for tx_out in self.tx_outs:
             # serialize each output
             result += tx_out.serialize()
-        # add the witness data for each input
-        for tx_in in self.tx_ins:
-            # serialize the witness field
-            result += tx_in.witness.serialize()
+        result += self.serialize_witness()
         # serialize locktime (4 bytes, little endian)
-        result += int_to_little_endian(self.locktime, 4)
+        result += self.locktime.serialize()
         return result
 
     def fee(self):
@@ -304,7 +318,7 @@ tx_outs:\n{tx_outs}
             else:
                 script_sig = None
                 if hash_type & 3 in (SIGHASH_NONE, SIGHASH_SINGLE):
-                    sequence = 0
+                    sequence = Sequence(0)
             # create a TxIn object with the prev_tx, prev_index and sequence
             # the same as the current tx_in and the script_sig from above
             new_tx_in = TxIn(
@@ -334,7 +348,7 @@ tx_outs:\n{tx_outs}
             else:
                 s += tx_out.serialize()
         # add the locktime using int_to_little_endian in 4 bytes
-        s += int_to_little_endian(self.locktime, 4)
+        s += self.locktime.serialize()
         # add SIGHASH_ALL using int_to_little_endian in 4 bytes
         s += int_to_little_endian(hash_type, 4)
         # hash256 the serialization
@@ -350,7 +364,7 @@ tx_outs:\n{tx_outs}
                 all_prevouts += tx_in.prev_tx[::-1] + int_to_little_endian(
                     tx_in.prev_index, 4
                 )
-                all_sequence += int_to_little_endian(tx_in.sequence, 4)
+                all_sequence += tx_in.sequence.serialize()
             self._hash_prevouts = hash256(all_prevouts)
             self._hash_sequence = hash256(all_sequence)
         return self._hash_prevouts
@@ -414,14 +428,14 @@ tx_outs:\n{tx_outs}
         # add the value of the input in 8 bytes, little endian
         s += int_to_little_endian(tx_in.value(network=self.network), 8)
         # add the sequence of the input in 4 bytes, little endian
-        s += int_to_little_endian(tx_in.sequence, 4)
+        s += tx_in.sequence.serialize()
         # add the HashOutputs
         if (hash_type & 3) not in (SIGHASH_SINGLE, SIGHASH_NONE):
             s += self.hash_outputs()
         elif hash_type & SIGHASH_SINGLE == SIGHASH_SINGLE:
             s += self.tx_outs[input_index].serialize()
         # add the locktime in 4 bytes, little endian
-        s += int_to_little_endian(self.locktime, 4)
+        s += self.locktime.serialize()
         # add the sighash (SIGHASH_ALL) in 4 bytes, little endian
         s += int_to_little_endian(hash_type, 4)
         # hash256 the whole thing, interpret the as a big endian integer using int_to_big_endian
@@ -439,7 +453,7 @@ tx_outs:\n{tx_outs}
                 )
                 all_amounts += int_to_little_endian(tx_in.value(self.network), 8)
                 all_script_pubkeys += tx_in.script_pubkey(self.network).serialize()
-                all_sequence += int_to_little_endian(tx_in.sequence, 4)
+                all_sequence += tx_in.sequence.serialize()
             self._sha_prevouts = sha256(all_prevouts)
             self._sha_amounts = sha256(all_amounts)
             self._sha_script_pubkeys = sha256(all_script_pubkeys)
@@ -475,7 +489,7 @@ tx_outs:\n{tx_outs}
         s = b"\x00"
         s += int_to_byte(hash_type)
         s += int_to_little_endian(self.version, 4)
-        s += int_to_little_endian(self.locktime, 4)
+        s += self.locktime.serialize()
         if not hash_type & SIGHASH_ANYONECANPAY:
             s += self.sha_prevouts()
             s += self.sha_amounts()
@@ -491,7 +505,7 @@ tx_outs:\n{tx_outs}
             s += tx_in.prev_tx[::-1] + int_to_little_endian(tx_in.prev_index, 4)
             s += int_to_little_endian(tx_in.value(), 8)
             s += tx_in.script_pubkey().serialize()
-            s += int_to_little_endian(tx_in.sequence, 4)
+            s += tx_in.sequence.serialize()
         else:
             s += int_to_little_endian(input_index, 4)
         if hash_type & SIGHASH_SINGLE == SIGHASH_SINGLE:
@@ -560,7 +574,10 @@ tx_outs:\n{tx_outs}
 
     def verify(self):
         """Verify this transaction"""
-        if self.fee() < 0:
+        if self.fee() < self.vbytes():
+            print(
+                "This transaction won't relay without having a fee of at least {self.vbytes()}"
+            )
             return False
         for i in range(len(self.tx_ins)):
             if not self.verify_input(i):
@@ -749,11 +766,10 @@ tx_outs:\n{tx_outs}
 
     def is_rbf_able(self):
         # https://github.com/bitcoin/bips/blob/master/bip-0125.mediawiki#Implementation_Details
-        eligible = False
         for tx_in in self.tx_ins:
-            if tx_in.sequence < 0xFFFFFFFF - 1:
-                eligible = True
-        return eligible
+            if tx_in.sequence.is_rbf_able():
+                return True
+        return False
 
     def find_utxos(self, address):
         """Returns transaction outputs that matches the address"""
@@ -776,14 +792,17 @@ tx_outs:\n{tx_outs}
 
 
 class TxIn:
-    def __init__(self, prev_tx, prev_index, script_sig=None, sequence=0xFFFFFFFF):
+    def __init__(self, prev_tx, prev_index, script_sig=None, sequence=None):
         self.prev_tx = prev_tx
         self.prev_index = prev_index
         if script_sig is None:
             self.script_sig = Script()
         else:
             self.script_sig = script_sig
-        self.sequence = sequence
+        if sequence is None:
+            self.sequence = Sequence()
+        else:
+            self.sequence = Sequence(sequence)
         self._value = None
         self._script_pubkey = None
         self.witness = Witness()
@@ -806,7 +825,7 @@ class TxIn:
         # you can use Script.parse to get the actual script
         script_sig = Script.parse(s)
         # sequence is 4 bytes, little-endian, interpret as int
-        sequence = little_endian_to_int(s.read(4))
+        sequence = Sequence.parse(s)
         # return an instance of the class (cls(...))
         return cls(prev_tx, prev_index, script_sig, sequence)
 
@@ -819,7 +838,7 @@ class TxIn:
         # serialize the script_sig
         result += self.script_sig.serialize()
         # serialize sequence, 4 bytes, little endian
-        result += int_to_little_endian(self.sequence, 4)
+        result += self.sequence.serialize()
         return result
 
     def fetch_tx(self, network="mainnet"):
@@ -872,15 +891,15 @@ class TxIn:
 
     def finalize_p2wsh_multisig(self, signatures, witness_script):
         """Puts together the signatures for a p2wsh input so the input verifies."""
-        # the format for multisig is [b'\x00', each signature, then the WitnessScript (raw-serialization)]
-        items = [b"\x00", *signatures, witness_script.raw_serialize()]
+        # the format for multisig is [b'', each signature, then the WitnessScript (raw-serialization)]
+        items = [b"", *signatures, witness_script.raw_serialize()]
         # set the witness of the input to be these items
         self.witness = Witness(items)
 
     def finalize_p2sh_p2wsh_multisig(self, signatures, witness_script):
         """Puts together the signatures for a p2sh-p2wsh input so the input verifies."""
-        # the format for multisig is [b'\x00', each signature, then the WitnessScript (raw-serialization)]
-        items = [b"\x00", *signatures, witness_script.raw_serialize()]
+        # the format for multisig is [b'', each signature, then the WitnessScript (raw-serialization)]
+        items = [b"", *signatures, witness_script.raw_serialize()]
         # set the witness of the input to be these items
         self.witness = Witness(items)
         # the RedeemScript is the p2wsh ScriptPubKey of the WitnessScript
