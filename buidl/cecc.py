@@ -46,7 +46,7 @@ class S256Point:
         return self.sec() == other.sec()
 
     def __repr__(self):
-        return "S256Point({})".format(self.sec(compressed=False).hex())
+        return f"S256Point({self.sec().hex()})"
 
     def __rmul__(self, coefficient):
         coef = coefficient % N
@@ -189,7 +189,7 @@ class S256Point:
         """Returns the p2pkh address string"""
         return self.p2pkh_script(compressed).address(network)
 
-    def bech32_address(self, network="mainnet"):
+    def p2wpkh_address(self, network="mainnet"):
         """Returns the p2wpkh bech32 address string"""
         return self.p2wpkh_script().address(network)
 
@@ -233,6 +233,32 @@ class S256Point:
     def parse_bip340(cls, binary):
         sec_bin = b"\x02" + binary
         return cls(csec=sec_bin)
+
+    @classmethod
+    def combine(cls, points):
+        c_pubkeys = []
+        for point in points:
+            new_key = ffi.new("secp256k1_pubkey *")
+            s = point.sec(compressed=False)
+            if not lib.secp256k1_ec_pubkey_parse(GLOBAL_CTX, new_key, s, len(s)):
+                raise RuntimeError("libsecp256k1 parse error")
+            c_pubkeys.append(new_key)
+        sum_pub_key = ffi.new("secp256k1_pubkey *")
+        if not lib.secp256k1_ec_pubkey_combine(
+            GLOBAL_CTX, sum_pub_key, c_pubkeys, len(c_pubkeys)
+        ):
+            raise RuntimeError("libsecp256k1 combine error")
+        serialized = ffi.new("unsigned char [65]")
+        output_len = ffi.new("size_t *", 65)
+        if not lib.secp256k1_ec_pubkey_serialize(
+            GLOBAL_CTX,
+            serialized,
+            output_len,
+            sum_pub_key,
+            lib.SECP256K1_EC_UNCOMPRESSED,
+        ):
+            raise RuntimeError("libsecp256k1 serialization error")
+        return cls(usec=bytes(serialized))
 
 
 G = S256Point(

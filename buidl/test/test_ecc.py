@@ -1,16 +1,13 @@
 from unittest import TestCase
 
-from buidl.ecc import G, S256Point, PrivateKey, Signature
+from buidl.ecc import G, N, S256Point, PrivateKey, Signature, SchnorrSignature
 from buidl.bech32 import decode_bech32
+from buidl.helper import big_endian_to_int, int_to_big_endian, hash_challenge
 
 from random import randint
 
 
 class S256Test(TestCase):
-    #    def test_order(self):
-    #        point = N * G
-    #        self.assertIsNone(point.x)
-
     def test_pubpoint(self):
         # write a test that tests the public point for the following
         points = (
@@ -34,11 +31,17 @@ class S256Test(TestCase):
         )
 
         # iterate over points
+        sum_secrets = 0
+        point_objects = []
         for secret, sec in points:
             # initialize the secp256k1 point (S256Point)
             point = S256Point.parse(bytes.fromhex(sec))
             # check that the secret*G is the same as the point
             self.assertEqual(secret * G, point)
+            sum_secrets += secret
+            point_objects.append(point)
+
+        self.assertEqual(sum_secrets * G, S256Point.combine(point_objects))
 
     def test_sec(self):
         coefficient = 999 ** 3
@@ -94,7 +97,7 @@ class S256Test(TestCase):
                 point.address(compressed=False, network="signet"), testnet_legacy
             )
 
-    def test_bech32_address(self):
+    def test_p2wpkh_address(self):
         tests = (
             (
                 888 ** 3,
@@ -114,10 +117,10 @@ class S256Test(TestCase):
         )
         for secret, mainnet_bech32, testnet_bech32 in tests:
             point = secret * G
-            self.assertEqual(point.bech32_address(network="mainnet"), mainnet_bech32)
+            self.assertEqual(point.p2wpkh_address(network="mainnet"), mainnet_bech32)
             self.assertEqual(decode_bech32(mainnet_bech32)[2], point.hash160())
-            self.assertEqual(point.bech32_address(network="testnet"), testnet_bech32)
-            self.assertEqual(point.bech32_address(network="signet"), testnet_bech32)
+            self.assertEqual(point.p2wpkh_address(network="testnet"), testnet_bech32)
+            self.assertEqual(point.p2wpkh_address(network="signet"), testnet_bech32)
 
     def test_p2sh_p2wpkh_address(self):
         tests = (
@@ -192,13 +195,40 @@ class SignatureTest(TestCase):
 
 class PrivateKeyTest(TestCase):
     def test_sign(self):
-        pk = PrivateKey(randint(0, 2 ** 256))
-        z = randint(0, 2 ** 256)
+        pk = PrivateKey(randint(0, N))
+        z = randint(0, 1 << 256)
         sig = pk.sign(z)
         self.assertTrue(pk.point.verify(z, sig))
 
     def test_sign_message(self):
-        pk = PrivateKey(randint(0, 2 ** 256))
+        pk = PrivateKey(randint(0, N))
         message = b"This is a test message"
         sig = pk.sign_message(message)
         self.assertTrue(pk.point.verify_message(message, sig))
+
+    def test_sign_schnorr(self):
+        pk = PrivateKey(randint(1, N))
+        msg = int_to_big_endian(randint(1, N), 32)
+        sig = pk.sign_schnorr(msg, aux=b"\x00" * 32)
+        self.assertTrue(pk.point.verify_schnorr(msg, sig))
+        # tweak
+        tweak = randint(1, N)
+        tweak_point = pk.tweaked(tweak).point
+        k = randint(1, N)
+        r = k * G
+        if r.parity:
+            k = N - k
+            r = k * G
+        message = r.bip340() + tweak_point.bip340() + msg
+        challenge = big_endian_to_int(hash_challenge(message)) % N
+        if pk.point.parity == tweak_point.parity:
+            secret = pk.secret
+        else:
+            secret = -pk.secret
+        s = (k + challenge * secret) % N
+        if tweak_point.parity:
+            s = (s - challenge * tweak) % N
+        else:
+            s = (s + challenge * tweak) % N
+        sig = SchnorrSignature.parse(r.bip340() + int_to_big_endian(s, 32))
+        self.assertTrue(tweak_point.verify_schnorr(msg, sig))

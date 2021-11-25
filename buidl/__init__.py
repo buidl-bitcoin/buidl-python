@@ -18,5 +18,6 @@ from .psbt import *
 from .psbt_helper import *
 from .script import *
 from .shamir import *
+from .taproot import *
 from .tx import *
 from .witness import *

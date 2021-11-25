@@ -256,8 +256,10 @@ class Script:
                         tweak_point = control_block.tweak_point(tap_leaf)
                         # the tweak point should be what's on the stack
                         if tweak_point.parity != control_block.parity:
+                            print("bad tweak point parity")
                             return False
                         if tweak_point.bip340() != stack.pop():
+                            print("bad tweak point")
                             return False
                         # pop off the 1 and start fresh
                         stack.pop()
@@ -527,7 +529,9 @@ class P2TRScriptPubKey(ScriptPubKey):
         elif type(point) == bytes:
             raw_point = point
         else:
-            raise TypeError("To initialize P2TRScriptPubKey, a point is needed")
+            raise TypeError(
+                f"To initialize P2TRScriptPubKey, a point is needed {point}"
+            )
         self.commands = [0x51, raw_point]
 
     def address(self, network="mainnet"):
@@ -537,17 +541,10 @@ class P2TRScriptPubKey(ScriptPubKey):
         # convert to bech32 address using encode_bech32_checksum
         return encode_bech32_checksum(witness_program, network)
 
-
-class P2PKTapScript(ScriptPubKey):
-    def __init__(self, point):
-        super().__init__()
-        if type(point) == S256Point:
-            raw_point = point.bip340()
-        elif type(point) == bytes:
-            raw_point = point
-        else:
-            raise TypeError(f"To initialize P2PKTapScript, a point is needed {point}")
-        self.commands = [raw_point, 0xAC]
+    @classmethod
+    def from_address(cls, address):
+        _, _, point_raw = decode_bech32(address)
+        return cls(point_raw)
 
 
 class WitnessScript(Script):

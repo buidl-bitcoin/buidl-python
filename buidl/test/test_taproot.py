@@ -281,7 +281,7 @@ class TaprootTest(TestCase):
                 tap_script = Script.parse(
                     BytesIO(encode_varstr(bytes.fromhex(item["script"])))
                 )
-                tap_leaf = TapLeaf(tapleaf_version, tap_script)
+                tap_leaf = TapLeaf(tap_script, tapleaf_version)
                 return tap_leaf
             else:
                 return TapBranch(parse_item(item[0]), parse_item(item[1]))

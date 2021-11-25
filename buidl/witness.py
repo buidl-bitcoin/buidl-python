@@ -17,7 +17,10 @@ class Witness:
     def __repr__(self):
         result = ""
         for item in self.items:
-            result += "{} ".format(item.hex())
+            if item == b"":
+                result += "<null> "
+            else:
+                result += "{} ".format(item.hex())
         return result
 
     def __getitem__(self, key):
@@ -56,7 +59,7 @@ class Witness:
 
     def tap_leaf(self):
         leaf_version = self.control_block().tapleaf_version
-        return TapLeaf(leaf_version, self.tap_script())
+        return TapLeaf(self.tap_script(), leaf_version)
 
     @classmethod
     def parse(cls, s):

@@ -4,6 +4,7 @@ from urllib.request import Request, urlopen
 
 import json
 
+from buidl.ecc import SchnorrSignature
 from buidl.helper import (
     big_endian_to_int,
     decode_base58,
@@ -29,13 +30,14 @@ from buidl.script import (
     ScriptPubKey,
     WitnessScript,
 )
+from buidl.taproot import MultiSigTapScript
 from buidl.witness import Witness
 
 
 URL = {
     "mainnet": "https://blockstream.info/api",
     "testnet": "https://blockstream.info/testnet/api",
-    "signet": "https://explorer.bc-2.jp/api",
+    "signet": "https://mempool.space/signet/api",
 }
 
 
@@ -613,21 +615,38 @@ class Tx:
         self.tx_ins[input_index].finalize_p2tr_keypath(sig)
         return self.verify_input(input_index)
 
-    def sign_p2tr_scriptpath(
-        self,
-        input_index,
-        private_key,
-        control_block,
-        tap_script,
-        hash_type=SIGHASH_DEFAULT,
-        aux=b"\x00" * 32,
-    ):
+    def initialize_p2tr_multisig(self, input_index, control_block, tap_script):
         tx_in = self.tx_ins[input_index]
-        tx_in.witness = Witness([tap_script.raw_serialize(), control_block.serialize()])
-        sig = self.get_sig_taproot(
-            input_index, private_key, ext_flag=1, hash_type=hash_type, aux=aux
-        )
-        tx_in.witness.items = [sig] + tx_in.witness.items
+        if len(tx_in.witness.items) == 0:
+            tx_in.witness = Witness(
+                [tap_script.raw_serialize(), control_block.serialize()]
+            )
+            if type(tap_script) != MultiSigTapScript:
+                raise RuntimeError("tap script must be MultiSigTapScript")
+            tx_in.tap_script = tap_script
+
+    def finalize_p2tr_multisig(self, input_index, sigs):
+        tx_in = self.tx_ins[input_index]
+        if len(tx_in.witness.items) < 2 or tx_in.tap_script is None:
+            raise RuntimeError("initialize single leaf multisig first")
+        for point in tx_in.tap_script.points:
+            for sig in sigs:
+                if len(sig) == 0:
+                    continue
+                elif len(sig) == 64:
+                    hash_type = SIGHASH_DEFAULT
+                    schnorr = SchnorrSignature.parse(sig)
+                elif len(sig) == 65:
+                    hash_type = sig[-1]
+                    schnorr = SchnorrSignature.parse(sig[:-1])
+                else:
+                    raise RuntimeError("invalid signature length")
+                msg = self.sig_hash(input_index, hash_type=hash_type)
+                if point.verify_schnorr(msg, schnorr):
+                    tx_in.witness.items.insert(0, sig)
+                    break
+            else:
+                tx_in.witness.items.insert(0, b"")
         return self.verify_input(input_index)
 
     def sign_input(
@@ -772,6 +791,7 @@ class TxIn:
         self._value = None
         self._script_pubkey = None
         self.witness = Witness()
+        self.tap_script = None
 
     def __repr__(self):
         return "{}:{}".format(
