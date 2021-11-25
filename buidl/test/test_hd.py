@@ -493,7 +493,7 @@ class HDTest(TestCase):
             "bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr",
         )
         self.assertEqual(
-            hd_priv_key.get_p2tr_receiving_address(address=1),
+            hd_priv_key.get_p2tr_receiving_address(address_num=1),
             "bc1p4qhjn9zdvkux4e44uhx8tc55attvtyu358kutcqkudyccelu0was9fqzwh",
         )
 

@@ -247,7 +247,7 @@ class P2WSHSortedMulti:
         self.checksum = calculated_checksum
 
     def __repr__(self):
-        return self.descriptor_text + "#" + self.checksum
+        return f"{self.descriptor_text}#{self.checksum}"
 
     @property
     def quorum_n(self):

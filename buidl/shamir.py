@@ -85,7 +85,15 @@ class Share:
         self.bytes = int_to_big_endian(value, share_bit_length // 8)
 
     def __repr__(self):
-        return f"\n\n{self.mnemonic()}\nid: {self.id}\nexponent: {self.exponent}\ngi: {self.group_index}\ngroup: {self.group_threshold} of {self.group_count}\nmi: {self.member_index}\nmt: {self.member_threshold}\nshare: {self.value}"
+        return f"""
+{self.mnemonic()}
+id: {self.id}
+exponent: {self.exponent}
+gi: {self.group_index}
+group: {self.group_threshold} of {self.group_count}
+mi: {self.member_index}
+mt: {self.member_threshold}
+share: {self.value}"""
 
     @classmethod
     def parse(cls, mnemonic):

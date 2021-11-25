@@ -17,7 +17,7 @@ class MuSigTest(TestCase):
         )
         # create a 3-of-5 single-leaf multisig
         private_keys = [
-            hd_priv_key.get_p2tr_receiving_privkey(address=i) for i in range(5)
+            hd_priv_key.get_p2tr_receiving_privkey(address_num=i) for i in range(5)
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
@@ -64,7 +64,7 @@ class MuSigTest(TestCase):
         )
         # create a 3-of-5 multi-leaf multisig
         private_keys = [
-            hd_priv_key.get_p2tr_receiving_privkey(address=i) for i in range(5)
+            hd_priv_key.get_p2tr_receiving_privkey(address_num=i) for i in range(5)
         ]
         points = [priv.point for priv in private_keys]
         multisig = TapRootMultiSig(points, 3)
@@ -109,7 +109,7 @@ class MuSigTest(TestCase):
         # create a 3-of-5 multi-leaf musig
         private_keys = []
         for i in range(5):
-            private_keys.append(hd_priv_key.get_p2tr_receiving_privkey(address=i))
+            private_keys.append(hd_priv_key.get_p2tr_receiving_privkey(address_num=i))
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
         musig = MuSigTapScript(points)
@@ -158,7 +158,7 @@ class MuSigTest(TestCase):
         # create a 3-of-5 multi-leaf musig
         private_keys = []
         for i in range(5):
-            private_keys.append(hd_priv_key.get_p2tr_receiving_privkey(address=i))
+            private_keys.append(hd_priv_key.get_p2tr_receiving_privkey(address_num=i))
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
         musig = MuSigTapScript(points)
@@ -195,7 +195,7 @@ class MuSigTest(TestCase):
         )
         # create a 3-of-5 single-leaf multisig
         private_keys = [
-            hd_priv_key.get_p2tr_receiving_privkey(address=i) for i in range(5)
+            hd_priv_key.get_p2tr_receiving_privkey(address_num=i) for i in range(5)
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
@@ -261,7 +261,7 @@ class MuSigTest(TestCase):
         )
         # create a 3-of-5 single-leaf multisig
         private_keys = [
-            hd_priv_key.get_p2tr_receiving_privkey(address=i) for i in range(5)
+            hd_priv_key.get_p2tr_receiving_privkey(address_num=i) for i in range(5)
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)

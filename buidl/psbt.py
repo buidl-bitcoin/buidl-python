@@ -80,9 +80,10 @@ def serialize_binary_path(path):
 
 class NamedPublicKey(S256Point):
     def __repr__(self):
-        return "Point:\n{}\nPath:\n{}:{}\n".format(
-            self.sec().hex(), self.root_fingerprint.hex(), self.root_path
-        )
+        return f"""
+Point: {self.sec().hex()}
+Path: {self.root_fingerprint.hex()}:{self.root_path}
+"""
 
     def add_raw_path_data(self, raw_path, network=None):
         self.root_fingerprint = raw_path[:4]
@@ -112,9 +113,10 @@ class NamedPublicKey(S256Point):
 
 class NamedHDPublicKey(HDPublicKey):
     def __repr__(self):
-        return "HD:\n{}\nPath:\n{}:{}\n".format(
-            super().__repr__(), self.root_fingerprint.hex(), self.root_path
-        )
+        return f"""
+HD: {super().__repr__()}
+Path: {self.root_fingerprint.hex()}:{self.root_path}
+"""
 
     def add_raw_path_data(self, raw_path, network=None):
         self.root_fingerprint = raw_path[:4]
@@ -272,9 +274,7 @@ class PSBT:
                 tx_in.witness = psbt_in.witness
                 if not self.tx_obj.verify_input(i):
                     raise ValueError(
-                        "ScriptSig/Witness at input {} provided, but not valid".format(
-                            i
-                        )
+                        f"ScriptSig/Witness at input {i} provided, but not valid"
                     )
                 tx_in.script_sig = Script()
                 tx_in.witness = Witness()
@@ -301,9 +301,7 @@ class PSBT:
                             i, point, signature, psbt_in.redeem_script
                         ):
                             raise ValueError(
-                                "legacy signature provided does not validate {}".format(
-                                    self
-                                )
+                                f"legacy signature provided does not validate {self}"
                             )
             # validate the NamedPublicKeys
             if psbt_in.named_pubs:
@@ -313,9 +311,7 @@ class PSBT:
                         if hd_pub.is_ancestor(named_pub):
                             if not hd_pub.verify_descendent(named_pub):
                                 raise ValueError(
-                                    "public key {} does not derive from xpub {}".format(
-                                        named_pub, hd_pub
-                                    )
+                                    f"public key {named_pub} does not derive from xpub {hd_pub}"
                                 )
                             break
         if len(self.tx_obj.tx_outs) != len(self.psbt_outs):
@@ -333,17 +329,19 @@ class PSBT:
                         if hd_pub.is_ancestor(named_pub):
                             if not hd_pub.verify_descendent(named_pub):
                                 raise ValueError(
-                                    "public key {} does not derive from xpub {}".format(
-                                        named_pub, hd_pub
-                                    )
+                                    f"public key {named_pub} does not derive from xpub {hd_pub}"
                                 )
                             break
         return True
 
     def __repr__(self):
-        return "Tx:\n{}\nPSBT XPUBS:\n{}\nPsbt_Ins:\n{}\nPsbt_Outs:\n{}\nExtra:{}\n".format(
-            self.tx_obj, self.hd_pubs, self.psbt_ins, self.psbt_outs, self.extra_map
-        )
+        return f"""
+Tx:\n{self.tx_obj}\n
+PSBT XPUBS:\n{self.hd_pubs}\n
+Psbt_Ins:\n{self.psbt_ins}\n
+Psbt_Outs:\n{self.psbt_outs}\n
+Extra:\n{self.extra_map}
+"""
 
     @classmethod
     def create(
@@ -565,7 +563,7 @@ class PSBT:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if tx_obj:
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 _ = read_varint(s)
                 tx_obj = Tx.parse_legacy(s)
             elif psbt_type == PSBT_GLOBAL_XPUB:
@@ -579,7 +577,7 @@ class PSBT:
                     raise MixedNetwork("PSBT Mainnet/Testnet Mixing")
             else:
                 if extra_map.get(key):
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 extra_map[key] = read_varstr(s)
             key = read_varstr(s)
         if not tx_obj:
@@ -1170,9 +1168,7 @@ class PSBTIn:
                         # this will raise a ValueError if it's not in there
                         self.witness_script.commands.index(sec)
                     except ValueError:
-                        raise ValueError(
-                            "pubkey is not in WitnessScript: {}".format(self)
-                        )
+                        raise ValueError(f"pubkey is not in WitnessScript: {self}")
             elif script_pubkey.is_p2wpkh() or (
                 self.redeem_script and self.redeem_script.is_p2wpkh()
             ):
@@ -1204,9 +1200,7 @@ class PSBTIn:
                         # this will raise a ValueError if it's not in there
                         self.redeem_script.commands.index(sec)
                     except ValueError:
-                        raise ValueError(
-                            "pubkey is not in RedeemScript {}".format(self)
-                        )
+                        raise ValueError(f"pubkey is not in RedeemScript {self}")
             elif script_pubkey and script_pubkey.is_p2pkh():
                 if len(self.named_pubs) > 1:
                     raise ValueError("too many pubkeys in p2pkh")
@@ -1220,17 +1214,17 @@ class PSBTIn:
                         )
 
     def __repr__(self):
-        return "TxIn:\n{}\nPrev Tx:\n{}\nPrev Output\n{}\nSigs:\n{}\nRedeemScript:\n{}\nWitnessScript:\n{}\nPSBT Pubs:\n{}\nScriptSig:\n{}\nWitness:\n{}\n".format(
-            self.tx_in,
-            self.prev_tx,
-            self.prev_out,
-            self.sigs,
-            self.redeem_script,
-            self.witness_script,
-            self.named_pubs,
-            self.script_sig,
-            self.witness,
-        )
+        return f"""
+TxIn:\n{self.tx_in}
+Prev Tx:\n{self.prev_tx}
+Prev Output:\n{self.prev_out}
+Sigs:\n{self.sigs}
+RedeemScript:\n{self.redeem_script}
+WitnessScript:\n{self.witness_script}
+PSBT Pubs:\n{self.named_pubs}
+ScriptSig:\n{self.script_sig}
+Witness:\n{self.witness}
+"""
 
     @classmethod
     def parse(cls, s, tx_in, network=None):
@@ -1251,7 +1245,7 @@ class PSBTIn:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if prev_tx:
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 tx_len = read_varint(s)
                 prev_tx = Tx.parse(s)
                 if len(prev_tx.serialize()) != tx_len:
@@ -1263,7 +1257,7 @@ class PSBTIn:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if prev_out:
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 prev_out = TxOut.parse(s)
                 if len(prev_out.serialize()) != tx_out_len:
                     raise ValueError("tx out length does not match")
@@ -1271,25 +1265,25 @@ class PSBTIn:
                 tx_in._script_pubkey = prev_out.script_pubkey
             elif psbt_type == PSBT_IN_PARTIAL_SIG:
                 if sigs.get(key[1:]):
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 sigs[key[1:]] = read_varstr(s)
             elif psbt_type == PSBT_IN_SIGHASH_TYPE:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if hash_type:
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 hash_type = little_endian_to_int(read_varstr(s))
             elif psbt_type == PSBT_IN_REDEEM_SCRIPT:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if redeem_script:
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 redeem_script = RedeemScript.parse(s)
             elif psbt_type == PSBT_IN_WITNESS_SCRIPT:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if witness_script:
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 witness_script = WitnessScript.parse(s)
             elif psbt_type == PSBT_IN_BIP32_DERIVATION:
                 if len(key) != 34:
@@ -1300,18 +1294,18 @@ class PSBTIn:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if script_sig:
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 script_sig = Script.parse(s)
             elif psbt_type == PSBT_IN_FINAL_SCRIPTWITNESS:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if witness:
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 _ = read_varint(s)
                 witness = Witness.parse(s)
             else:
                 if extra_map.get(key):
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 extra_map[key] = read_varstr(s)
             key = read_varstr(s)
         return cls(
@@ -1490,9 +1484,7 @@ class PSBTIn:
         # else we throw a ValueError
         else:
             raise ValueError(
-                "cannot update a transaction because it is not p2pkh, p2sh, p2wpkh or p2wsh: {}".format(
-                    script_pubkey
-                )
+                f"cannot update a transaction because it is not p2pkh, p2sh, p2wpkh or p2wsh: {script_pubkey}"
             )
 
     def combine(self, other):
@@ -1569,9 +1561,7 @@ class PSBTIn:
             # make sure we have at least the number of sigs required
             if len(self.sigs) < num_sigs:
                 raise RuntimeError(
-                    "Cannot finalize p2wsh or p2sh-p2wsh because {} sigs were provided where {} were needed".format(
-                        len(self.sigs), num_sigs
-                    )
+                    f"Cannot finalize p2wsh or p2sh-p2wsh because {len(self.sigs)} sigs were provided where {num_sigs} were needed"
                 )
             # create a list of items for the Witness. Start with b'\x00' for the
             #  OP_CHECKMULTISIG off-by-one error
@@ -1605,9 +1595,7 @@ class PSBTIn:
             # make sure we have at least the number of sigs required
             if len(self.sigs) < num_sigs:
                 raise RuntimeError(
-                    "Cannot finalize p2sh because {} sigs were provided where {} were needed".format(
-                        len(self.sigs), num_sigs
-                    )
+                    f"Cannot finalize p2sh because {len(self.sigs)} sigs were provided where {num_sigs} were needed"
                 )
             # create a list of commands for the ScriptSig. Start with 0 for the
             #  OP_CHECKMULTISIG off-by-one error
@@ -1643,9 +1631,7 @@ class PSBTIn:
             # set the ScriptSig, which is Script([sig, sec])
             self.script_sig = Script([sig, sec])
         else:
-            raise ValueError(
-                "Cannot finalize this ScriptPubKey: {}".format(script_pubkey)
-            )
+            raise ValueError(f"Cannot finalize this ScriptPubKey: {script_pubkey}")
         # reset sigs, hash_type, redeem_script, witness_script and named_pubs to be empty
         self.sigs = {}
         self.hash_type = None
@@ -1724,21 +1710,22 @@ class PSBTOut:
                     # this will raise a ValueError if it's not in there
                     self.witness_script.commands.index(sec)
                 except ValueError:
-                    raise ValueError("pubkey is not in WitnessScript {}".format(self))
+                    raise ValueError(f"pubkey is not in WitnessScript {self}")
         elif self.redeem_script:
             for sec in self.named_pubs.keys():
                 try:
                     # this will raise a ValueError if it's not in there
                     self.redeem_script.commands.index(sec)
                 except ValueError:
-                    raise ValueError("pubkey is not in RedeemScript {}".format(self))
+                    raise ValueError(f"pubkey is not in RedeemScript {self}")
 
     def __repr__(self):
-        return (
-            "TxOut:\n{}\nRedeemScript:\n{}\nWitnessScript\n{}\nPSBT Pubs:\n{}\n".format(
-                self.tx_out, self.redeem_script, self.witness_script, self.named_pubs
-            )
-        )
+        return f"""
+TxOut:\n{self.tx_out}
+RedeemScript:\n{self.redeem_script}
+WitnessScript\n{self.witness_script}
+PSBT Pubs:\n{self.named_pubs}
+"""
 
     @classmethod
     def parse(cls, s, tx_out, network=None):
@@ -1753,13 +1740,13 @@ class PSBTOut:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if redeem_script:
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 redeem_script = RedeemScript.parse(s)
             elif psbt_type == PSBT_OUT_WITNESS_SCRIPT:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if witness_script:
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 witness_script = WitnessScript.parse(s)
             elif psbt_type == PSBT_OUT_BIP32_DERIVATION:
                 if len(key) != 34:
@@ -1768,7 +1755,7 @@ class PSBTOut:
                 named_pubs[named_pub.sec()] = named_pub
             else:
                 if extra_map.get(key):
-                    raise KeyError("Duplicate Key in parsing: {}".format(key.hex()))
+                    raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 extra_map[key] = read_varstr(s)
             key = read_varstr(s)
         return cls(tx_out, redeem_script, witness_script, named_pubs, extra_map)

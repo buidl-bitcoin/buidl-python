@@ -276,7 +276,7 @@ class Signature:
             if not lib.secp256k1_ecdsa_signature_parse_der(
                 GLOBAL_CTX, self.c, der, len(der)
             ):
-                raise RuntimeError("badly formatted signature {}".format(der.hex()))
+                raise RuntimeError(f"badly formatted signature {der.hex()}")
         elif c:
             self.c = c
             self.der_cache = None
@@ -287,7 +287,7 @@ class Signature:
         return self.der() == other.der()
 
     def __repr__(self):
-        return "Signature{}".format(self.der().hex())
+        return f"Signature{self.der().hex()}"
 
     def der(self):
         if not self.der_cache:

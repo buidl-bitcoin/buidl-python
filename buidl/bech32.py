@@ -187,15 +187,15 @@ def decode_bech32(s):
     elif hrp == "tb":
         network = "testnet"
     else:
-        raise ValueError("unknown human readable part: {}".format(hrp))
+        raise ValueError(f"unknown human readable part: {hrp}")
     data = [BECH32_ALPHABET.index(c) for c in raw_data]
     version = data[0]
     if version == 0:
         if not bech32_verify_checksum(hrp, data):
-            raise ValueError("bad address: {}".format(s))
+            raise ValueError(f"bad address: {s}")
     else:
         if not bech32m_verify_checksum(hrp, data):
-            raise ValueError("bad address: {}".format(s))
+            raise ValueError(f"bad address: {s}")
     number = 0
     for digit in data[1:-6]:
         number = (number << 5) + digit
@@ -204,5 +204,5 @@ def decode_bech32(s):
     number >>= bits_to_ignore
     hash = int_to_big_endian(number, num_bytes)
     if num_bytes < 2 or num_bytes > 40:
-        raise ValueError("bytes out of range: {}".format(num_bytes))
+        raise ValueError(f"bytes out of range: {num_bytes}")
     return [network, version, hash]

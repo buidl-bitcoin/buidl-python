@@ -41,10 +41,10 @@ class Script:
                 if OP_CODE_NAMES.get(command):
                     name = OP_CODE_NAMES.get(command)
                 else:
-                    name = "OP_[{}]".format(command)
-                result += "{} ".format(name)
+                    name = f"OP_[{command}]"
+                result += f"{name} "
             else:
-                result += "{} ".format(command.hex())
+                result += f"{command.hex()} "
         return result
 
     def __eq__(self, other):
@@ -618,4 +618,4 @@ def address_to_script_pubkey(s):
             # p2wskh
             return P2WSHScriptPubKey(decode_bech32(s)[2])
 
-    raise RuntimeError("unknown type of address: {}".format(s))
+    raise RuntimeError(f"unknown type of address: {s}")
