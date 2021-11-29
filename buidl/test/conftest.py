@@ -7,7 +7,9 @@ from os import getenv
 
 
 def guard(*args, **kwargs):
-    raise Exception("I told you not to use the Internet!")
+    raise Exception(
+        "Unit test requires internet, perhaps you need to update test/tx.cache?"
+    )
 
 
 if not getenv("INCLUDE_NETWORK_TESTS"):
