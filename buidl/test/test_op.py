@@ -1,19 +1,12 @@
 from io import BytesIO
-from os.path import dirname, realpath, sep
-from unittest import TestCase
 
 from buidl.op import decode_num, op_checkmultisig, op_checksig, op_hash160
-from buidl.tx import Tx, TxFetcher
+from buidl.tx import Tx
+
+from buidl.test import OfflineTestCase
 
 
-class OpTest(TestCase):
-    cache_file = dirname(realpath(__file__)) + sep + "tx.cache"
-
-    @classmethod
-    def setUpClass(cls):
-        # fill with cache so we don't have to be online to run these tests
-        TxFetcher.load_cache(cls.cache_file)
-
+class OpTest(OfflineTestCase):
     def test_op_hash160(self):
         stack = [b"hello world"]
         self.assertTrue(op_hash160(stack))
