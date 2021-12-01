@@ -1,7 +1,8 @@
-from unittest import TestCase
-from buidl.tx import TxFetcher
 from os.path import dirname, realpath, sep
 from os import getenv
+from unittest import TestCase
+
+from buidl.tx import TxFetcher
 
 
 class OfflineTestCase(TestCase):
