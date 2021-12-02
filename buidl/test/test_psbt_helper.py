@@ -2,7 +2,7 @@ from unittest import TestCase
 from copy import deepcopy
 
 from buidl.hd import HDPrivateKey, HDPublicKey
-from buidl.psbt_helper import create_p2sh_multisig_psbt
+from buidl.psbt_helper import create_multisig_psbt
 from buidl.script import RedeemScript
 
 
@@ -100,7 +100,7 @@ class P2SHTest(TestCase):
 
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
-            psbt_obj = create_p2sh_multisig_psbt(**kwargs)
+            psbt_obj = create_multisig_psbt(**kwargs, script_type="p2sh")
             self.assertEqual(len(psbt_obj.hd_pubs), 2)
             self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
@@ -207,7 +207,7 @@ class P2SHTest(TestCase):
 
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
-            psbt_obj = create_p2sh_multisig_psbt(**kwargs)
+            psbt_obj = create_multisig_psbt(**kwargs, script_type="p2sh")
             self.assertEqual(len(psbt_obj.hd_pubs), 2)
             self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
@@ -239,7 +239,7 @@ class P2SHTest(TestCase):
             self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
 
         # Replace xfps
-        psbt_obj = create_p2sh_multisig_psbt(**kwargs)
+        psbt_obj = create_multisig_psbt(**kwargs, script_type="p2sh")
         with self.assertRaises(ValueError) as cm:
             # deadbeef  not in psbt
             psbt_obj.replace_root_xfps({"deadbeef": "00000000"})
@@ -254,7 +254,7 @@ class P2SHTest(TestCase):
         fake_addr = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
         modified_kwargs["output_dicts"][0]["address"] = fake_addr
         with self.assertRaises(ValueError) as cm:
-            create_p2sh_multisig_psbt(**modified_kwargs)
+            create_multisig_psbt(**modified_kwargs, script_type="p2sh")
         self.assertEqual(
             "Invalid redeem script for output #0. Expecting 2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8 but got tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
             str(cm.exception),
@@ -266,7 +266,7 @@ class P2SHTest(TestCase):
         modified_kwargs = deepcopy(kwargs)
         modified_kwargs["output_dicts"][0]["path_dict"]["e0c595c5"] = "m/999"
         with self.assertRaises(ValueError) as cm:
-            create_p2sh_multisig_psbt(**modified_kwargs)
+            create_multisig_psbt(**modified_kwargs, script_type="p2sh")
         self.assertEqual(
             "xfp_hex e0c595c5 with m/999 for in/output #0 not supplied in xpub_dict",
             str(cm.exception),
@@ -480,11 +480,12 @@ class P2SHTest(TestCase):
         ) in test_outputs:
 
             # Return all the funds to the faucet address
-            psbt_obj = create_p2sh_multisig_psbt(
+            psbt_obj = create_multisig_psbt(
                 public_key_records=pubkey_records,
                 input_dicts=input_dicts,
                 output_dicts=tx_output_dicts,
                 fee_sats=psbt_desc_want["tx_fee_sats"],
+                script_type="p2sh",
             )
 
             self.assertTrue(psbt_obj.validate())
