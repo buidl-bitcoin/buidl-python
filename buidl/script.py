@@ -169,9 +169,9 @@ class Script:
                     if not operation(stack, altstack):
                         print("bad op: {}".format(OP_CODE_NAMES[command]))
                         return False
-                elif command in (172, 173, 174, 175, 186):
-                    # these are signing operations, they need the tx and input index
-                    # to check against
+                elif command in (172, 173, 174, 175, 177, 178, 186):
+                    # SIG ops (172-175, 186) and CLTV/CSV (177, 178)
+                    # are operations that need the tx and input index
                     if not operation(stack, tx_obj, input_index):
                         print("bad op: {}".format(OP_CODE_NAMES[command]))
                         return False
@@ -225,9 +225,7 @@ class Script:
                     witness_script = witness.items[-1]
                     if s256 != sha256(witness_script):
                         print(
-                            "bad sha256 {} vs {}".format(
-                                s256.hex(), sha256(witness_script).hex()
-                            )
+                            f"bad sha256 {s256.hex()} vs {sha256(witness_script).hex()}"
                         )
                         return False
                     # hashes match! now add the Witness Script

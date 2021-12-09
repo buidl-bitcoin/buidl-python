@@ -20,7 +20,7 @@ class Witness:
             if item == b"":
                 result += "<null> "
             else:
-                result += "{} ".format(item.hex())
+                result += f"{item.hex()} "
         return result
 
     def __getitem__(self, key):
@@ -35,10 +35,7 @@ class Witness:
     def serialize(self):
         result = encode_varint(len(self))
         for item in self.items:
-            if len(item) == 1:
-                result += item
-            else:
-                result += encode_varstr(item)
+            result += encode_varstr(item)
         return result
 
     def has_annex(self):

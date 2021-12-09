@@ -5,11 +5,72 @@ from buidl.ecc import (
     SchnorrSignature,
     Signature,
 )
-
 from buidl.helper import (
     hash160,
     hash256,
 )
+from buidl.timelock import (
+    Locktime,
+    Sequence,
+    MAX_SEQUENCE,
+)
+
+
+def number_to_op_code_byte(n):
+    """Returns the OP code for a particular number"""
+    if n < -1 or n > 16:
+        raise ValueError("Not a valid OP code")
+    if n > 0:
+        return bytes([0x50 + n])
+    elif n == 0:
+        return b"\x00"
+    elif n == -1:
+        return b"\x4f"
+
+
+def number_to_op_code(n):
+    if n < -1 or n > 16:
+        raise ValueError("Not a valid OP code")
+    if n == 0:
+        return 0
+    return n + 80
+
+
+def op_code_to_number(op_code):
+    """Returns the n for a particular OP code"""
+    if op_code not in (
+        0,
+        79,
+        80,
+        81,
+        82,
+        83,
+        84,
+        85,
+        86,
+        87,
+        88,
+        89,
+        90,
+        91,
+        92,
+        93,
+        94,
+        95,
+        96,
+    ):
+        raise ValueError("Not a valid OP code")
+    if op_code == 0:
+        return 0
+    else:
+        return op_code - 80
+
+
+def encode_minimal_num(n):
+    if -1 <= n <= 16:
+        return number_to_op_code(n)
+    else:
+        return encode_num(n)
 
 
 def encode_num(num):
@@ -784,95 +845,45 @@ def op_checkmultisigverify(stack, tx_obj, input_index):
     return op_checkmultisig(stack, tx_obj, input_index) and op_verify(stack)
 
 
-def op_checklocktimeverify(stack, locktime, sequence):
-    if sequence == 0xFFFFFFFF:
+def op_checklocktimeverify(stack, tx_obj, input_index):
+    sequence = tx_obj.tx_ins[input_index].sequence
+    locktime = tx_obj.locktime
+    if sequence == MAX_SEQUENCE:
         return False
     if len(stack) < 1:
         return False
     element = decode_num(stack[-1])
     if element < 0:
         return False
-    if element < 500000000 and locktime > 500000000:
+    stack_locktime = Locktime(element)
+    if not locktime.is_comparable(stack_locktime):
         return False
-    if locktime < element:
+    if locktime < stack_locktime:
         return False
     return True
 
 
-def op_checksequenceverify(stack, version, sequence):
-    if sequence & (1 << 31) == (1 << 31):
+def op_checksequenceverify(stack, tx_obj, input_index):
+    sequence = tx_obj.tx_ins[input_index].sequence
+    if not sequence.is_relative():
         return False
     if len(stack) < 1:
         return False
     element = decode_num(stack[-1])
     if element < 0:
         return False
-    if element & (1 << 31) == (1 << 31):
-        if version < 2:
-            return False
-        elif sequence & (1 << 31) == (1 << 31):
-            return False
-        elif element & (1 << 22) != sequence & (1 << 22):
-            return False
-        elif element & 0xFFFF > sequence & 0xFFFF:
-            return False
+    if tx_obj.version < 2:
+        return False
+    stack_sequence = Sequence(element)
+    if not sequence.is_comparable(stack_sequence):
+        return False
+    if sequence < stack_sequence:
+        return False
     return True
 
 
 def op_success(stack):
     return True
-
-
-def number_to_op_code_byte(n):
-    """Returns the OP code for a particular number"""
-    if n < -1 or n > 16:
-        raise ValueError("Not a valid OP code")
-    if n > 0:
-        return bytes([0x50 + n])
-    elif n == 0:
-        return b"\x00"
-    elif n == -1:
-        return b"\x4f"
-
-
-def number_to_op_code(n):
-    if n < -1 or n > 16:
-        raise ValueError("Not a valid OP code")
-
-    if n == 0:
-        return 0
-
-    return n + 80
-
-
-def op_code_to_number(op_code):
-    """Returns the n for a particular OP code"""
-    if op_code not in (
-        0,
-        79,
-        80,
-        81,
-        82,
-        83,
-        84,
-        85,
-        86,
-        87,
-        88,
-        89,
-        90,
-        91,
-        92,
-        93,
-        94,
-        95,
-        96,
-    ):
-        raise ValueError("Not a valid OP code")
-    if op_code == 0:
-        return 0
-    else:
-        return op_code - 80
 
 
 OP_CODE_FUNCTIONS = {
