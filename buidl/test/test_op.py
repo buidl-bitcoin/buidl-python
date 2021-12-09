@@ -1,5 +1,4 @@
 from io import BytesIO
-from unittest import TestCase
 
 from buidl.op import (
     decode_num,
@@ -14,8 +13,10 @@ from buidl.script import Script
 from buidl.timelock import Locktime, Sequence
 from buidl.tx import Tx, TxIn, TxOut
 
+from buidl.test import OfflineTestCase
 
-class OpTest(TestCase):
+
+class OpTest(OfflineTestCase):
     def test_op_hash160(self):
         stack = [b"hello world"]
         self.assertTrue(op_hash160(stack))

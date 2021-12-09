@@ -1,4 +1,3 @@
-from os.path import dirname, realpath, sep
 from unittest import TestCase
 
 from io import BytesIO
@@ -15,7 +14,9 @@ from buidl.psbt import (
     SuspiciousTransaction,
 )
 from buidl.script import RedeemScript, Script, WitnessScript
-from buidl.tx import Tx, TxIn, TxOut, TxFetcher
+from buidl.tx import Tx, TxIn, TxOut
+
+from buidl.test import OfflineTestCase
 
 
 class NamedHDPublicKeyTest(TestCase):
@@ -46,14 +47,7 @@ class NamedHDPublicKeyTest(TestCase):
         self.assertEqual(redeem_script_lookup, want)
 
 
-class PSBTTest(TestCase):
-    cache_file = dirname(realpath(__file__)) + sep + "tx.cache"
-
-    @classmethod
-    def setUpClass(cls):
-        # fill with cache so we don't have to be online to run these tests
-        TxFetcher.load_cache(cls.cache_file)
-
+class PSBTTest(OfflineTestCase):
     def test_create(self):
         tx_in_0 = TxIn(
             bytes.fromhex(
