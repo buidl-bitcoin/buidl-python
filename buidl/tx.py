@@ -3,6 +3,7 @@ from urllib.request import Request, urlopen
 
 import json
 
+from buidl.bech32 import decode_bech32
 from buidl.ecc import SchnorrSignature
 from buidl.helper import (
     big_endian_to_int,
@@ -24,6 +25,10 @@ from buidl.helper import (
 )
 from buidl.script import (
     P2PKHScriptPubKey,
+    P2SHScriptPubKey,
+    P2WPKHScriptPubKey,
+    P2WSHScriptPubKey,
+    P2TRScriptPubKey,
     RedeemScript,
     Script,
     ScriptPubKey,
@@ -940,3 +945,38 @@ class TxOut:
         script_pubkey = ScriptPubKey.parse(s)
         # return an instance of the class (cls(...))
         return cls(amount, script_pubkey)
+
+    @classmethod
+    def to_address(cls, address, amount):
+        """Takes an address and an amount and makes a TxOut object"""
+        if address.startswith("bc1") or address.startswith("tb1"):
+            _, version, h = decode_bech32(address)
+            if version == 0:
+                if len(h) == 20:
+                    script_pubkey = P2WPKHScriptPubKey(h)
+                elif len(h) == 32:
+                    script_pubkey = P2WSHScriptPubKey(h)
+                else:
+                    raise ValueError(f"{address} is not a valid bech32 address")
+            elif version == 1:
+                if len(h) == 32:
+                    script_pubkey = P2TRScriptPubKey(h)
+                else:
+                    raise ValueError(f"{address} is not a valid bech32 address")
+            else:
+                raise ValueError(f"{address} is an unknown type of segwit address")
+        elif address[0] in ("3", "2"):
+            h = decode_base58(address)
+            if len(h) == 20:
+                script_pubkey = P2SHScriptPubKey(h)
+            else:
+                raise ValueError(f"{address} is not a valid base58 p2sh address")
+        elif address[0] in ("1", "m", "n"):
+            h = decode_base58(address)
+            if len(h) == 20:
+                script_pubkey = P2PKHScriptPubKey(h)
+            else:
+                raise ValueError(f"{address} is not a valid base58 p2pkh address")
+        else:
+            raise ValueError(f"{address} is an unknown or invalid type of address")
+        return cls(amount=amount, script_pubkey=script_pubkey)
