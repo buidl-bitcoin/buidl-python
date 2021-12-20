@@ -77,7 +77,6 @@ def create_p2sh_multisig_psbt(
 
     tx_ins, total_input_sats = [], 0
     for cnt, input_dict in enumerate(input_dicts):
-
         # Prev tx stuff
         prev_tx_dict = input_dict["prev_tx_dict"]
         prev_tx_obj = Tx.parse_hex(prev_tx_dict["hex"], network=network)
@@ -90,7 +89,23 @@ def create_p2sh_multisig_psbt(
 
         # pubkey lookups needed for validation
         input_pubkey_hexes = []
-        for xfp_hex, root_path in input_dict["path_dict"].items():
+
+        # If this input's XFP/path information is a dictionary, then
+        # assume we want BIP67 ordering.
+        if isinstance(input_dict["path_dict"], dict):
+            pubkey_iterable = input_dict["path_dict"].items()
+            assume_bip67 = True
+        # If this input's XFP/path information is a list/tuple, then
+        # use the ordering given.
+        elif isinstance(input_dict["path_dict"], (tuple, list)):
+            pubkey_iterable = input_dict["path_dict"]
+            assume_bip67 = False
+        else:
+            raise ValueError(
+                f"Elements of `input_dicts` must either be dictionarys or lists/tuples (received {type(input_dict['path_dict'])})"
+            )
+
+        for xfp_hex, root_path in pubkey_iterable:
             # Get the correct xpub/path
             child_hd_pubkey = _safe_get_child_hdpubkey(
                 xfp_dict=xfp_dict,
@@ -120,7 +135,7 @@ def create_p2sh_multisig_psbt(
         redeem_script = RedeemScript.create_p2sh_multisig(
             quorum_m=input_dict["quorum_m"],
             pubkey_hexes=input_pubkey_hexes,
-            sort_keys=True,  # TODO: allow legacy users to customize this?
+            sort_keys=assume_bip67,
             expected_addr=utxo.script_pubkey.address(network=network),
             expected_addr_network=network,
         )
