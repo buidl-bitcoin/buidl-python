@@ -25,20 +25,23 @@ def _safe_get_child_hdpubkey(xfp_dict, xfp_hex, root_path, cnt):
     )
 
 
-def create_p2sh_multisig_psbt(
+def create_multisig_psbt(
     public_key_records,
     input_dicts,
     output_dicts,
     fee_sats,
+    script_type="p2sh",
 ):
     """
-    Helper method to create a p2sh multisig PSBT.
+    Helper method to create a multisig PSBT whose change can be validated.
 
-    network (testnet/mainnet) will be inferred from xpubs/tpubs.
+    network (testnet/mainnet/signet) will be inferred from xpubs/tpubs.
 
     public_key_records are a list of entries that loom like this: [xfp_hex, xpub_b58, base_path]
     # TODO: turn this into a new object?
     """
+    if script_type != "p2sh":
+        raise NotImplementedError(f"script_type {script_type} not yet implemented")
 
     # initialize variables
     network = None
@@ -88,9 +91,21 @@ def create_p2sh_multisig_psbt(
                 f"Hash digest mismatch for input #{cnt}: {prev_tx_dict['hash_hex']} != {prev_tx_obj.hash().hex()}"
             )
 
-        # pubkey lookups needed for validation
+        if "path_dict" in input_dict:
+            # Standard BIP67 unordered list of pubkeys (will be sorted lexicographically)
+            iterator = input_dict["path_dict"].items()
+            sort_keys = True
+        elif "path_list" in input_dict:
+            # Caller supplied ordering of pubkeys (will not be sorted)
+            iterator = input_dict["path_list"]
+            sort_keys = False
+        else:
+            raise RuntimeError(
+                f"input_dict has no `path_dict` nor a `path_list`: {input_dict}"
+            )
+
         input_pubkey_hexes = []
-        for xfp_hex, root_path in input_dict["path_dict"].items():
+        for xfp_hex, root_path in iterator:
             # Get the correct xpub/path
             child_hd_pubkey = _safe_get_child_hdpubkey(
                 xfp_dict=xfp_dict,
@@ -106,6 +121,7 @@ def create_p2sh_multisig_psbt(
                 xfp_hex=xfp_hex,
                 path=root_path,
             )
+            # pubkey lookups needed for validation
             pubkey_lookup[named_hd_pubkey_obj.sec()] = named_hd_pubkey_obj
 
         utxo = prev_tx_obj.tx_outs[prev_tx_dict["output_idx"]]
@@ -120,7 +136,7 @@ def create_p2sh_multisig_psbt(
         redeem_script = RedeemScript.create_p2sh_multisig(
             quorum_m=input_dict["quorum_m"],
             pubkey_hexes=input_pubkey_hexes,
-            sort_keys=True,  # TODO: allow legacy users to customize this?
+            sort_keys=sort_keys,
             expected_addr=utxo.script_pubkey.address(network=network),
             expected_addr_network=network,
         )

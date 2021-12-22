@@ -628,6 +628,11 @@ Extra:\n{self.extra_map}
             result += psbt_out.serialize()
         return result
 
+    def remove_global_xpubs(self):
+        """Blank the `hd_pubs` and return the PSBT in base64 serialized format"""
+        self.hd_pubs = {}
+        return self.serialize_base64()
+
     def replace_root_xfps(self, xfp_map):
         """
         Can be used for extra privacy to blind an XFP not relevant to that signer.

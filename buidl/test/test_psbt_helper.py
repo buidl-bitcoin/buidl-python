@@ -2,7 +2,7 @@ from unittest import TestCase
 from copy import deepcopy
 
 from buidl.hd import HDPrivateKey, HDPublicKey
-from buidl.psbt_helper import create_p2sh_multisig_psbt
+from buidl.psbt_helper import create_multisig_psbt
 from buidl.script import RedeemScript
 
 
@@ -100,7 +100,100 @@ class P2SHTest(TestCase):
 
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
-            psbt_obj = create_p2sh_multisig_psbt(**kwargs)
+            psbt_obj = create_multisig_psbt(**kwargs, script_type="p2sh")
+            self.assertEqual(len(psbt_obj.hd_pubs), 2)
+            self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
+
+            hdpriv = HDPrivateKey.from_mnemonic(seed_word * 12, network="testnet")
+
+            root_path_to_use = None
+            for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
+
+                self.assertEqual(psbt_in.redeem_script.get_quorum(), (1, 2))
+
+                # For this TX there is only one psbt_in (1 input)
+                for child_pubkey in psbt_in.redeem_script.signing_pubkeys():
+                    named_pubkey = psbt_in.named_pubs[child_pubkey]
+                    if (
+                        named_pubkey.root_fingerprint.hex()
+                        == hdpriv.fingerprint().hex()
+                    ):
+                        root_path_to_use = named_pubkey.root_path
+
+                # In this example, the path is the same regardless of which key we sign with:
+                self.assertEqual(root_path_to_use, "m/45'/0/0/0")
+
+            private_keys = [hdpriv.traverse(root_path_to_use).private_key]
+
+            self.assertTrue(psbt_obj.sign_with_private_keys(private_keys=private_keys))
+
+            psbt_obj.finalize()
+
+            self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
+
+    def test_sweep_1of2_p2sh_with_non_BIP67_input(self):
+
+        # This test will produce a validly signed TX for the 1-of-2 p2sh using either key, which will result in a different TX ID
+        # d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490 is the one that was broadcast to the testnet blockchain:
+        # https://blockstream.info/testnet/tx/d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490
+
+        kwargs = {
+            "public_key_records": [
+                # action x12
+                [
+                    "e0c595c5",
+                    "tpubDBnspiLZfrq1V7j1iuMxGiPsuHyy6e4QBnADwRrbH89AcnsUEMfWiAYXmSbMuNFsrMdnbQRDGGSM1AFGL6zUWNVSmwRavoJzdQBbZKLgLgd",
+                    "m/45'/0",
+                ],
+                # agent x12
+                [
+                    "838f3ff9",
+                    "tpubDAKJicb9Tkw34PFLEBUcbnH99twN3augmg7oYHHx9Aa9iodXmA4wtGEJr8h2XjJYqn2j1v5qHLjpWEe8aPihmC6jmsgomsuc9Zeh4ZushNk",
+                    "m/45'/0",
+                ],
+            ],
+            "input_dicts": [
+                {
+                    "quorum_m": 1,
+                    "path_list": [
+                        # (xfp, root_path)
+                        ("838f3ff9", "m/45'/0/0/0"),
+                        ("e0c595c5", "m/45'/0/0/0"),
+                    ],
+                    "prev_tx_dict": {
+                        "hex": "02000000000101380bff9db676d159ad34849079c77e0d5c1df9c841b6a6640cba9bfc15077eea0100000000feffffff02008312000000000017a914d96bb9c5888f473dbd077d77009fb49ba2fda24287611c92a00100000017a9148722f07fbcf0fc506ea4ba9daa811d11396bbcfd870247304402202fe3c2f18e1486407bf0baabd2b3376102f0844a754d8e2fb8de71b39b3f76c702200c1fe8f7f9ef5165929ed51bf754edd7dd3e591921979cf5b891c841a1fd19d80121037c8fe1fa1ae4dfff522c532917c73c4884469e3b6a284e9a039ec612dca78eefd29c1e00",
+                        "hash_hex": "4412d2a7664d01bb784a0a359e9aacf160ee436067c6a42dca355da4817ca7da",
+                        "output_idx": 0,
+                        "output_sats": 1213184,
+                    },
+                },
+            ],
+            "output_dicts": [
+                {
+                    "sats": 999500,
+                    "address": "mkHS9ne12qx9pS9VojpwU5xtRd4T7X7ZUt",
+                },
+            ],
+            "fee_sats": 213684,
+        }
+
+        expected_unsigned_psbt_b64 = "cHNidP8BAFUBAAAAAdqnfIGkXTXKLaTGZ2BD7mDxrJqeNQpKeLsBTWan0hJEAAAAAAD/////AUxADwAAAAAAGXapFDRKD0jKFQ7CuQOBdmC5tosTpnAmiKwAAAAATwEENYfPAheO+c4AAAAALjD5unTcevzcKaWlkg/+xoU+FD5bJ+iltDa2WE1bTngCfSOd3kkScA1e4OGM3MJ/Oqg+nxEHlwuV7YBCuoT745YMg48/+S0AAIAAAAAATwEENYfPAuBIVlUAAAAAHnpWPWgBnfWu2tzv9Ujws27ps0hOBHMQbZlpQ6c5m4MDN4/ffnc3ejfVlqkEgG7tlPX4aTS92pfU5LAvGDQQKHoM4MWVxS0AAIAAAAAAAAEA4AIAAAAAAQE4C/+dtnbRWa00hJB5x34NXB35yEG2pmQMupv8FQd+6gEAAAAA/v///wIAgxIAAAAAABepFNlrucWIj0c9vQd9dwCftJui/aJCh2EckqABAAAAF6kUhyLwf7zw/FBupLqdqoEdETlrvP2HAkcwRAIgL+PC8Y4UhkB78Lqr0rM3YQLwhEp1TY4vuN5xs5s/dscCIAwf6Pf571Flkp7VG/dU7dfdPlkZIZec9biRyEGh/RnYASEDfI/h+hrk3/9SLFMpF8c8SIRGnjtqKE6aA57GEtynju/SnB4AAQRHUSECE59xZ/F9qU0k32/ihozbXtq9DP+Dq0h8lC6i8HVw2fAhAjy3HGmZkHaMAY3xejZsTrdL3hafKeiEJhwQyXPsJq06Uq4iBgITn3Fn8X2pTSTfb+KGjNte2r0M/4OrSHyULqLwdXDZ8BSDjz/5LQAAgAAAAAAAAAAAAAAAACIGAjy3HGmZkHaMAY3xejZsTrdL3hafKeiEJhwQyXPsJq06FODFlcUtAACAAAAAAAAAAAAAAAAAAAA="
+        tests = (
+            # (seed_word repeated x12, signed_tx_hash_hex),
+            (
+                # this is the one we broadcasted
+                "action ",
+                "d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490",
+            ),
+            (
+                "agent ",
+                "c38dcee54f40193d668c8911eeba7ec20f570fdbdb31fbe4351f66d7005c7bfb",
+            ),
+        )
+
+        # Now we prove we can sign this with either key
+        for seed_word, signed_tx_hash_hex in tests:
+            psbt_obj = create_multisig_psbt(**kwargs, script_type="p2sh")
             self.assertEqual(len(psbt_obj.hd_pubs), 2)
             self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
@@ -207,7 +300,7 @@ class P2SHTest(TestCase):
 
         # Now we prove we can sign this with either key
         for seed_word, signed_tx_hash_hex in tests:
-            psbt_obj = create_p2sh_multisig_psbt(**kwargs)
+            psbt_obj = create_multisig_psbt(**kwargs, script_type="p2sh")
             self.assertEqual(len(psbt_obj.hd_pubs), 2)
             self.assertEqual(psbt_obj.serialize_base64(), expected_unsigned_psbt_b64)
 
@@ -239,7 +332,7 @@ class P2SHTest(TestCase):
             self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
 
         # Replace xfps
-        psbt_obj = create_p2sh_multisig_psbt(**kwargs)
+        psbt_obj = create_multisig_psbt(**kwargs, script_type="p2sh")
         with self.assertRaises(ValueError) as cm:
             # deadbeef  not in psbt
             psbt_obj.replace_root_xfps({"deadbeef": "00000000"})
@@ -254,7 +347,7 @@ class P2SHTest(TestCase):
         fake_addr = "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx"
         modified_kwargs["output_dicts"][0]["address"] = fake_addr
         with self.assertRaises(ValueError) as cm:
-            create_p2sh_multisig_psbt(**modified_kwargs)
+            create_multisig_psbt(**modified_kwargs, script_type="p2sh")
         self.assertEqual(
             "Invalid redeem script for output #0. Expecting 2MzQhXqN93igSKGW9CMvkpZ9TYowWgiNEF8 but got tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx",
             str(cm.exception),
@@ -266,7 +359,7 @@ class P2SHTest(TestCase):
         modified_kwargs = deepcopy(kwargs)
         modified_kwargs["output_dicts"][0]["path_dict"]["e0c595c5"] = "m/999"
         with self.assertRaises(ValueError) as cm:
-            create_p2sh_multisig_psbt(**modified_kwargs)
+            create_multisig_psbt(**modified_kwargs, script_type="p2sh")
         self.assertEqual(
             "xfp_hex e0c595c5 with m/999 for in/output #0 not supplied in xpub_dict",
             str(cm.exception),
@@ -480,11 +573,12 @@ class P2SHTest(TestCase):
         ) in test_outputs:
 
             # Return all the funds to the faucet address
-            psbt_obj = create_p2sh_multisig_psbt(
+            psbt_obj = create_multisig_psbt(
                 public_key_records=pubkey_records,
                 input_dicts=input_dicts,
                 output_dicts=tx_output_dicts,
                 fee_sats=psbt_desc_want["tx_fee_sats"],
+                script_type="p2sh",
             )
 
             self.assertTrue(psbt_obj.validate())
