@@ -1,19 +1,15 @@
-from os.path import dirname, realpath, sep
-from unittest import TestCase
-
 from buidl.ecc import PrivateKey, Signature
-from buidl.helper import decode_base58
-from buidl.script import P2PKHScriptPubKey, RedeemScript, WitnessScript
+from buidl.script import RedeemScript, WitnessScript
 from buidl.tx import Tx, TxIn, TxOut, TxFetcher
 
+from buidl.test import OfflineTestCase
 
-class TxTest(TestCase):
-    cache_file = dirname(realpath(__file__)) + sep + "tx.cache"
 
-    @classmethod
-    def setUpClass(cls):
-        # fill with cache so we don't have to be online to run these tests
-        TxFetcher.load_cache(cls.cache_file)
+class TxTest(OfflineTestCase):
+    def test_parse_tricky(self):
+        raw_tx = "01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff2f0315230e0004ae03ca57043e3d1e1d0c8796bf579aef0c0000000000122f4e696e6a61506f6f6c2f5345475749542fffffffff038427a112000000001976a914876fbb82ec05caa6af7a3b5e5a983aae6c6cc6d688ac0000000000000000266a24aa21a9ed5c748e121c0fe146d973a4ac26fa4a68b0549d46ee22d25f50a5e46fe1b377ee00000000000000002952534b424c4f434b3acd16772ad61a3c5f00287480b720f6035d5e54c9efc71be94bb5e3727f10909000000000"
+        tx_obj = Tx.parse_hex(raw_tx)
+        self.assertEqual(tx_obj.serialize().hex(), raw_tx)
 
     def test_parse_version(self):
         raw_tx = "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
@@ -152,24 +148,105 @@ class TxTest(TestCase):
         )
         self.assertTrue(tx.verify())
 
+    def test_verify_p2sh_p2wsh(self):
+        tx = TxFetcher.fetch(
+            "954f43dbb30ad8024981c07d1f5eb6c9fd461e2cf1760dd1283f052af746fc88",
+            network="testnet",
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_if(self):
+        tx = TxFetcher.fetch(
+            "61ba3a8b40706931b72929628cf1a07d604f158c8350055725c664d544d00030",
+            network="testnet",
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_cltv(self):
+        tx = TxFetcher.fetch(
+            "ca2c7347aa2fdff68052f026fa9a092448c2451f774ca53f3a2b05d74405addc",
+            network="testnet",
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_csv(self):
+        tx = TxFetcher.fetch(
+            "d208b659eaca2640f732b07b11ea9800c1a0bb4ffdc03aaf82af76c1787570ac",
+            network="testnet",
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_csv_2(self):
+        tx = TxFetcher.fetch(
+            "807d464fff227ce98cfb5f1292069e2793e99f21b0539a1729cc460af32add77",
+            network="testnet",
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_local_success(self):
+        tx = TxFetcher.fetch(
+            "0191535bfda21f5dfec1c904775c5e2fbee8a985815c88d77258a0b42dba3526"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_local_penalty(self):
+        tx = TxFetcher.fetch(
+            "0da5e5dba5e793d50820c2275dab74912b121c8b7e34ce32a9dbfd4567a9bf8e"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_sender_timeout(self):
+        tx = TxFetcher.fetch(
+            "a16f6d78a58d31fe7459887adf5bd6b4dd95277ea375d250c700cde9fa908bdb"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_sender_preimage(self):
+        tx = TxFetcher.fetch(
+            "89c744f0806a57a9b4634c320703cc941aaf272f290296373b709499064335e5"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_receiver_timeout(self):
+        tx = TxFetcher.fetch(
+            "f9af9b93d66c7e5ee7dcbe0b53faa3d17aa6b9f4cc5b19f0985917b57d82c59a"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_lightning_receiver_preimage(self):
+        tx = TxFetcher.fetch(
+            "36b1aff2ad0076be95b1ee1dc4036374998760c80c6583a6478a699e86658ac0"
+        )
+        self.assertTrue(tx.verify())
+
+    def test_verify_sha1_pinata(self):
+        tx = TxFetcher.fetch(
+            "8d31992805518fd62daa3bdd2a5c4fd2cd3054c9b3dca1d78055e9528cff6adc"
+        )
+        self.assertTrue(tx.verify())
+
     def test_sign_p2pkh(self):
         private_key = PrivateKey(secret=8675309)
         tx_ins = []
         prev_tx = bytes.fromhex(
-            "0025bc3c0fa8b7eb55b9437fdbd016870d18e0df0ace7bc9864efc38414147c8"
+            "448c1cf931cb8a35d648b75a63c7dbdc6d81a8b82be07c055d599a4ce810a20a"
         )
         tx_ins.append(TxIn(prev_tx, 0))
-        tx_outs = []
-        h160 = decode_base58("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
-        tx_outs.append(
-            TxOut(amount=int(0.99 * 100000000), script_pubkey=P2PKHScriptPubKey(h160))
-        )
-        h160 = decode_base58("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
-        tx_outs.append(
-            TxOut(amount=int(0.1 * 100000000), script_pubkey=P2PKHScriptPubKey(h160))
-        )
-        tx = Tx(1, tx_ins, tx_outs, 0, network="testnet")
-        self.assertTrue(tx.sign_p2pkh(0, private_key))
+        tx_outs = [
+            TxOut.to_address("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2", 5999000),
+            TxOut.to_address("tb1qjfavna0z7r484w674f723w7g4jpeaplttt464w", 1000000),
+            TxOut.to_address(
+                "tb1qdhd06yyf7pazh2vx3hm37c3gq8lpra2993hlr784z4e3xwpgksmsceq9wc",
+                1000000,
+            ),
+            TxOut.to_address("2MyJsxLnxj7DsNch4xE7B3nMpB94kDPoE2s", 1000000),
+            TxOut.to_address(
+                "tb1p9gpzhc5fhlwlf49ze00fgjszxh5pl2p7az76758xwarweq08gcas8qa0r7",
+                1000000,
+            ),
+        ]
+        tx_obj = Tx(1, tx_ins, tx_outs, 0, network="signet")
+        self.assertTrue(tx_obj.sign_p2pkh(0, private_key))
 
     def test_sign_p2wpkh(self):
         private_key = PrivateKey(secret=8675309)
@@ -180,8 +257,7 @@ class TxTest(TestCase):
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
         amount = tx_in.value(network="testnet") - fee
-        h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
-        tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
+        tx_out = TxOut.to_address("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv", amount)
         t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
         self.assertTrue(t.sign_input(0, private_key))
         want = "0100000000010197ad6fb37f5764c85b375639cbd07dfafd94c2ed18f2fb6cad9fdd329507fa6b0000000000ffffffff014c400f00000000001976a9146e13971913b9aa89659a9f53d327baa8826f2d7588ac02483045022100feab5b8feefd5e774bdfdc1dc23525b40f1ffaa25a376f8453158614f00fa6cb02204456493d0bc606ebeb3fa008e056bbc96a67cb0c11abcc871bfc2bec60206bf0012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b6700000000"
@@ -197,8 +273,7 @@ class TxTest(TestCase):
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
         amount = tx_in.value(network="testnet") - fee
-        h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
-        tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
+        tx_out = TxOut.to_address("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv", amount)
         t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
         self.assertTrue(t.sign_input(0, private_key, redeem_script=redeem_script))
         want = "01000000000101e92e1c1d29218348f8ec9463a9fc94670f675a7f82ae100f3e8a5cbd63b4192e0100000017160014d52ad7ca9b3d096a38e752c2018e6fbc40cdf26fffffffff014c400f00000000001976a9146e13971913b9aa89659a9f53d327baa8826f2d7588ac0247304402205e3ae5ac9a0e0a16ae04b0678c5732973ce31051ba9f42193e69843e600d84f2022060a91cbd48899b1bf5d1ffb7532f69ab74bc1701a253a415196b38feb599163b012103935581e52c354cd2f484fe8ed83af7a3097005b2f9c60bff71d35bd795f54b6700000000"
@@ -211,22 +286,16 @@ class TxTest(TestCase):
             "0025bc3c0fa8b7eb55b9437fdbd016870d18e0df0ace7bc9864efc38414147c8"
         )
         tx_ins.append(TxIn(prev_tx, 0))
-        tx_outs = []
-        h160 = decode_base58("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2")
-        tx_outs.append(
-            TxOut(amount=int(0.99 * 100000000), script_pubkey=P2PKHScriptPubKey(h160))
-        )
-        h160 = decode_base58("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf")
-        tx_outs.append(
-            TxOut(amount=int(0.1 * 100000000), script_pubkey=P2PKHScriptPubKey(h160))
-        )
+        tx_outs = [
+            TxOut.to_address("mzx5YhAH9kNHtcN481u6WkjeHjYtVeKVh2", 99000000),
+            TxOut.to_address("mnrVtF8DWjMu839VW3rBfgYaAfKk8983Xf", 10000000),
+        ]
         tx = Tx(1, tx_ins, tx_outs, 0, network="testnet")
         self.assertTrue(tx.sign_input(0, private_key))
 
     def test_sign_p2sh_multisig(self):
         private_key1 = PrivateKey(secret=8675309)
         private_key2 = PrivateKey(secret=8675310)
-
         redeem_script = RedeemScript.create_p2sh_multisig(
             quorum_m=2,
             pubkey_hexes=[
@@ -235,7 +304,6 @@ class TxTest(TestCase):
             ],
             sort_keys=False,
         )
-
         prev_tx = bytes.fromhex(
             "ded9b3c8b71032d42ea3b2fd5211d75b39a90637f967e637b64dfdb887dd11d7"
         )
@@ -244,8 +312,7 @@ class TxTest(TestCase):
         tx_in = TxIn(prev_tx, prev_index)
         tx_in_sats = 1000000
         amount = tx_in_sats - fee_sats
-        h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
-        tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
+        tx_out = TxOut.to_address("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv", amount)
         t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
         sig1 = t.get_sig_legacy(0, private_key1, redeem_script=redeem_script)
         sig2 = t.get_sig_legacy(0, private_key2, redeem_script=redeem_script)
@@ -282,8 +349,7 @@ class TxTest(TestCase):
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
         amount = tx_in.value(network="testnet") - fee
-        h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
-        tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
+        tx_out = TxOut.to_address("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv", amount)
         t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
         sig1 = t.get_sig_segwit(0, private_key1, witness_script=witness_script)
         sig2 = t.get_sig_segwit(0, private_key2, witness_script=witness_script)
@@ -320,8 +386,7 @@ class TxTest(TestCase):
         fee = 500
         tx_in = TxIn(prev_tx, prev_index)
         amount = tx_in.value(network="testnet") - fee
-        h160 = decode_base58("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv")
-        tx_out = TxOut(amount=amount, script_pubkey=P2PKHScriptPubKey(h160))
+        tx_out = TxOut.to_address("mqYz6JpuKukHzPg94y4XNDdPCEJrNkLQcv", amount)
         t = Tx(1, [tx_in], [tx_out], 0, network="testnet", segwit=True)
         sig1 = t.get_sig_segwit(0, private_key1, witness_script=witness_script)
         sig2 = t.get_sig_segwit(0, private_key2, witness_script=witness_script)

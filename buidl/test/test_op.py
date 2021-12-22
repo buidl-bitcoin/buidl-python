@@ -1,11 +1,22 @@
 from io import BytesIO
-from unittest import TestCase
 
-from buidl.op import decode_num, op_checkmultisig, op_checksig, op_hash160
-from buidl.tx import Tx
+from buidl.op import (
+    decode_num,
+    encode_num,
+    op_checklocktimeverify,
+    op_checkmultisig,
+    op_checksequenceverify,
+    op_checksig,
+    op_hash160,
+)
+from buidl.script import Script
+from buidl.timelock import Locktime, Sequence
+from buidl.tx import Tx, TxIn, TxOut
+
+from buidl.test import OfflineTestCase
 
 
-class OpTest(TestCase):
+class OpTest(OfflineTestCase):
     def test_op_hash160(self):
         stack = [b"hello world"]
         self.assertTrue(op_hash160(stack))
@@ -58,3 +69,44 @@ class OpTest(TestCase):
         stack = [b"", sig1, sig2, b"\x02", sec1, sec2, b"\x02"]
         self.assertTrue(op_checkmultisig(stack, tx_obj, 0))
         self.assertEqual(decode_num(stack[0]), 1)
+
+    def test_op_cltv(self):
+        locktime_0 = Locktime(1234)
+        locktime_1 = Locktime(2345)
+        sequence = Sequence()
+        tx_in = TxIn(b"\x00" * 32, 0, sequence=sequence)
+        tx_out = TxOut(1, Script())
+        tx_obj = Tx(1, [tx_in], [tx_out], locktime_1)
+        stack = []
+        self.assertFalse(op_checklocktimeverify(stack, tx_obj, 0))
+        tx_in.sequence = Sequence(0xFFFFFFFE)
+        self.assertFalse(op_checklocktimeverify(stack, tx_obj, 0))
+        stack = [encode_num(-5)]
+        self.assertFalse(op_checklocktimeverify(stack, tx_obj, 0))
+        stack = [encode_num(locktime_0)]
+        self.assertTrue(op_checklocktimeverify(stack, tx_obj, 0))
+        tx_obj.locktime = Locktime(1582820194)
+        self.assertFalse(op_checklocktimeverify(stack, tx_obj, 0))
+        tx_obj.locktime = Locktime(500)
+        self.assertFalse(op_checklocktimeverify(stack, tx_obj, 0))
+
+    def test_op_csv(self):
+        sequence_0 = Sequence()
+        sequence_1 = Sequence(2345)
+        tx_in = TxIn(b"\x00" * 32, 0, sequence=sequence_0)
+        tx_out = TxOut(1, Script())
+        tx_obj = Tx(1, [tx_in], [tx_out])
+        stack = []
+        self.assertFalse(op_checksequenceverify(stack, tx_obj, 0))
+        tx_in.sequence = sequence_1
+        self.assertFalse(op_checksequenceverify(stack, tx_obj, 0))
+        stack = [encode_num(-5)]
+        self.assertFalse(op_checksequenceverify(stack, tx_obj, 0))
+        tx_obj.version = 2
+        self.assertFalse(op_checksequenceverify(stack, tx_obj, 0))
+        stack = [encode_num(1234 | (1 << 22))]
+        self.assertFalse(op_checksequenceverify(stack, tx_obj, 0))
+        stack = [encode_num(9999)]
+        self.assertFalse(op_checksequenceverify(stack, tx_obj, 0))
+        stack = [encode_num(1234)]
+        self.assertTrue(op_checksequenceverify(stack, tx_obj, 0))
