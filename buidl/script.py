@@ -54,9 +54,12 @@ class Script:
         return Script(self.commands + other.commands)
 
     @classmethod
-    def parse(cls, stream):
+    def parse(cls, stream, is_p2sh_multisig=False):
         # get the length of the entire field
-        raw = read_varstr(stream)
+        if is_p2sh_multisig:
+            raw = stream.read()
+        else:
+            raw = read_varstr(stream)
         length = len(raw)
         s = BytesIO(raw)
         # initialize the commands array
@@ -101,9 +104,17 @@ class Script:
                 commands.append(op_code)
         obj = cls(commands)
         if count != length:
+            # FIXME: shouldn't this throw an error?
             print(f"mismatch between length and consumed bytes {count} vs {length}")
             obj.raw = raw
         return obj
+
+    @classmethod
+    def parse_hex(cls, hex_str, is_p2sh_multisig=False):
+        """Helper method to make it easier to parse a hex string without converting to bytes"""
+        return cls.parse(
+            stream=BytesIO(bytes.fromhex(hex_str)), is_p2sh_multisig=is_p2sh_multisig
+        )
 
     def raw_serialize(self):
         if self.raw:
@@ -403,6 +414,12 @@ class P2SHScriptPubKey(ScriptPubKey):
 
 class RedeemScript(Script):
     """Subclass that represents a RedeemScript for p2sh"""
+
+    @classmethod
+    def parse_hex(cls, hex_str):
+        # TODO: add a regular parse() method (not just hex) as well
+        # (that needs to pass old tests first)
+        return super().parse_hex(hex_str, is_p2sh_multisig=True)
 
     def is_p2sh_multisig(self):
         return self.commands[-1] == 174
