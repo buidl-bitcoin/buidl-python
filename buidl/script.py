@@ -54,11 +54,12 @@ class Script:
         return Script(self.commands + other.commands)
 
     @classmethod
-    def parse(cls, stream, is_p2sh_multisig=False):
-        # get the length of the entire field
-        if is_p2sh_multisig:
-            raw = stream.read()
-        else:
+    def parse(cls, stream=None, raw=None):
+        if stream and raw:
+            raise ValueError("provide exactly one of stream/raw, not both")
+        if raw is None:
+            if stream is None:
+                raise ValueError("provide one of stream/raw")
             raw = read_varstr(stream)
         length = len(raw)
         s = BytesIO(raw)
@@ -110,11 +111,9 @@ class Script:
         return obj
 
     @classmethod
-    def parse_hex(cls, hex_str, is_p2sh_multisig=False):
+    def parse_hex(cls, hex_str):
         """Helper method to make it easier to parse a hex string without converting to bytes"""
-        return cls.parse(
-            stream=BytesIO(bytes.fromhex(hex_str)), is_p2sh_multisig=is_p2sh_multisig
-        )
+        return cls.parse(raw=bytes.fromhex(hex_str))
 
     def raw_serialize(self):
         if self.raw:
@@ -414,12 +413,6 @@ class P2SHScriptPubKey(ScriptPubKey):
 
 class RedeemScript(Script):
     """Subclass that represents a RedeemScript for p2sh"""
-
-    @classmethod
-    def parse_hex(cls, hex_str):
-        # TODO: add a regular parse() method (not just hex) as well
-        # (that needs to pass old tests first)
-        return super().parse_hex(hex_str, is_p2sh_multisig=True)
 
     def is_p2sh_multisig(self):
         return self.commands[-1] == 174
