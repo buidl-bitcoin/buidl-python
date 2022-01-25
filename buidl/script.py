@@ -105,7 +105,7 @@ class Script:
                 commands.append(op_code)
         obj = cls(commands)
         if count != length:
-            # FIXME: shouldn't this throw an error?
+            # Would throw error, but Bitcoin Core will read the number of bytes that are there (not what was promised)
             print(f"mismatch between length and consumed bytes {count} vs {length}")
             obj.raw = raw
         return obj
