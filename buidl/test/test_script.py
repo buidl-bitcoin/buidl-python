@@ -63,7 +63,7 @@ class P2SHScriptPubKeyTest(TestCase):
 
 
 class RedeemScriptTest(TestCase):
-    def test_redeem_script(self):
+    def test_nonstandard_redeemscript(self):
         hex_redeem_script = "4752210223136797cb0d7596cb5bd476102fe3aface2a06338e1afabffacf8c3cab4883c210385c865e61e275ba6fda4a3167180fc5a6b607150ff18797ee44737cd0d34507b52ae"
         stream = BytesIO(bytes.fromhex(hex_redeem_script))
         redeem_script = RedeemScript.parse(stream)
@@ -74,6 +74,24 @@ class RedeemScriptTest(TestCase):
         want = "2MxEZNps15dAnGX5XaVwZWgoDvjvsDE5XSx"
         self.assertEqual(redeem_script.address(network="testnet"), want)
         self.assertEqual(redeem_script.address(network="signet"), want)
+
+    def test_standard_redeemscript(self):
+        # This was tested against bitcoin core v0.22
+        # https://github.com/buidl-bitcoin/buidl-python/issues/123
+        redeem_script_hex = "522102be8d4de672b4d6149616962a7d193b702e608a1ed65aaa44f432ff9dd902252f21036ec4565fb304b0fc8e2cdd56e477816ab703e06d52f87279bf0cbdb9fa4941b221038fc14c8dd5a15828bd4fb0e206e443e3ac6e3e3782fbf6f0a1ff969a9ec8f28f53ae"
+        rs_obj = RedeemScript.parse_hex(redeem_script_hex)
+        self.assertEqual(
+            "2NAaGqgaZicBUXuA2iZc6ssxLEsS4sZwdwz", rs_obj.address("testnet")
+        )
+        self.assertEqual((2, 3), rs_obj.get_quorum())
+        self.assertTrue(rs_obj.is_p2sh_multisig())
+        pubkeys_wanted_hex = (
+            "02be8d4de672b4d6149616962a7d193b702e608a1ed65aaa44f432ff9dd902252f",
+            "036ec4565fb304b0fc8e2cdd56e477816ab703e06d52f87279bf0cbdb9fa4941b2",
+            "038fc14c8dd5a15828bd4fb0e206e443e3ac6e3e3782fbf6f0a1ff969a9ec8f28f",
+        )
+        for cnt, pubkey_bytes in enumerate(rs_obj.signing_pubkeys()):
+            self.assertEqual(pubkey_bytes.hex(), pubkeys_wanted_hex[cnt])
 
     def test_create_p2sh_multisig(self):
         BASE_PATH = "m/45h/0"

@@ -54,9 +54,13 @@ class Script:
         return Script(self.commands + other.commands)
 
     @classmethod
-    def parse(cls, stream):
-        # get the length of the entire field
-        raw = read_varstr(stream)
+    def parse(cls, stream=None, raw=None):
+        if stream and raw:
+            raise ValueError("provide exactly one of stream/raw, not both")
+        if raw is None:
+            if stream is None:
+                raise ValueError("provide one of stream/raw")
+            raw = read_varstr(stream)
         length = len(raw)
         s = BytesIO(raw)
         # initialize the commands array
@@ -101,9 +105,15 @@ class Script:
                 commands.append(op_code)
         obj = cls(commands)
         if count != length:
+            # Would throw error, but Bitcoin Core will read the number of bytes that are there (not what was promised)
             print(f"mismatch between length and consumed bytes {count} vs {length}")
             obj.raw = raw
         return obj
+
+    @classmethod
+    def parse_hex(cls, hex_str):
+        """Helper method to make it easier to parse a hex string without converting to bytes"""
+        return cls.parse(raw=bytes.fromhex(hex_str))
 
     def raw_serialize(self):
         if self.raw:
