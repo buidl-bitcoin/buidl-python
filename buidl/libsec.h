@@ -8,6 +8,10 @@ typedef struct secp256k1_context_struct secp256k1_context;
 secp256k1_context* secp256k1_context_create(
     unsigned int flags
 );
+secp256k1_context* secp256k1_context_randomize(
+    secp256k1_context* ctx,
+    const unsigned char *seed32
+);
 void secp256k1_context_destroy(
     secp256k1_context* ctx
 );

@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import secrets
 
 from buidl.helper import (
     big_endian_to_int,
@@ -348,6 +349,12 @@ class PrivateKey:
         return "{:x}".format(self.secret).zfill(64)
 
     def sign(self, z):
+        # per libsecp256k1 documentation, this helps against side-channel attacks
+        if not lib.secp256k1_context_randomize(
+            GLOBAL_CTX,
+            secrets.token_bytes(32),
+        ):
+            raise RuntimeError("libsecp256k1 context randomization error")
         secret = int_to_big_endian(self.secret, 32)
         msg = int_to_big_endian(z, 32)
         csig = ffi.new("secp256k1_ecdsa_signature *")
@@ -365,6 +372,12 @@ class PrivateKey:
             raise ValueError("msg needs to be 32 bytes")
         if len(aux) != 32:
             raise ValueError("aux needs to be 32 bytes")
+        # per libsecp256k1 documentation, this helps against side-channel attacks
+        if not lib.secp256k1_context_randomize(
+            GLOBAL_CTX,
+            secrets.token_bytes(32),
+        ):
+            raise RuntimeError("libsecp256k1 context randomization error")
         keypair = ffi.new("secp256k1_keypair *")
         if not lib.secp256k1_keypair_create(
             GLOBAL_CTX, keypair, int_to_big_endian(self.secret, 32)
