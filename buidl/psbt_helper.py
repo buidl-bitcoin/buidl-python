@@ -221,6 +221,6 @@ def create_multisig_psbt(
         tx_lookup=tx_lookup,
         pubkey_lookup=pubkey_lookup,
         redeem_lookup=redeem_lookup,
-        witness_lookup=None,
+        witness_lookup={},
         hd_pubs=hd_pubs,
     )
