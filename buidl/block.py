@@ -1,3 +1,5 @@
+from io import BytesIO
+
 from buidl.helper import (
     bits_to_target,
     hash256,
@@ -7,19 +9,6 @@ from buidl.helper import (
     read_varint,
 )
 from buidl.tx import Tx
-
-
-GENESIS_BLOCK_HASH = {
-    "mainnet": bytes.fromhex(
-        "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
-    ),
-    "testnet": bytes.fromhex(
-        "000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943"
-    ),
-    "signet": bytes.fromhex(
-        "00000008819873e925422c1ff0f99f7cc9bbb232af63a077a480a3633bee1ef6"
-    ),
-}
 
 
 class Block:
@@ -58,21 +47,25 @@ Num txs: {"unknown" if self.txs is None else len(self.txs)}
 """
 
     @classmethod
-    def parse_header(cls, s):
+    def parse_header(cls, stream=None, hex=None):
         """Takes a byte stream and parses block headers. Returns a Block object"""
-        # s.read(n) will read n bytes from the stream
+        if hex:
+            if stream:
+                raise RuntimeError("One of stream or hex should be defined")
+            stream = BytesIO(bytes.fromhex(hex))
+        # stream.read(n) will read n bytes from the stream
         # version - 4 bytes, little endian, interpret as int
-        version = little_endian_to_int(s.read(4))
+        version = little_endian_to_int(stream.read(4))
         # prev_block - 32 bytes, little endian (use [::-1] to reverse)
-        prev_block = s.read(32)[::-1]
+        prev_block = stream.read(32)[::-1]
         # merkle_root - 32 bytes, little endian (use [::-1] to reverse)
-        merkle_root = s.read(32)[::-1]
+        merkle_root = stream.read(32)[::-1]
         # timestamp - 4 bytes, little endian, interpret as int
-        timestamp = little_endian_to_int(s.read(4))
+        timestamp = little_endian_to_int(stream.read(4))
         # bits - 4 bytes
-        bits = s.read(4)
+        bits = stream.read(4)
         # nonce - 4 bytes
-        nonce = s.read(4)
+        nonce = stream.read(4)
         # initialize class
         return cls(version, prev_block, merkle_root, timestamp, bits, nonce)
 
@@ -177,3 +170,18 @@ Num txs: {"unknown" if self.txs is None else len(self.txs)}
             for tx_out in t.tx_outs:
                 if not tx_out.script_pubkey.has_op_return():
                     yield (tx_out.script_pubkey.raw_serialize())
+
+
+GENESIS_BLOCK_MAINNET_HEX = "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c"
+GENESIS_BLOCK_TESTNET_HEX = "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae18"
+GENESIS_BLOCK_SIGNET_HEX = "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a008f4d5fae77031e8ad22203"
+GENESIS_BLOCK_HEADERS = {
+    "mainnet": Block.parse_header(hex=GENESIS_BLOCK_MAINNET_HEX),
+    "testnet": Block.parse_header(hex=GENESIS_BLOCK_TESTNET_HEX),
+    "signet": Block.parse_header(hex=GENESIS_BLOCK_SIGNET_HEX),
+}
+GENESIS_BLOCK_HASH = {
+    "mainnet": GENESIS_BLOCK_HEADERS["mainnet"].hash(),
+    "testnet": GENESIS_BLOCK_HEADERS["testnet"].hash(),
+    "signet": GENESIS_BLOCK_HEADERS["signet"].hash(),
+}

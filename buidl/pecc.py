@@ -3,14 +3,16 @@ from io import BytesIO
 import hmac
 import hashlib
 
+from buidl.hash import (
+    hash_aux,
+    hash_challenge,
+    hash_nonce,
+)
 from buidl.helper import (
     big_endian_to_int,
     encode_base58_checksum,
     hash160,
     hash256,
-    hash_aux,
-    hash_challenge,
-    hash_nonce,
     int_to_big_endian,
     raw_decode_base58,
     xor_bytes,

@@ -549,11 +549,6 @@ class P2TRScriptPubKey(ScriptPubKey):
         # convert to bech32 address using encode_bech32_checksum
         return encode_bech32_checksum(witness_program, network)
 
-    @classmethod
-    def from_address(cls, address):
-        _, _, point_raw = decode_bech32(address)
-        return cls(point_raw)
-
 
 class WitnessScript(Script):
     """Subclass that represents a WitnessScript for p2wsh"""
@@ -618,12 +613,17 @@ def address_to_script_pubkey(s):
         # p2sh
         h160 = decode_base58(s)
         return P2SHScriptPubKey(h160)
-    elif s[:3] in ("bc1", "tb1"):
+    elif s[:4] in ("bc1q", "tb1q"):
         if len(s) == 42:
             # p2wpkh
             return P2WPKHScriptPubKey(decode_bech32(s)[2])
         elif len(s) == 62:
             # p2wskh
             return P2WSHScriptPubKey(decode_bech32(s)[2])
+    elif s[:4] in ("bc1p", "tb1p"):
+        if len(s) != 62:
+            raise RuntimeError(f"unknown type of address: {s}")
+        # p2tr
+        return P2TRScriptPubKey(decode_bech32(s)[2])
 
     raise RuntimeError(f"unknown type of address: {s}")

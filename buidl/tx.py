@@ -5,13 +5,13 @@ import json
 
 from buidl.bech32 import decode_bech32
 from buidl.ecc import SchnorrSignature
+from buidl.hash import hash_tapsighash
 from buidl.helper import (
     big_endian_to_int,
     decode_base58,
     encode_varint,
     encode_varstr,
     hash256,
-    hash_tapsighash,
     int_to_byte,
     int_to_little_endian,
     little_endian_to_int,
@@ -581,7 +581,7 @@ tx_outs:\n{tx_outs}
         """Verify this transaction"""
         if self.fee() < self.vbytes():
             print(
-                "This transaction won't relay without having a fee of at least {self.vbytes()}"
+                f"This transaction won't relay without having a fee of at least {self.vbytes()}"
             )
             return False
         for i in range(len(self.tx_ins)):
@@ -718,9 +718,9 @@ tx_outs:\n{tx_outs}
     ):
         # get the sig_hash (z)
         msg = self.sig_hash_bip341(input_index, ext_flag=ext_flag, hash_type=hash_type)
-        # get der signature of z from private key
+        # get schnorr signature of z from private key
         schnorr = private_key.sign_schnorr(msg, aux).serialize()
-        # append the SIGHASH_ALL with int_to_byte(SIGHASH_ALL)
+        # append the sighash only if it's not SIGHASH_DEFAULT (0)
         if hash_type:
             return schnorr + int_to_byte(hash_type)
         else:

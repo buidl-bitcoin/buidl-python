@@ -2,7 +2,8 @@ from unittest import TestCase
 
 from buidl.ecc import G, N, S256Point, PrivateKey, Signature, SchnorrSignature
 from buidl.bech32 import decode_bech32
-from buidl.helper import big_endian_to_int, int_to_big_endian, hash_challenge
+from buidl.hash import hash_challenge
+from buidl.helper import big_endian_to_int, int_to_big_endian
 
 from random import randint
 

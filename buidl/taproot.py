@@ -1,15 +1,20 @@
 from itertools import combinations
+from secrets import randbelow
 
-from buidl.ecc import N, S256Point, SchnorrSignature
-from buidl.helper import (
-    big_endian_to_int,
+from buidl.ecc import G, N, S256Point, SchnorrSignature
+from buidl.hash import (
     hash_challenge,
+    hash_keyaggcoef,
+    hash_keyagglist,
+    hash_musignonce,
     hash_tapbranch,
     hash_tapleaf,
     hash_taptweak,
+)
+from buidl.helper import (
+    big_endian_to_int,
     int_to_big_endian,
     int_to_byte,
-    sha256,
 )
 from buidl.op import (
     encode_minimal_num,
@@ -247,14 +252,15 @@ class MuSigTapScript(TapScript):
             raise ValueError("Need at least one public key")
         bip340s = sorted([p.bip340() for p in points])
         self.points = [S256Point.parse_bip340(b) for b in bip340s]
-        preimage = b""
-        for b in bip340s:
-            preimage += b
-        self.commitment = sha256(preimage)
-        self.hashes = [big_endian_to_int(sha256(self.commitment + b)) for b in bip340s]
-        self.hash_lookup = {b: h for h, b in zip(self.hashes, bip340s)}
-        points = [h * p for h, p in zip(self.hashes, self.points)]
-        self.point = S256Point.combine(points)
+        self.commitment = hash_keyagglist(b"".join(bip340s))
+        self.coefs = [
+            big_endian_to_int(hash_keyaggcoef(self.commitment + b)) for b in bip340s
+        ]
+        # the second unique public key has a coefficient of 1
+        self.coefs[1] = 1
+        self.coef_lookup = {b: c for c, b in zip(self.coefs, bip340s)}
+        # aggregate point
+        self.point = S256Point.combine([c * p for c, p in zip(self.coefs, self.points)])
         if locktime is not None:
             self.commands = locktime_commands(locktime)
         elif sequence is not None:
@@ -269,11 +275,35 @@ class MuSigTapScript(TapScript):
         else:
             return self.point + tweak
 
+    def generate_nonces(self):
+        k_1, k_2 = randbelow(N), randbelow(N)
+        r_1, r_2 = k_1 * G, k_2 * G
+        return (k_1, k_2), (r_1, r_2)
+
+    def nonce_sums(self, nonce_point_pairs):
+        sum_1 = S256Point.combine([n[0] for n in nonce_point_pairs])
+        sum_2 = S256Point.combine([n[1] for n in nonce_point_pairs])
+        return sum_1, sum_2
+
+    def compute_coefficient(self, nonce_sums, sig_hash):
+        bytes_to_hash = (
+            nonce_sums[0].sec() + nonce_sums[1].sec() + self.point.bip340() + sig_hash
+        )
+        return big_endian_to_int(hash_musignonce(bytes_to_hash))
+
+    def compute_k(self, nonce_secrets, nonce_sums, sig_hash):
+        h = self.compute_coefficient(nonce_sums, sig_hash)
+        return (nonce_secrets[0] + h * nonce_secrets[1]) % N
+
+    def compute_r(self, nonce_sums, sig_hash):
+        h = self.compute_coefficient(nonce_sums, sig_hash)
+        return S256Point.combine([nonce_sums[0], h * nonce_sums[1]])
+
     def sign(self, private_key, k, r, sig_hash, tweak=0):
         tweak_point = self.get_tweak_point(tweak)
         msg = r.bip340() + tweak_point.bip340() + sig_hash
         challenge = big_endian_to_int(hash_challenge(msg)) % N
-        h_i = self.hash_lookup[private_key.point.bip340()]
+        h_i = self.coef_lookup[private_key.point.bip340()]
         c_i = h_i * challenge % N
         if r.parity == tweak_point.parity:
             k_real = k
@@ -291,7 +321,7 @@ class MuSigTapScript(TapScript):
             msg = r.bip340() + tweak_point.bip340() + sig_hash
             challenge = big_endian_to_int(hash_challenge(msg)) % N
             if tweak_point.parity:
-                s = (s_sum - challenge * tweak) % N
+                s = (-s_sum - challenge * tweak) % N
             else:
                 s = (s_sum + challenge * tweak) % N
         else:
@@ -300,7 +330,7 @@ class MuSigTapScript(TapScript):
         sig = r.bip340() + s_raw
         schnorrsig = SchnorrSignature.parse(sig)
         if not tweak_point.verify_schnorr(sig_hash, schnorrsig):
-            raise ValueError("Invalid inputs for signature")
+            raise ValueError("Invalid signature")
         return schnorrsig
 
 
