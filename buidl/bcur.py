@@ -19,6 +19,7 @@ class BCURStringFormatError(RuntimeError):
 
 def bcur_encode(data):
     """Returns bcur encoded string and checksum"""
+    THIS_SHOULD_FAIL
     cbor = cbor_encode(data)
     enc = bc32encode(cbor)
     h = hashlib.sha256(cbor).digest()
