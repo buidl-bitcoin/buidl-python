@@ -35,8 +35,7 @@ pytest -v test_*.py
 ./clean.sh
 
 # Safety
-#FIXME
-# git push
+git push
 
 ## UPDATE PYPI ##
 
@@ -56,8 +55,9 @@ python3 -m pip freeze
 python3 setup.py sdist bdist_wheel
 # Upload to PyPI
 python3 -m pip install --upgrade twine
-# FIXME
-python3 -m twine upload --repository testpypi dist/*
+# Use this line to upload to pypi testing repo instead:
+# python3 -m twine upload --repository testpypi dist/*
+python3 -m twine testpypi dist/*
 
 # Cleanup
 ./clean.sh
