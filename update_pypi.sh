@@ -9,22 +9,36 @@ deactivate
 # Abandon if anything errors
 set -e;
 
-# Remove old files
-rm -rf .venv3/
-rm -rf dist/
-rm -rf build/
-rm -rf buidl.egg-info/
-find . | grep -E "(__pycache__|\.pyc|\.pyo$)" | xargs rm -rf
+# Cleanup before getting started
+./clean.sh
+./clean_libsec.sh
 
-# Tests
+## RUN TESTS ##
+
+# Install libsec optimizations to make tests fast (this assumes libsecp256k1 is already installed)
+python3 -m pip install -r requirements-libsec.txt
+python3 -m pip install --editable .
+cd buidl
+python3 libsec_build.py
+cd ..
+# TODO: should this fail if libsec doesn't work?
+python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
+
+# Actually run tests
 if [ -f requirements-test.txt ]; then python3 -m pip install -r requirements-test.txt; fi
 black --check .
 flake8 .
 pytest -v buidl/test/
 pytest -v test_*.py
 
+# Cleanup and reinstall build for pypi
+./clean.sh
+
 # Safety
-git push
+#FIXME
+# git push
+
+## UPDATE PYPI ##
 
 # Virtualenv
 python3 --version
@@ -42,13 +56,11 @@ python3 -m pip freeze
 python3 setup.py sdist bdist_wheel
 # Upload to PyPI
 python3 -m pip install --upgrade twine
-python3 -m twine upload dist/*
+# FIXME
+python3 -m twine upload --repository testpypi dist/*
 
 # Cleanup
-rm -rfv dist/
-rm -rfv buidl.egg-info/
-rm -rfv build/
-find . | grep -E "(__pycache__|\.pyc|\.pyo$)" | xargs rm -rf
+./clean.sh
 
 # Hackey timer
 # https://askubuntu.com/questions/1028924/how-do-i-use-seconds-inside-a-bash-script
