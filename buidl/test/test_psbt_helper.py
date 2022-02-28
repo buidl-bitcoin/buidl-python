@@ -131,6 +131,14 @@ class P2SHTest(TestCase):
 
             self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
 
+        # add in smeonwhat random test to confirm this bug is fixed
+        # https://github.com/buidl-bitcoin/buidl-python/pull/129
+        # this should NOT raise an exception
+        kwargs["output_dicts"][0][
+            "address"
+        ] = "tb1q9hj5j7mh9f7t6cwdvz34nj6pyzva5ftj2ecarcdqph5wc3n49hyqchh3cg"
+        create_multisig_psbt(**kwargs, script_type="p2sh")
+
     def test_sweep_1of2_p2sh_with_non_BIP67_input(self):
 
         # This test will produce a validly signed TX for the 1-of-2 p2sh using either key, which will result in a different TX ID
