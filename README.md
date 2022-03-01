@@ -46,7 +46,7 @@ $ multiwallet.py
 Welcome to multiwallet...
 ```
 
-For more information on installing multiwallet, see [multiwallet.md](docs/multiwallet.md) or check out [this demo](https://twitter.com/mflaxman/status/1321503036724989952).
+For more information on installing multiwallet, see [docs/multiwallet.md](https://github.com/buidl-bitcoin/buidl-python/blob/main/docs/multiwallet.md) or check out [this demo](https://twitter.com/mflaxman/status/1321503036724989952).
 
 `singlesweep.py` works the same way for sweeping out of paper wallets, but is intentionally undocumented.
 
