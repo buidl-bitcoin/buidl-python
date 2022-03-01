@@ -18,8 +18,10 @@ set -e;
 # To make tests fast
 ./install_libsec.sh
 
-# Actually run tests
+# Install testing requirements
 if [ -f requirements-test.txt ]; then python3 -m pip install -r requirements-test.txt; fi
+
+# Run tests
 black --check .
 flake8 .
 pytest -v buidl/test/
