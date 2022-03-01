@@ -1,6 +1,7 @@
 #! /usr/bin/env bash
 
 set -o xtrace
+
 pip3 uninstall buidl -y
 rm -rf .venv3/
 rm -rf dist/

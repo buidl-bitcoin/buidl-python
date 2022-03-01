@@ -15,14 +15,8 @@ set -e;
 
 ## RUN TESTS ##
 
-# Install libsec optimizations to make tests fast (this assumes libsecp256k1 is already installed)
-python3 -m pip install -r requirements-libsec.txt
-python3 -m pip install --editable .
-cd buidl
-python3 libsec_build.py
-cd ..
-# TODO: should this fail if libsec doesn't work?
-python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
+# To make tests fast
+./install_libsec.sh
 
 # Actually run tests
 if [ -f requirements-test.txt ]; then python3 -m pip install -r requirements-test.txt; fi
@@ -33,6 +27,7 @@ pytest -v test_*.py
 
 # Cleanup and reinstall build for pypi
 ./clean.sh
+./clean_libsec.sh
 
 # Safety
 git push
@@ -61,6 +56,9 @@ python3 -m twine testpypi dist/*
 
 # Cleanup
 ./clean.sh
+
+# Libsec is nice to have installed by default
+./install_libsec.sh
 
 # Hackey timer
 # https://askubuntu.com/questions/1028924/how-do-i-use-seconds-inside-a-bash-script
