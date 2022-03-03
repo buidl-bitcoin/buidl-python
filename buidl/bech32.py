@@ -11,6 +11,14 @@ BECH32_CHARS_RE = re.compile("^[qpzry9x8gf2tvdw0s3jn54khce6mua7l]*$")
 
 BECH32M_CONSTANT = 0x2BC830A3
 
+PREFIX = {
+    'mainnet': 'bc',
+    'testnet': 'tb',
+    'regtest': 'bcrt',
+    'signet': 'tb',
+}
+NET_FOR_PREFIX = {v: k for k, v in PREFIX.items() if k != 'signet'}
+
 
 def uses_only_bech32_chars(string):
     return bool(BECH32_CHARS_RE.match(string.lower()))
@@ -163,10 +171,9 @@ def encode_bech32(nums):
 
 def encode_bech32_checksum(s, network="mainnet"):
     """Convert a segwit ScriptPubKey to a bech32 address"""
-    if network == "mainnet":
-        prefix = "bc"
-    else:
-        prefix = "tb"
+    prefix = PREFIX.get(network)
+    if not prefix:
+        raise ValueError(f"unrecognized network: {network}")
     version = s[0]
     if version > 0:
         version -= 0x50
@@ -181,21 +188,21 @@ def encode_bech32_checksum(s, network="mainnet"):
 
 def decode_bech32(s):
     """Returns network, segwit version and the hash from the bech32 address"""
-    hrp, raw_data = s.split("1")
-    if hrp == "bc":
-        network = "mainnet"
-    elif hrp == "tb":
-        network = "testnet"
+    regtest_prefix = PREFIX['regtest']
+    if s.startswith(regtest_prefix):
+        hrp, raw_data = regtest_prefix, s[5:]
     else:
+        hrp, raw_data = s.split("1")
+
+    network = NET_FOR_PREFIX.get(hrp)
+    if not network:
         raise ValueError(f"unknown human readable part: {hrp}")
+
     data = [BECH32_ALPHABET.index(c) for c in raw_data]
     version = data[0]
-    if version == 0:
-        if not bech32_verify_checksum(hrp, data):
-            raise ValueError(f"bad address: {s}")
-    else:
-        if not bech32m_verify_checksum(hrp, data):
-            raise ValueError(f"bad address: {s}")
+    verify_fnc = bech32_verify_checksum if version == 0 else bech32m_verify_checksum
+    if not verify_fnc(hrp, data):
+        raise ValueError(f"bad address: {s}")
     number = 0
     for digit in data[1:-6]:
         number = (number << 5) + digit
