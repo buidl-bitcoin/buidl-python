@@ -617,7 +617,14 @@ class PrivateKey:
 
     @classmethod
     def parse(cls, wif):
-        """Converts WIF to a PrivateKey object"""
+        """
+        Converts WIF to a PrivateKey object.
+
+        Note that this doesn't differentiate between non-mainnet networks. Since
+        this class doesn't generate anything downstream of the particular network
+        (e.g. addresses), it shouldn't be a problem, however the network inferred
+        here cannot be relied upon if parsing a non-mainnet key.
+        """
         raw = raw_decode_base58(wif)
         if len(raw) == 34:
             compressed = True

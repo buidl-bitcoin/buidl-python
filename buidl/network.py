@@ -26,11 +26,13 @@ MAGIC = {
     "mainnet": b"\xf9\xbe\xb4\xd9",
     "testnet": b"\x0b\x11\x09\x07",
     "signet": b"\x0a\x03\xcf\x40",
+    "regtest": b"\xfa\xbf\xb5\xda",
 }
 PORT = {
     "mainnet": 8333,
     "testnet": 18333,
     "signet": 38333,
+    "regtest": 18444,
 }
 
 

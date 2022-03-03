@@ -27,12 +27,14 @@ XPRV = {
     "mainnet": bytes.fromhex("0488ade4"),
     "testnet": bytes.fromhex("04358394"),
     "signet": bytes.fromhex("04358394"),
+    "regtest": bytes.fromhex("04358394"),
 }
 
 XPUB = {
     "mainnet": bytes.fromhex("0488b21e"),
     "testnet": bytes.fromhex("043587cf"),
     "signet": bytes.fromhex("043587cf"),
+    "regtest": bytes.fromhex("043587cf"),
 }
 
 # P2PKH or P2SH, P2WPKH in P2SH, P2WPKH, Multi-signature P2WSH in P2SH, Multi-signature P2WSH
@@ -57,6 +59,7 @@ DEFAULT_P2WSH_PATH = {
     "mainnet": "m/48h/0h/0h/2h",
     "testnet": "m/48h/1h/0h/2h",
     "signet": "m/48h/1h/0h/2h",
+    "regtest": "m/48h/1h/0h/2h",
 }
 
 
@@ -266,14 +269,20 @@ class HDPrivateKey:
         return cls.raw_parse(stream)
 
     @classmethod
-    def raw_parse(cls, s):
-        """Returns a HDPrivateKey from a stream"""
+    def raw_parse(cls, s, network=None):
+        """
+        Returns a HDPrivateKey from a stream.
+
+        `network` should be specified if not mainnet, since SLIP-0132 version
+        numbers are don't differentiate between non-mainnet networks.
+        """
         # first 4 bytes are the priv_version
         priv_version = s.read(4)
         # check that the priv_version is one of the TESTNET or MAINNET
         #  private keys, if not raise a ValueError
         if priv_version in ALL_TESTNET_XPRVS:
-            network = "testnet"
+            if network is None:
+                network = "testnet"
         elif priv_version in ALL_MAINNET_XPRVS:
             network = "mainnet"
         else:
@@ -680,14 +689,20 @@ class HDPublicKey:
         return cls.raw_parse(stream)
 
     @classmethod
-    def raw_parse(cls, s):
-        """Returns a HDPublicKey from a stream"""
+    def raw_parse(cls, s, network=None):
+        """
+        Returns a HDPublicKey from a stream.
+
+        `network` should be specified if not mainnet, since SLIP-0132 version
+        numbers are don't differentiate between non-mainnet networks.
+        """
         # first 4 bytes are the pub_version
         pub_version = s.read(4)
         # check that the pub_version is one of the TESTNET or MAINNET
         #  public keys, if not raise a ValueError
         if pub_version in ALL_TESTNET_XPUBS:
-            network = "testnet"
+            if network is None:
+                network = "testnet"
         elif pub_version in ALL_MAINNET_XPUBS:
             network = "mainnet"
         else:
