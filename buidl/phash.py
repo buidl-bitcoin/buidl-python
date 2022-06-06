@@ -48,3 +48,7 @@ def hash_tapsighash(msg):
 
 def hash_taptweak(msg):
     return tagged_hash(b"TapTweak", msg)
+
+
+def hash_bip322message(msg):
+    return tagged_hash(b"BIP0322-signed-message",msg)

@@ -21,3 +21,4 @@ from .shamir import *
 from .taproot import *
 from .tx import *
 from .witness import *
+from .message import *
