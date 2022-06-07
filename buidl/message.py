@@ -153,7 +153,7 @@ def create_to_sign_tx(to_spend_tx_hash, sig_bytes=None):
                 
         return to_sign_tx
 
-# Test is sig_bytes can be decoded to a transaction
+# Test if sig_bytes can be decoded to a transaction
 # TODO: Is there a better way to test than this?
 def is_full_signature(sig_bytes):
     try:
@@ -174,14 +174,16 @@ def sign_message(format: MessageSignatureFormat, private_key: PrivateKey, addres
 
     script_pubkey = address_to_script_pubkey(address)
     
-    if (not script_pubkey.is_p2pkh):
+    if (not script_pubkey.is_p2pkh()):
         raise ValueError("Address must be p2pkh for LEGACY signatures")
         
     # TODO: This legacy signing needs to produce a compact encoding of signature AND public key
-    b_msg = str_to_bytes(message)
-    signature = private_key.sign_message(b_msg)
+    # Needs implementing in the library I believe?
+    raise NotImplementedError("Legacy signing not yet implemented. Require compact encoding of sig and pubkey")
+    # b_msg = str_to_bytes(message)
+    # signature = private_key.sign_message(b_msg)
     
-    return base64_encode(signature.der())    
+    # return base64_encode(signature.der())    
     
     
 
@@ -228,7 +230,7 @@ def verify_message(address: str, signature: str, message: str):
     if to_sign == None:
         # try LEGACY
         # Check address is a p2pkh
-        # Recover Secp256 point from signature?
+        # Recover Secp256 point from BIP322 signature?
         # Verify signature
         raise NotImplementedError("Unable to verify LEGACY signatures currently")
     
