@@ -16,9 +16,6 @@ class MessageSignatureFormat(Enum):
     LEGACY = 0
     SIMPLE = 1
     FULL = 2
-    
-
-
 
 # From BIP322
 # The to_spend transaction is:
@@ -70,11 +67,10 @@ def create_to_spend_tx(address, message):
     locktime=0
     network="mainnet"
 
-    # Could be false, but using a segwit address. I think this is the "Simple Signature" in BIP-0322
+    # TODO: Should this always be True? What about for FULL BIP322 with p2pkh?
     segwit=True
 
     return Tx(version,tx_inputs,tx_outputs,locktime,network,segwit)
-
 
 # From BIP322
 # The to_sign Tx is:
@@ -115,13 +111,9 @@ def create_to_sign_tx(to_spend_tx_hash, sig_bytes=None):
         
         # Identifies the index of the output from the virtual to_spend tx to be "spent"
         prevout_index = 0
-
         sequence = 0
-
         # TxInput identifies the single output from the to_spend Tx
         tx_input = TxIn(to_spend_tx_hash,prevout_index,script_sig=None,sequence=sequence)
-        
-
     
         value = 0
         # OP Code 106 for OP_RETURN
