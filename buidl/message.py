@@ -163,7 +163,6 @@ def sign_message(format: MessageSignatureFormat, private_key: PrivateKey, addres
     if (format != MessageSignatureFormat.LEGACY):
         return sign_message_bip322(format,private_key,address,message)
 
-
     script_pubkey = address_to_script_pubkey(address)
     
     if (not script_pubkey.is_p2pkh()):
@@ -177,8 +176,6 @@ def sign_message(format: MessageSignatureFormat, private_key: PrivateKey, addres
     
     # return base64_encode(signature.der())    
     
-    
-
 def sign_message_bip322(format: MessageSignatureFormat, private_key: PrivateKey, address: str, message: str):
     
     assert(format != MessageSignatureFormat.LEGACY)
@@ -191,7 +188,6 @@ def sign_message_bip322(format: MessageSignatureFormat, private_key: PrivateKey,
     
     sig_ok = to_sign.sign_input(0, private_key)
     
-    
     # Force the format to FULL, to_sign tx signed using a p2pkh scriptPubKey
     if (len(to_sign.tx_ins[0].script_sig.commands) > 0 or len(to_sign.tx_ins[0].witness.items) == 0):
         format = MessageSignatureFormat.FULL
@@ -202,21 +198,17 @@ def sign_message_bip322(format: MessageSignatureFormat, private_key: PrivateKey,
     
     if (format ==  MessageSignatureFormat.SIMPLE):
             return base64_encode(to_sign.serialize_witness())
-
     else:
         return base64_encode(to_sign.serialize())
 
 
 def verify_message(address: str, signature: str, message: str):
-
     try:
         sig_bytes = base64_decode(signature)
     except:
         raise ValueError("Signature is not base64 encoded")
         
     to_spend = create_to_spend_tx(address, message)
-    
-    
     to_sign = create_to_sign_tx(to_spend.hash(), sig_bytes)
     
     if to_sign == None:
