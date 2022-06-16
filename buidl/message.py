@@ -17,6 +17,8 @@ class MessageSignatureFormat(Enum):
     SIMPLE = 1
     FULL = 2
 
+################################################################
+# 
 # From BIP322
 # The to_spend transaction is:
 #
@@ -34,7 +36,7 @@ def create_to_spend_tx(address, message):
     # Not a valid Tx hash. Will never be spendable on any BTC network.
     prevout_hash = bytes.fromhex('0000000000000000000000000000000000000000000000000000000000000000')
     # prevout.n
-    prevout_index = big_endian_to_int(bytes.fromhex('FFFFFFFF'))
+    prevout_index = 0xffffffff
     
     sequence = 0
 
@@ -72,6 +74,8 @@ def create_to_spend_tx(address, message):
 
     return Tx(version,tx_inputs,tx_outputs,locktime,network,segwit)
 
+###################################################################################
+#
 # From BIP322
 # The to_sign Tx is:
 #    nVersion = 0 or (FULL format only) as appropriate (e.g. 2, for time locks)
@@ -157,8 +161,23 @@ def is_full_signature(sig_bytes):
         return False
     return True
         
-
-def sign_message(format: MessageSignatureFormat, private_key: PrivateKey, address: str, message: str):
+######################################################################################
+#
+# The sign_message function produces a signature on message in one of three formats
+#
+# Inputs
+# - format: enum MessageSignatureFormat (Either LEGACY, SIMPLE or FULL)
+# - private_key: The private key that is used to sign the message
+# - address: String representation of a bitcoin address controlled by the private_key
+# - message: String representation of a message to be signed
+#
+# Output: A Base64 encoding of one of three signature formats:
+# - LEGACY: A EcDSA signature and its associated public key
+# - SIMPLE: The witness stack from the signed BIP322 to_sign transaction
+# - FULL: The full signed BIP322 to_sign transaction in standard network serialization
+#
+# The outputted signature can be verified by passing to the verify_message function
+def sign_message(format, private_key, address, message):
     
     if (format != MessageSignatureFormat.LEGACY):
         return sign_message_bip322(format,private_key,address,message)
@@ -176,9 +195,9 @@ def sign_message(format: MessageSignatureFormat, private_key: PrivateKey, addres
     
     # return base64_encode(signature.der())    
     
-def sign_message_bip322(format: MessageSignatureFormat, private_key: PrivateKey, address: str, message: str):
+def sign_message_bip322(format, private_key, address, message):
     
-    assert(format != MessageSignatureFormat.LEGACY)
+    assert format != MessageSignatureFormat.LEGACY, "BIP 322 Signatures must be represented in either the Simple of Full Formats"
       
     to_spend = create_to_spend_tx(address, message)
     to_sign = create_to_sign_tx(to_spend.hash(), None)
@@ -202,7 +221,18 @@ def sign_message_bip322(format: MessageSignatureFormat, private_key: PrivateKey,
         return base64_encode(to_sign.serialize())
 
 
-def verify_message(address: str, signature: str, message: str):
+
+######################################################################################## 
+#
+# Verifies a signature on a message against a specific bitcoin address
+# 
+# Inputs:
+# - address: String representation of a bitcoin address
+# - signature: Base64 encoded BIP322 signature in either LEGACY,SIMPLE or FULL format
+# - message: The message to verify the signature against
+#
+# Outputs True or False
+def verify_message(address, signature, message):
     try:
         sig_bytes = base64_decode(signature)
     except:
