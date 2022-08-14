@@ -588,7 +588,7 @@ class HDPublicKey:
         return self.hash160()[:4]
 
     def child(self, index):
-        """Returns the child HDPrivateKey at a particular index.
+        """Returns the child HDPublicKey at a particular index.
         Raises ValueError for indices >= 0x8000000.
         """
         # if index >= 0x80000000, raise a ValueError
