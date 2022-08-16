@@ -87,11 +87,9 @@ class TxFetcher:
             to_dump = {k: tx.serialize().hex() for k, tx in cls.cache.items()}
             s = json.dumps(to_dump, sort_keys=True, indent=4)
             f.write(s)
-
             
-class TxSender:
-    @classmethod
-    def sendrawtransaction(cls, signed_tx_hex_str, network="mainnet"):
+    @staticmethod
+    def sendrawtransaction(signed_tx_hex_str, network="mainnet"):
         """Broadcasts a signed transaction."""
         url = "{}/tx".format(TxFetcher.get_url(network=network))
         req = Request(url, data=signed_tx_hex_str.encode(), headers={"User-Agent": "Mozilla/5.0"})
