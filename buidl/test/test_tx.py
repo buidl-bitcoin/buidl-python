@@ -4,6 +4,10 @@ from buidl.tx import Tx, TxIn, TxOut, TxFetcher
 
 from buidl.test import OfflineTestCase
 
+import unittest  # for skipUnless
+from os import getenv
+from urllib.error import HTTPError
+
 
 class TxTest(OfflineTestCase):
     def test_parse_tricky(self):
@@ -423,3 +427,31 @@ class TxTest(OfflineTestCase):
         raw_tx = "0100000001813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600"
         tx = Tx.parse_hex(raw_tx)
         self.assertIsNone(tx.coinbase_height())
+
+        
+class TxFetcherTest(OfflineTestCase):
+    @unittest.skipUnless(
+        getenv("INCLUDE_NETWORK_TESTS"),
+        reason="Requires network connection, so may not be unreliable",
+    )
+    def test_broadcast_duplicate_tx_spent_signet(self):
+        tx_hex = "020000000001017bf99a29dd2f9968ca9a075e85b43a638b600bcc49fd9ba0ac8eaf2fa8d851330000000000feffffff02a0860100000000001600149253a4d3d120add0ddd578a5cca6139891503cb917ef7d9c4f060000160014f59bb0a324f3f6026574c1186b4f7e82de9ed77e0247304402201d7531c7aff722a10f4c97ea52bd10ae48dda497d514d0c8d491e80c9981daa0022036b67fb050b0e503ebba71578e2f5c35118b4f0cfa65f0ded1605c896e3c09ce012102eb882bb156e79619d5cd9089be277b39980830030e2ee2c5a07deed3fa1aba7ff9940100"
+
+        with self.assertRaises(HTTPError) as fail:
+            TxFetcher.sendrawtransaction(tx_hex, network="signet")
+
+        self.assertEqual(400, fail.exception.code)
+        self.assertIn("missingorspent", fail.exception.read().decode())
+
+    @unittest.skipUnless(
+        getenv("INCLUDE_NETWORK_TESTS"),
+        reason="Requires network connection, so may not be unreliable",
+    )
+    def test_broadcast_duplicate_tx_spent_testnet(self):
+        tx_hex = "020000000001018b526b2fecec943908bbc2e61edbbe8182af32cdfaac3f3f97a07550c0221bc800000000171600145d2f5871d3b1c9a72e86071645fbff06634cdc00feffffff028c12d10300000000160014b2f894963b3bdb3dcf46e0eb06817aa0fd65cda050c30000000000001600143d9e1c6c27c4dd45816cedb9334672da6eea27a102473044022000f991d8a8556efa902a482c836557bde98fece79ed428b248d23480315e24780220461d4fc104d1af74967ba6a2ecd994746b243bf2c74b55ee25e6d170e778caa3012102fdd06a74d4791846e0f86239c7dbbf208afc7eb6108620b8ee842ebab1b1c6f2c4b72300"
+
+        with self.assertRaises(HTTPError) as fail:
+            TxFetcher.sendrawtransaction(tx_hex, network="testnet")
+
+        self.assertEqual(400, fail.exception.code)
+        self.assertIn("missingorspent", fail.exception.read().decode())
