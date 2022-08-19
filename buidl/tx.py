@@ -87,7 +87,7 @@ class TxFetcher:
             to_dump = {k: tx.serialize().hex() for k, tx in cls.cache.items()}
             s = json.dumps(to_dump, sort_keys=True, indent=4)
             f.write(s)
-            
+
     @classmethod
     def sendrawtransaction(cls, signed_tx_hex_str, network="mainnet"):
         """Broadcasts a signed transaction."""
