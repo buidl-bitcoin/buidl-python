@@ -428,7 +428,7 @@ class TxTest(OfflineTestCase):
         tx = Tx.parse_hex(raw_tx)
         self.assertIsNone(tx.coinbase_height())
 
-        
+
 class TxFetcherTest(OfflineTestCase):
     @unittest.skipUnless(
         getenv("INCLUDE_NETWORK_TESTS"),
