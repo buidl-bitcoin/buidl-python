@@ -9,14 +9,16 @@ jobs:
     strategy:
       matrix:
         python-version: [3.9]
-        os: [ubuntu-22.04]
+        # Downgrading to avoid this openssl bug
+        # https://github.com/bitcoin/bitcoin/issues/23710
+        os: [ubuntu-20.04]
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-        cache-dependency-path: '**/requirements-test.txt'
+        cache-dependency-path: '**/requirements*.txt'
     - name: Install python dependencies
       run: |
         pip install -r requirements-test.txt
