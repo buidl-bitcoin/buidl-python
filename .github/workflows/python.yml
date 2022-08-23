@@ -18,7 +18,7 @@ jobs:
     - uses: fkirc/skip-duplicate-actions@v4.0.0
       with:
         concurrent_skipping: 'same_content_newer'
-        do_not_skip: 'pull_request'      
+        do_not_skip: '["pull_request"]'
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
@@ -49,7 +49,7 @@ jobs:
     - uses: fkirc/skip-duplicate-actions@v4.0.0
       with:
         concurrent_skipping: 'same_content_newer'
-        do_not_skip: 'pull_request'
+        do_not_skip: '["pull_request"]'
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
