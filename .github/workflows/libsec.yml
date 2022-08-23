@@ -26,7 +26,7 @@ jobs:
     - name: pytest python unit tests, excluding slowest ones
       # all of the tests excluded here get run below once libsec is installed
       run: |
-        pytest -vv --durations=0 -k "not musig and not psbt and not descriptor and not hd and not taproot" buidl/test 
+        pytest -vv --durations=0 -k "not musig and not psbt and not descriptor and not hd and not taproot and not script and not schnorr and not blinding and not shamir and not mnemonic" buidl/test 
     - name: Install secp256k1 dependencies
       run: |
         sudo apt install -y libffi-dev pkg-config
