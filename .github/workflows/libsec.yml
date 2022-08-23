@@ -29,7 +29,7 @@ jobs:
         pytest -vv --durations=0 -k "not musig and not psbt and not descriptor and not hd and not taproot" buidl/test 
     - name: Install secp256k1 dependencies
       run: |
-        sudo apt-get install -y libffi-dev pkg-config libsecp256k1-dev
+        sudo apt-get install -y libffi-dev pkg-config libsecp256k1-0
     - name: Build libsec
       run: |
         python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
