@@ -1,9 +1,10 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
+name: Fast
 on: push
 jobs:
 
-  fast-libsec:
+  all-tests:
     # Super fast but only Ubuntu 20.04
     runs-on: ${{ matrix.os }}
     strategy:
