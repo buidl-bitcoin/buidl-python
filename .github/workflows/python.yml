@@ -1,6 +1,5 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
-name: Push Python Tests
 on: [push]
 jobs:
 
@@ -49,7 +48,6 @@ jobs:
         pytest -v --durations=0 -k 'not musig and not psbt' buidl/test
 
 
-name: PR Python Test
 on: [pull_request]
 jobs:
 
