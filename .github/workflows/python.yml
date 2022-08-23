@@ -1,8 +1,10 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
 name: Python
-on: [push]
-
+on:
+  push:
+  pull_request: 
+    types: [ opened, synchronize ]
 jobs:
 
   lint:
@@ -73,11 +75,11 @@ jobs:
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
-    - name: pytest all unit tests
-      if: github.event.pull_request == true
-      run: |
-        pytest -v buidl/test --durations=0
     - name: pytest fast unit tests
       if: github.event.pull_request == false
       run: |
-        pytest -v buidl/test --durations=0 -k 'not musig'
+        pytest -v -k 'not musig not psbt' --durations=0  buidl/test 
+    - name: pytest all unit tests
+      if: github.event.pull_request == true
+      run: |
+        pytest -v --durations=0  buidl/test 
