@@ -1,7 +1,6 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
 name: Python
-
 on: [push]
 
 jobs:
@@ -75,5 +74,9 @@ jobs:
       run: |
         pip install -r requirements-test.txt
     - name: pytest unit tests
+      if: github.event.pull_request
       run: |
-        pytest -v buidl/test
+        pytest -v buidl/test --durations=0
+      if: !github.event.pull_request
+      run: |
+        pytest -v buidl/test --durations=0 -k 'not musig'
