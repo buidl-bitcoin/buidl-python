@@ -14,10 +14,14 @@ jobs:
         python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
         os: [ubuntu-20.04, macos-11, windows-2019]
     steps:
+    # don't run this on both push and pull_request
+    - uses: fkirc/skip-duplicate-actions@v4.0.0
+      with:
+        concurrent_skipping: 'same_content_newer'
+        do_not_skip: 'pull_request'      
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
-        concurrent_skipping: 'newer_runs'  # don't run this on both push and pull_request
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: '**/requirements-test.txt'
@@ -41,10 +45,14 @@ jobs:
         # https://github.com/pexpect/pexpect/issues/321
         os: [ubuntu-20.04, macos-11]
     steps:
+    # don't run this on both push and pull_request
+    - uses: fkirc/skip-duplicate-actions@v4.0.0
+      with:
+        concurrent_skipping: 'same_content_newer'
+        do_not_skip: 'pull_request'
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
-        concurrent_skipping: 'newer_runs'  # don't run this on both push and pull_request
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: '**/requirements-test.txt'
