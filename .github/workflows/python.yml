@@ -73,11 +73,10 @@ jobs:
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
-    - name: pytest all unit tests
-      if: github.event.pull_request
+    - name: pytest unit tests
+      if: github.event.pull_request == true
       run: |
         pytest -v buidl/test --durations=0
-    - name: pytest fast unit tests
-      if: !github.event.pull_request
+      if: github.event.pull_request == false
       run: |
         pytest -v buidl/test --durations=0 -k 'not musig'
