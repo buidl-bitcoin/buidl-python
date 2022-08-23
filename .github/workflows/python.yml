@@ -13,10 +13,11 @@ jobs:
         python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
         os: [ubuntu-20.04, macos-11, windows-2019]
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
@@ -37,10 +38,11 @@ jobs:
         # https://github.com/pexpect/pexpect/issues/321
         os: [ubuntu-20.04, macos-11]
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
@@ -60,10 +62,11 @@ jobs:
         python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
         os: [ubuntu-20.04, macos-11, windows-2019]
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
