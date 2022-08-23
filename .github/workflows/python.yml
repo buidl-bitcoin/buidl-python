@@ -11,11 +11,6 @@ jobs:
         python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
         os: [ubuntu-20.04, macos-11, windows-2019]
     steps:
-    # don't run this on both push and pull_request
-    - uses: fkirc/skip-duplicate-actions@v4.0.0
-      with:
-        concurrent_skipping: 'same_content_newer'
-        do_not_skip: '["pull_request"]'
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
@@ -42,11 +37,6 @@ jobs:
         # https://github.com/pexpect/pexpect/issues/321
         os: [ubuntu-20.04, macos-11]
     steps:
-    # don't run this on both push and pull_request
-    - uses: fkirc/skip-duplicate-actions@v4.0.0
-      with:
-        concurrent_skipping: 'same_content_newer'
-        do_not_skip: '["pull_request"]'
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
@@ -66,26 +56,6 @@ jobs:
       run: |
         # we run these 2x, which is a disgusting hack but GH is really buggy for CLI apps
         pytest -v test_singlesweep.py || pytest -v test_singlesweep.py
-
-  slow-unit-tests:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        os: [ubuntu-20.04, macos-11, windows-2019]
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: '**/requirements-test.txt'
-    - name: Install python testing dependencies
-      run: |
-        pip install -r requirements-test.txt
-    - name: pytest fast unit tests
-      run: |
-        pytest -v -k 'not musig and not psbt and not descriptor' --durations=0  buidl/test 
 
   fast-unit-tests:
     runs-on: ${{ matrix.os }}
@@ -107,3 +77,23 @@ jobs:
       if: github.event_name == 'pull_request'
       run: |
         pytest -v -k 'musig and psbt and descriptor' --durations=0  buidl/test 
+
+  slow-unit-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+        os: [ubuntu-20.04, macos-11, windows-2019]
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: '**/requirements-test.txt'
+    - name: Install python testing dependencies
+      run: |
+        pip install -r requirements-test.txt
+    - name: pytest fast unit tests
+      run: |
+        pytest -v -k 'not musig and not psbt and not descriptor' --durations=0  buidl/test 
