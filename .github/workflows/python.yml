@@ -18,7 +18,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-        cache-dependency-path: **/requirements-test.txt
+        cache-dependency-path: '**/requirements-test.txt'
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
@@ -44,7 +44,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-        cache-dependency-path: **/requirements-test.txt
+        cache-dependency-path: '**/requirements-test.txt'
         
     - name: Install python testing dependencies
       run: |
@@ -70,7 +70,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-        cache-dependency-path: **/requirements-test.txt
+        cache-dependency-path: '**/requirements-test.txt'
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
