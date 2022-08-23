@@ -12,12 +12,12 @@ BECH32_CHARS_RE = re.compile("^[qpzry9x8gf2tvdw0s3jn54khce6mua7l]*$")
 BECH32M_CONSTANT = 0x2BC830A3
 
 PREFIX = {
-    'mainnet': 'bc',
-    'testnet': 'tb',
-    'regtest': 'bcrt',
-    'signet': 'tb',
+    "mainnet": "bc",
+    "testnet": "tb",
+    "regtest": "bcrt",
+    "signet": "tb",
 }
-NET_FOR_PREFIX = {v: k for k, v in PREFIX.items() if k != 'signet'}
+NET_FOR_PREFIX = {v: k for k, v in PREFIX.items() if k != "signet"}
 
 
 def uses_only_bech32_chars(string):
@@ -188,7 +188,7 @@ def encode_bech32_checksum(s, network="mainnet"):
 
 def decode_bech32(s):
     """Returns network, segwit version and the hash from the bech32 address"""
-    regtest_prefix = PREFIX['regtest']
+    regtest_prefix = PREFIX["regtest"]
     if s.startswith(regtest_prefix):
         hrp, raw_data = regtest_prefix, s[5:]
     else:

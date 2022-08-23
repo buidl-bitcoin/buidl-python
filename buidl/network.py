@@ -125,7 +125,7 @@ class VersionMessage:
         self.sender_ip = sender_ip
         self.sender_port = sender_port
         if nonce is None:
-            self.nonce = int_to_little_endian(randint(0, 2 ** 64), 8)
+            self.nonce = int_to_little_endian(randint(0, 2**64), 8)
         else:
             self.nonce = nonce
         self.user_agent = user_agent
