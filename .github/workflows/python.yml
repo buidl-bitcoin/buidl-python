@@ -48,52 +48,44 @@ jobs:
         pip install -r requirements-test.txt
     - name: pytest CLI multisig
       run: |
-        # we run these 2x, which is a disgusting hack but GH is really buggy for CLI apps
-        pytest -v test_multiwallet.py || pytest -v test_multiwallet.py
+        # We retry these once if needed, which is a disgusting hack but GH is really buggy for CLI apps
+        pytest -vv test_multiwallet.py || pytest -v test_multiwallet.py
       env:
         SKIP_GH_UNRELIABLE_TESTS: True
     - name: pytest CLI singlesig
       run: |
-        # we run these 2x, which is a disgusting hack but GH is really buggy for CLI apps
-        pytest -v test_singlesweep.py || pytest -v test_singlesweep.py
+        # We retry these once if needed, which is a disgusting hack but GH is really buggy for CLI apps
+        pytest -vv test_singlesweep.py || pytest -v test_singlesweep.py
 
-  fast-unit-tests:
+  libsec-tests:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        os: [ubuntu-20.04, macos-11, windows-2019]
+        python-version: [3.8, 3.9]
+        # Downgrading to avoid this openssl bug
+        # https://github.com/bitcoin/bitcoin/issues/23710
+        os: [ubuntu-20.04]
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-        cache-dependency-path: '**/requirements-test.txt'
-    - name: Install python testing dependencies
+        cache-dependency-path: '**/requirements*.txt'
+    - name: Install python dependencies
       run: |
         pip install -r requirements-test.txt
-    - name: pytest slow unit tests
-      if: github.event_name == 'pull_request'
+    - name: Install dependencies
       run: |
-        pytest -v -k 'musig and psbt and descriptor' --durations=0  buidl/test 
-
-  slow-unit-tests:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        os: [ubuntu-20.04, macos-11, windows-2019]
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: '**/requirements-test.txt'
-    - name: Install python testing dependencies
+        sudo apt-get install -y libffi-dev pkg-config
+    - name: Install secp256k1
       run: |
-        pip install -r requirements-test.txt
-    - name: pytest fast unit tests
+        # https://github.com/bitcoin-core/secp256k1/issues/542
+        git clone https://github.com/bitcoin-core/secp256k1 && cd secp256k1 && ./autogen.sh && ./configure --prefix=/usr --enable-module-extrakeys --enable-module-schnorrsig --enable-experimental && make && sudo make install
+    - name: Build libsec
       run: |
-        pytest -v -k 'not musig and not psbt and not descriptor' --durations=0  buidl/test 
+        python3 -m pip install -r requirements-libsec.txt && python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
+    - name: pytest with libsec
+      run: |
+        pytest -vv --durations=0  buidl/test 
+ 
