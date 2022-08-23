@@ -52,12 +52,14 @@ jobs:
         pip install -r requirements-test.txt
     - name: pytest CLI multisig
       run: |
-        pytest -v test_multiwallet.py
+        # we run these 2x, which is a disgusting hack but GH is really buggy for CLI apps
+        pytest -v test_multiwallet.py || pytest -v test_multiwallet.py
       env:
         SKIP_GH_UNRELIABLE_TESTS: True
     - name: pytest CLI singlesig
       run: |
-        pytest -v test_singlesweep.py
+        # we run these 2x, which is a disgusting hack but GH is really buggy for CLI apps
+        pytest -v test_singlesweep.py || pytest -v test_singlesweep.py
 
   unit-tests:
     runs-on: ${{ matrix.os }}
