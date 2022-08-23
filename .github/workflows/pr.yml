@@ -1,10 +1,9 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
-name: Python PR
 on: pull_request
 jobs:
 
-  slow-python-unit-tests:
+  slow-python:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
