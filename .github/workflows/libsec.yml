@@ -20,12 +20,13 @@ jobs:
     - name: Install python dependencies
       run: |
         pip install -r requirements-test.txt
-    - name: Install secp256k1
+    - name: Install dependencies
       run: |
         sudo apt-get install -y libffi-dev pkg-config
     - name: Install secp256k1
       run: |
-        git clone https://github.com/bitcoin-core/secp256k1 && cd secp256k1 && ./autogen.sh && ./configure --enable-module-extrakeys --enable-module-schnorrsig --enable-experimental && make && sudo make install
+        # https://github.com/bitcoin-core/secp256k1/issues/542
+        git clone https://github.com/bitcoin-core/secp256k1 && cd secp256k1 && ./autogen.sh && ./configure --prefix=/usr --enable-module-extrakeys --enable-module-schnorrsig --enable-experimental && make && sudo make install
     - name: Build libsec
       run: |
         python3 -m pip install -r requirements-libsec.txt && python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
