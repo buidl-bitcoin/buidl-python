@@ -1,8 +1,7 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
-name: Python
+name: Push Python Tests
 on: [push]
-
 jobs:
 
   lint:
@@ -29,14 +28,12 @@ jobs:
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --statistics
 
-  cli-apps:
+  fast-unit-tests:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        # TODO CLI app testing doesn't work on windows due to different handling of pexcept:
-        # https://github.com/pexpect/pexpect/issues/321
-        os: [ubuntu-20.04, macos-11]
+        os: [ubuntu-20.04, macos-11, windows-2019]
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
@@ -44,20 +41,19 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: '**/requirements-test.txt'
-        
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
-    - name: pytest CLI multisig
+    - name: pytest fast unit tests
       run: |
-        pytest -v test_multiwallet.py
-      env:
-        SKIP_GH_UNRELIABLE_TESTS: True
-    - name: pytest CLI singlesig
-      run: |
-        pytest -v test_singlesweep.py
+        pytest -v --durations=0 -k 'not musig and not psbt' buidl/test
 
-  unit-tests:
+
+name: PR Python Test
+on: [pull_request]
+jobs:
+
+  slow-unit-tests:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -74,10 +70,33 @@ jobs:
       run: |
         pip install -r requirements-test.txt
     - name: pytest all unit tests
-      if: github.event.pull_request == true
       run: |
-        pytest -v buidl/test --durations=0
-    - name: pytest fast unit tests
-      if: github.event.pull_request == false
+        pytest -v --durations=0 buidl/test
+
+  cli-apps:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+        # TODO CLI app testing doesn't work on windows due to different handling of pexcept:
+        # https://github.com/pexpect/pexpect/issues/321
+        os: [ubuntu-20.04, macos-11]
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: '**/requirements-test.txt'
+    - name: Install python testing dependencies
       run: |
-        pytest -v buidl/test --durations=0 -k 'not musig'
+        pip install -r requirements-test.txt
+    - name: pytest CLI multisig
+      run: |
+        pytest -v test_multiwallet.py
+      env:
+        SKIP_GH_UNRELIABLE_TESTS: True
+    - name: pytest CLI singlesig
+      run: |
+        pytest -v test_singlesweep.py
+
