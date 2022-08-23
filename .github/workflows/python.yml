@@ -1,10 +1,7 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
 name: Python
-on:
-  push:
-  pull_request: 
-    types: [ opened, synchronize ]
+on: push
 jobs:
 
   lint:
@@ -70,7 +67,7 @@ jobs:
         # we run these 2x, which is a disgusting hack but GH is really buggy for CLI apps
         pytest -v test_singlesweep.py || pytest -v test_singlesweep.py
 
-  unit-tests:
+  slow-unit-tests:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -87,10 +84,26 @@ jobs:
       run: |
         pip install -r requirements-test.txt
     - name: pytest fast unit tests
-      if: github.event_name == 'push'
       run: |
-        pytest -v -k 'not musig and not psbt' --durations=0  buidl/test 
-    - name: pytest all unit tests
+        pytest -v -k 'not musig and not psbt and not descriptor' --durations=0  buidl/test 
+
+  fast-unit-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+        os: [ubuntu-20.04, macos-11, windows-2019]
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: '**/requirements-test.txt'
+    - name: Install python testing dependencies
+      run: |
+        pip install -r requirements-test.txt
+    - name: pytest slow unit tests
       if: github.event_name == 'pull_request'
       run: |
-        pytest -v --durations=0  buidl/test 
+        pytest -v -k 'musig and psbt and descriptor' --durations=0  buidl/test 
