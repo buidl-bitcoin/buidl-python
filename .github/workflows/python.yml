@@ -57,11 +57,11 @@ jobs:
         # We retry these once if needed, which is a disgusting hack but GH is really buggy for CLI apps
         pytest -vv test_singlesweep.py || pytest -v test_singlesweep.py
 
-  libsec-tests:
+  libsec-tests-ubuntu:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.8, 3.9]
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
         # Downgrading to avoid this openssl bug
         # https://github.com/bitcoin/bitcoin/issues/23710
         os: [ubuntu-20.04]
@@ -81,7 +81,7 @@ jobs:
     - name: Install secp256k1
       run: |
         # https://github.com/bitcoin-core/secp256k1/issues/542
-        git clone https://github.com/bitcoin-core/secp256k1 && cd secp256k1 && ./autogen.sh && ./configure --prefix=/usr --enable-module-extrakeys --enable-module-schnorrsig --enable-experimental && make && sudo make install
+        git clone --depth 1 https://github.com/bitcoin-core/secp256k1 && cd secp256k1 && ./autogen.sh && ./configure --prefix=/usr --enable-module-extrakeys --enable-module-schnorrsig --enable-experimental && make && sudo make install
     - name: Build libsec
       run: |
         python3 -m pip install -r requirements-libsec.txt && python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
