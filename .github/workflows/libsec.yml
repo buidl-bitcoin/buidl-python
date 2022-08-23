@@ -22,7 +22,7 @@ jobs:
         pip install -r requirements-test.txt
     - name: Install secp256k1
       run: |
-        sudo apt-get install -y libffi6 pkg-config
+        sudo apt-get install -y libffi-dev pkg-config
     - name: Install secp256k1
       run: |
         git clone https://github.com/bitcoin-core/secp256k1 && cd secp256k1 && ./autogen.sh && ./configure --enable-module-extrakeys --enable-module-schnorrsig --enable-experimental && make && sudo make install
