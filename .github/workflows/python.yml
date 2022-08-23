@@ -17,6 +17,7 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
+        concurrent_skipping: 'newer_runs'  # don't run this on both push and pull_request
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: '**/requirements-test.txt'
@@ -43,10 +44,10 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
       with:
+        concurrent_skipping: 'newer_runs'  # don't run this on both push and pull_request
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
         cache-dependency-path: '**/requirements-test.txt'
-        
     - name: Install python testing dependencies
       run: |
         pip install -r requirements-test.txt
@@ -78,10 +79,10 @@ jobs:
       run: |
         pip install -r requirements-test.txt
     - name: pytest fast unit tests
-      if: github.event.pull_request == false
+      if: github.event_name == 'push'
       run: |
         pytest -v -k 'not musig and not psbt' --durations=0  buidl/test 
     - name: pytest all unit tests
-      if: github.event.pull_request == true
+      if: github.event_name == 'pull_request'
       run: |
         pytest -v --durations=0  buidl/test 
