@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        os: [ubuntu-20.04, macos-11, windows-2019]
+        os: [ubuntu-22.04, macos-12, windows-2022]
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
@@ -35,7 +35,7 @@ jobs:
         python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
         # TODO CLI app testing doesn't work on windows due to different handling of pexcept:
         # https://github.com/pexpect/pexpect/issues/321
-        os: [ubuntu-20.04, macos-11]
+        os: [ubuntu-22.04, macos-12]
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v4
@@ -88,4 +88,3 @@ jobs:
     - name: pytest with libsec
       run: |
         pytest -vv --durations=0  buidl/test 
- 
