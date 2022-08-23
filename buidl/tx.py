@@ -91,7 +91,7 @@ class TxFetcher:
     @classmethod
     def sendrawtransaction(cls, signed_tx_hex_str, network="mainnet"):
         """Broadcasts a signed transaction."""
-        url = "{}/tx".format(TxFetcher.get_url(network=network))
+        url = "{}/tx".format(cls.get_url(network=network))
         req = Request(url, data=signed_tx_hex_str.encode(), headers={"User-Agent": "Mozilla/5.0"})
         response = urlopen(req)
         return response.read().decode("utf-8")  # returns the txid if successful
