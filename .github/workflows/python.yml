@@ -80,7 +80,7 @@ jobs:
     - name: pytest fast unit tests
       if: github.event.pull_request == false
       run: |
-        pytest -v -k 'not musig not psbt' --durations=0  buidl/test 
+        pytest -v -k 'not musig and not psbt' --durations=0  buidl/test 
     - name: pytest all unit tests
       if: github.event.pull_request == true
       run: |
