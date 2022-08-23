@@ -1,15 +1,16 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
-name: Python
+name: Python Push
 on: push
 jobs:
 
-  libsec-unit-tests:
+  libsec-ubuntu-tests:
+    # Super fast but only Ubuntu 20.04
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        # Downgrading to avoid this openssl bug
+        # Downgrading to 20.04 to avoid this openssl bug
         # https://github.com/bitcoin/bitcoin/issues/23710
         os: [ubuntu-20.04]
     steps:
@@ -21,8 +22,8 @@ jobs:
         cache-dependency-path: '**/requirements*.txt'
     - name: Install python dependencies
       run: |
-        pip install -r requirements-test.txt
-    - name: Install dependencies
+        pip install -r requirements-test.txt && pip install -r requirements-libsec.txt
+    - name: Install libsec dependencies
       run: |
         sudo apt-get install -y libffi-dev pkg-config
     - name: Install secp256k1
@@ -31,11 +32,10 @@ jobs:
         git clone --depth 1 https://github.com/bitcoin-core/secp256k1 && cd secp256k1 && ./autogen.sh && ./configure --prefix=/usr --enable-module-extrakeys --enable-module-schnorrsig --enable-experimental && make && sudo make install
     - name: Build libsec
       run: |
-        python3 -m pip install -r requirements-libsec.txt && python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
-    - name: pytest with libsec
+        python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
+    - name: pytest unit tests
       run: |
         pytest -vv --durations=0  buidl/test 
-        ## FIXME: This is experimental:
     - name: pytest CLI multisig
       run: |
         # We retry these 3x if needed, which is a disgusting hack but GH is really buggy for CLI apps
@@ -46,23 +46,6 @@ jobs:
       run: |
         # We retry these 3x if needed, which is a disgusting hack but GH is really buggy for CLI apps
         pytest -vv test_singlesweep.py || pytest -vv test_singlesweep.py || pytest -vv test_singlesweep.py
-
-  lint:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        os: [ubuntu-20.04, macos-12, windows-2022]
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: '**/requirements-test.txt'
-    - name: Install python testing dependencies
-      run: |
-        pip install -r requirements-test.txt
     - name: Lint with black
       run: |
         black . --diff --check
@@ -70,32 +53,3 @@ jobs:
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --statistics
-
-  cli-apps:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        # TODO CLI app testing doesn't work on windows due to different handling of pexcept:
-        # https://github.com/pexpect/pexpect/issues/321
-        os: [ubuntu-20.04, macos-12]
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        cache-dependency-path: '**/requirements-test.txt'
-    - name: Install python testing dependencies
-      run: |
-        pip install -r requirements-test.txt
-    - name: pytest CLI multisig
-      run: |
-        # We retry these 3x if needed, which is a disgusting hack but GH is really buggy for CLI apps
-        pytest -vv test_multiwallet.py || pytest -vv test_multiwallet.py || pytest -vv test_multiwallet.py
-      env:
-        SKIP_GH_UNRELIABLE_TESTS: True
-    - name: pytest CLI singlesig
-      run: |
-        # We retry these 3x if needed, which is a disgusting hack but GH is really buggy for CLI apps
-        pytest -vv test_singlesweep.py || pytest -vv test_singlesweep.py || pytest -vv test_singlesweep.py
