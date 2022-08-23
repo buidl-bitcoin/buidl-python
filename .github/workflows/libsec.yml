@@ -22,8 +22,11 @@ jobs:
         pip install -r requirements-test.txt
     - name: Install secp256k1
       run: |
+        sudo apt-get install -y libffi6 pkg-config
+    - name: Install secp256k1
+      run: |
         git clone https://github.com/bitcoin-core/secp256k1 && cd secp256k1 && ./autogen.sh && ./configure --enable-module-extrakeys --enable-module-schnorrsig --enable-experimental && make && sudo make install
-    - name: Install libsec
+    - name: Build libsec
       run: |
         python3 -m pip install -r requirements-libsec.txt && python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
     - name: pytest with libsec
