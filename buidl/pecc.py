@@ -113,7 +113,7 @@ class Point:
             return
         # make sure that the elliptic curve equation is satisfied
         # y**2 == x**3 + a*x + b
-        if self.y ** 2 != self.x ** 3 + a * x + b:
+        if self.y**2 != self.x**3 + a * x + b:
             # if not, raise a ValueError
             raise ValueError(f"({self.x}, {self.y}) is not on the curve")
 
@@ -158,7 +158,7 @@ class Point:
             # s=(y2-y1)/(x2-x1)
             s = (other.y - self.y) / (other.x - self.x)
             # x3=s**2-x1-x2
-            x = s ** 2 - self.x - other.x
+            x = s**2 - self.x - other.x
             # y3=s*(x1-x3)-y1
             y = s * (self.x - x) - self.y
             return self.__class__(x, y, self.a, self.b)
@@ -167,9 +167,9 @@ class Point:
         else:
             # Formula (x3,y3)=(x1,y1)+(x1,y1)
             # s=(3*x1**2+a)/(2*y1)
-            s = (3 * self.x ** 2 + self.a) / (2 * self.y)
+            s = (3 * self.x**2 + self.a) / (2 * self.y)
             # x3=s**2-2*x1
-            x = s ** 2 - 2 * self.x
+            x = s**2 - 2 * self.x
             # y3=s*(x1-x3)-y1
             y = s * (self.x - x) - self.y
             return self.__class__(x, y, self.a, self.b)
@@ -192,7 +192,7 @@ class Point:
 
 A = 0
 B = 7
-P = 2 ** 256 - 2 ** 32 - 977
+P = 2**256 - 2**32 - 977
 N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
 
@@ -384,7 +384,7 @@ class S256Point(Point):
         is_even = sec_bin[0] == 2
         x = S256Field(int(sec_bin[1:].hex(), 16))
         # right side of the equation y^2 = x^3 + 7
-        alpha = x ** 3 + S256Field(B)
+        alpha = x**3 + S256Field(B)
         # solve for left side
         beta = alpha.sqrt()
         if beta.num % 2 == 0:
@@ -407,7 +407,7 @@ class S256Point(Point):
             return cls(None, None)
         x = S256Field(n)
         # right side of the equation y^2 = x^3 + 7
-        alpha = x ** 3 + S256Field(B)
+        alpha = x**3 + S256Field(B)
         # solve for left side
         beta = alpha.sqrt()
         if beta.num % 2 == 1:

@@ -30,9 +30,9 @@ class MnemonicTest(TestCase):
             # num_bits, num_words, extra_entropy
             (128, 12, 0),
             (160, 15, 1),
-            (192, 18, 2 ** 128),
-            (224, 21, 2 ** 256),
-            (256, 24, 2 ** 512),
+            (192, 18, 2**128),
+            (224, 21, 2**256),
+            (256, 24, 2**512),
         )
 
         for num_bits, num_words, extra_entropy in tests:

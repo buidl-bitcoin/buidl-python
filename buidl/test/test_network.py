@@ -1,8 +1,6 @@
-from unittest import TestCase
-import unittest  # for skipunless
-
 from io import BytesIO
 from os import getenv
+from unittest import TestCase, skipUnless
 
 from buidl.block import Block
 from buidl.bloomfilter import BloomFilter
@@ -100,9 +98,9 @@ class GetDataMessageTest(TestCase):
         self.assertEqual(get_data.serialize().hex(), hex_msg)
 
 
-@unittest.skipUnless(
+@skipUnless(
     getenv("INCLUDE_NETWORK_TESTS"),
-    reason="Requires network connection, so may not be unreliable",
+    reason="Requires (unreliable) network connection",
 )
 class SimpleNodeTest(TestCase):
     def test_handshake(self):

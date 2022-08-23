@@ -12,7 +12,7 @@ from buidl.siphash import SipHash_2_4
 
 BASIC_FILTER_TYPE = 0
 GOLOMB_P = 19
-GOLOMB_M = int(round(1.497137 * 2 ** GOLOMB_P))
+GOLOMB_M = int(round(1.497137 * 2**GOLOMB_P))
 
 
 def _siphash(key, value):

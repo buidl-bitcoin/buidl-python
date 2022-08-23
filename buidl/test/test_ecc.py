@@ -22,11 +22,11 @@ class S256Test(TestCase):
                 "04C982196A7466FBBBB0E27A940B6AF926C1A74D5AD07128C82824A11B5398AFDA7A91F9EAE64438AFB9CE6448A1C133DB2D8FB9254E4546B6F001637D50901F55",
             ),
             (
-                2 ** 128,
+                2**128,
                 "048F68B9D2F63B5F339239C1AD981F162EE88C5678723EA3351B7B444C9EC4C0DA662A9F2DBA063986DE1D90C2B6BE215DBBEA2CFE95510BFDF23CBF79501FFF82",
             ),
             (
-                2 ** 240 + 2 ** 31,
+                2**240 + 2**31,
                 "049577FF57C8234558F293DF502CA4F09CBC65A6572C842B39B366F2171794511610B49C67FA9365AD7B90DAB070BE339A1DAF9052373EC30FFAE4F72D5E66D053",
             ),
         )
@@ -45,7 +45,7 @@ class S256Test(TestCase):
         self.assertEqual(sum_secrets * G, S256Point.combine(point_objects))
 
     def test_sec(self):
-        coefficient = 999 ** 3
+        coefficient = 999**3
         uncompressed = "049d5ca49670cbe4c3bfa84c96a8c87df086c6ea6a24ba6b809c9de234496808d56fa15cc7f3d38cda98dee2419f415b7513dde1301f8643cd9245aea7f3f911f9"
         compressed = (
             "039d5ca49670cbe4c3bfa84c96a8c87df086c6ea6a24ba6b809c9de234496808d5"
@@ -73,7 +73,7 @@ class S256Test(TestCase):
     def test_address(self):
         tests = (
             (
-                888 ** 3,
+                888**3,
                 "148dY81A9BmdpMhvYEVznrM45kWN32vSCN",
                 "mnabU9NCcRE5zcNZ2C16CnvKPELrFvisn3",
             ),
@@ -101,7 +101,7 @@ class S256Test(TestCase):
     def test_p2wpkh_address(self):
         tests = (
             (
-                888 ** 3,
+                888**3,
                 "bc1qyfvunnpszmjwcqgfk9dsne6j4edq3fglx9y5x7",
                 "tb1qyfvunnpszmjwcqgfk9dsne6j4edq3fglvrl8ad",
             ),
@@ -126,7 +126,7 @@ class S256Test(TestCase):
     def test_p2sh_p2wpkh_address(self):
         tests = (
             (
-                888 ** 3,
+                888**3,
                 "32cE3VHX5k1Z4gDCJBXMSLgd1akUzvqNvH",
                 "2MtAS7EDYhCWuGTqjyK9E4HftDvxek7ELQn",
             ),

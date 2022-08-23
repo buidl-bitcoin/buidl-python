@@ -13,7 +13,6 @@ try:
             raise ValueError("Key should be 16 bytes")
         return little_endian_to_int(siphash24(key, value))
 
-
 except ModuleNotFoundError:
     from buidl.siphash import SipHash_2_4
 
@@ -33,7 +32,7 @@ SIGHASH_ANYONECANPAY = 0x80
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 PBKDF2_ROUNDS = 2048
 GOLOMB_P = 19
-GOLOMB_M = int(round(1.497137 * 2 ** GOLOMB_P))
+GOLOMB_M = int(round(1.497137 * 2**GOLOMB_P))
 TWO_WEEKS = 60 * 60 * 24 * 14
 MAX_TARGET = 0xFFFF * 256 ** (0x1D - 3)
 

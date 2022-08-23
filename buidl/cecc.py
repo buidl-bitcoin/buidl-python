@@ -19,7 +19,7 @@ GLOBAL_CTX = ffi.gc(
     ),
     lib.secp256k1_context_destroy,
 )
-P = 2 ** 256 - 2 ** 32 - 977
+P = 2**256 - 2**32 - 977
 N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
 

@@ -30,7 +30,7 @@ def secure_secret_path(depth=4):
     to_return = ["m"]
     for _ in range(depth):
         # https://bitcoin.stackexchange.com/questions/92056/what-is-the-max-allowed-depth-for-bip32-derivation-paths#comment105756_92057
-        rand_int = randbelow(2 ** 31 - 1)
+        rand_int = randbelow(2**31 - 1)
         to_return.append(str(rand_int))
     return "/".join(to_return)
 
