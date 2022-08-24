@@ -4,7 +4,7 @@ name: Python
 on:
   pull_request:
     # These tests are so slow that we only run them when a PR is opened/reopened
-    # If an existing PR gets new commits, only the libsec tests will run (to trigger a full test-suite, close and reopen the github PR)
+    # If an existing PR gets new commits, only the libsec tests will run (to manually trigger a full test-suite, close and reopen the github PR)
     types: [opened, reopened]
       
 jobs:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # TODO: consider cutting down on python versions and/or operating systems? This is very slow.
+        # TODO: consider cutting down on python versions and/or operating systems for speed?
         python-version: [3.6, 3.7, 3.7, 3.8, 3.9, "3.10"]
         os: [ubuntu-20.04, ubuntu-22.04, macos-11, macos-12, windows-2019, windows-2022]
         exclude:

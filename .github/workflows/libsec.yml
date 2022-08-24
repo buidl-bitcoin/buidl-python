@@ -37,7 +37,7 @@ jobs:
     - name: Build libsec
       run: |
         python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
-    - name: pytest libsec unit tests for ALL tests
+    - name: libsec ALL unit tests
       run: |
         pytest -vv --durations=0  buidl/test 
     - name: Lint with flake8
@@ -47,13 +47,13 @@ jobs:
     - name: Lint with black
       run: |
         black . --diff --check
+    - name: pytest CLI singlesig
+      run: |
+        # We retry these 3x if needed, which is a disgusting hack but GH is really buggy for CLI apps
+        pytest -vv test_singlesweep.py || pytest -vv test_singlesweep.py || pytest -vv test_singlesweep.py
     - name: pytest CLI multisig
       run: |
         # We retry these 3x if needed, which is a disgusting hack but GH is really buggy for CLI apps
         pytest -vv test_multiwallet.py || pytest -vv test_multiwallet.py || pytest -vv test_multiwallet.py
       env:
         SKIP_GH_UNRELIABLE_TESTS: True
-    - name: pytest CLI singlesig
-      run: |
-        # We retry these 3x if needed, which is a disgusting hack but GH is really buggy for CLI apps
-        pytest -vv test_singlesweep.py || pytest -vv test_singlesweep.py || pytest -vv test_singlesweep.py
