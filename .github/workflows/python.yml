@@ -1,6 +1,6 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
-name: Python
+name: slow python
 on:
   pull_request:
     # These tests are so slow that we only run them when a PR is opened/reopened
@@ -13,8 +13,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # TODO: consider cutting down on python versions and/or operating systems for speed?
-        python-version: [3.6, 3.7, 3.7, 3.8, 3.9, "3.10"]
+        # TODO: consider cutting down on python-version/os combos for speed
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
         os: [ubuntu-20.04, macos-11, macos-12, windows-2019, windows-2022]
         # TODO: add ubuntu-22.04 support! Something is up with openssl for that
         # https://github.com/bitcoin-core/secp256k1/issues/542
@@ -32,7 +32,7 @@ jobs:
     - name: Install python dependencies
       run: |
         pip install -r requirements-test.txt
-    - name: pytest unit tests in slow python
+    - name: pytest unit tests in pure python
       run: |
         pytest -vv --durations=0  buidl/test 
  

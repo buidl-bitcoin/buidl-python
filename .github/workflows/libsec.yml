@@ -1,11 +1,11 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
-name: Libsec
+name: fast libsec
 on: push
 jobs:
 
   all-tests:
-    # Super fast but only Ubuntu 20.04
+    # Super fast but only Ubuntu
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
