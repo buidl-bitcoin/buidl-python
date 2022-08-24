@@ -15,7 +15,9 @@ jobs:
       matrix:
         # TODO: consider cutting down on python versions and/or operating systems for speed?
         python-version: [3.6, 3.7, 3.7, 3.8, 3.9, "3.10"]
-        os: [ubuntu-20.04, ubuntu-22.04, macos-11, macos-12, windows-2019, windows-2022]
+        os: [ubuntu-20.04, macos-11, macos-12, windows-2019, windows-2022]
+        # TODO: add ubuntu-22.04 support! Something is up with openssl for that
+        # https://github.com/bitcoin-core/secp256k1/issues/542
         exclude:
           # Ubuntu 22.04 doesn't come with python 3.6 installed
           - os: ubuntu-22.04
