@@ -543,6 +543,22 @@ Extra:\n{self.extra_map}
         return cls.parse(stream, network=network)
 
     @classmethod
+    def parse_psbt_in(cls, s, tx_in, network):
+        return PSBTIn.parse(s, tx_in, network=network)
+
+    @classmethod
+    def parse_psbt_out(cls, s, tx_out, network):
+        return PSBTOut.parse(s, tx_out, network=network)
+
+    @classmethod
+    def parse_named_hd_public_key(cls, key, s, network):
+        return NamedHDPublicKey.parse(key, s, network=network)
+
+    @classmethod
+    def parse_tx_legacy(cls, s):
+        return Tx.parse_legacy(s)
+
+    @classmethod
     def parse(cls, s, network=None):
         """Returns an instance of PSBT from a stream"""
         # prefix
@@ -565,11 +581,11 @@ Extra:\n{self.extra_map}
                 if tx_obj:
                     raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 _ = read_varint(s)
-                tx_obj = Tx.parse_legacy(s)
+                tx_obj = cls.parse_tx_legacy(s)
             elif psbt_type == PSBT_GLOBAL_XPUB:
                 if len(key) != 79:
                     raise KeyError("Wrong length for the key")
-                hd_pub = NamedHDPublicKey.parse(key, s, network=network)
+                hd_pub = cls.parse_named_hd_public_key(key, s, network=network)
                 hd_pubs[hd_pub.raw_serialize()] = hd_pub
                 if network is None:
                     network = hd_pub.network
@@ -585,7 +601,7 @@ Extra:\n{self.extra_map}
         # per input data
         psbt_ins = []
         for tx_in in tx_obj.tx_ins:
-            psbt_in = PSBTIn.parse(s, tx_in, network=network)
+            psbt_in = cls.parse_psbt_in(s, tx_in, network=network)
             for named_pub in psbt_in.named_pubs.values():
                 if network is None:
                     network = named_pub.network
@@ -595,7 +611,7 @@ Extra:\n{self.extra_map}
         # per output data
         psbt_outs = []
         for tx_out in tx_obj.tx_outs:
-            psbt_out = PSBTOut.parse(s, tx_out, network=network)
+            psbt_out = cls.parse_psbt_out(s, tx_out, network=network)
             for named_pub in psbt_out.named_pubs.values():
                 if network is None:
                     network = named_pub.network
@@ -1230,6 +1246,33 @@ PSBT Pubs:\n{self.named_pubs}
 ScriptSig:\n{self.script_sig}
 Witness:\n{self.witness}
 """
+    @classmethod
+    def parse_tx(cls, s):
+        return Tx.parse(s)
+
+    @classmethod
+    def parse_tx_out(cls, s):
+        return TxOut.parse(s)
+
+    @classmethod
+    def parse_redeem_script(cls, s):
+        return RedeemScript.parse(s)
+
+    @classmethod
+    def parse_witness_script(cls, s):
+        return WitnessScript.parse(s)
+
+    @classmethod
+    def parse_named_public_key(cls, key, s, network):
+        return NamedPublicKey.parse(key, s, network=network)
+
+    @classmethod
+    def parse_script(cls, s):
+        return Script.parse(s)
+
+    @classmethod
+    def parse_witness(cls, s):
+        return Witness.parse(s)
 
     @classmethod
     def parse(cls, s, tx_in, network=None):
@@ -1252,7 +1295,7 @@ Witness:\n{self.witness}
                 if prev_tx:
                     raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 tx_len = read_varint(s)
-                prev_tx = Tx.parse(s)
+                prev_tx = cls.parse_tx(s)
                 if len(prev_tx.serialize()) != tx_len:
                     raise IOError("tx length does not match")
                 tx_in._value = prev_tx.tx_outs[tx_in.prev_index].amount
@@ -1263,7 +1306,7 @@ Witness:\n{self.witness}
                     raise KeyError("Wrong length for the key")
                 if prev_out:
                     raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
-                prev_out = TxOut.parse(s)
+                prev_out = cls.parse_tx_out(s)
                 if len(prev_out.serialize()) != tx_out_len:
                     raise ValueError("tx out length does not match")
                 tx_in._value = prev_out.amount
@@ -1283,31 +1326,31 @@ Witness:\n{self.witness}
                     raise KeyError("Wrong length for the key")
                 if redeem_script:
                     raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
-                redeem_script = RedeemScript.parse(s)
+                redeem_script = cls.parse_redeem_script(s)
             elif psbt_type == PSBT_IN_WITNESS_SCRIPT:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if witness_script:
                     raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
-                witness_script = WitnessScript.parse(s)
+                witness_script = cls.parse_witness_script(s)
             elif psbt_type == PSBT_IN_BIP32_DERIVATION:
                 if len(key) != 34:
                     raise KeyError("Wrong length for the key")
-                named_pub = NamedPublicKey.parse(key, s, network=network)
+                named_pub = cls.parse_named_public_key(key, s, network=network)
                 named_pubs[named_pub.sec()] = named_pub
             elif psbt_type == PSBT_IN_FINAL_SCRIPTSIG:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if script_sig:
                     raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
-                script_sig = Script.parse(s)
+                script_sig = cls.parse_script(s)
             elif psbt_type == PSBT_IN_FINAL_SCRIPTWITNESS:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if witness:
                     raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
                 _ = read_varint(s)
-                witness = Witness.parse(s)
+                witness = cls.parse_witness(s)
             else:
                 if extra_map.get(key):
                     raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
@@ -1731,6 +1774,21 @@ RedeemScript:\n{self.redeem_script}
 WitnessScript\n{self.witness_script}
 PSBT Pubs:\n{self.named_pubs}
 """
+    @classmethod
+    def parse_witness_script(cls, s):
+        return WitnessScript.parse(s)
+
+    @classmethod
+    def parse_redeem_script(cls, s):
+        return RedeemScript.parse(s)
+
+    @classmethod
+    def parse_named_public_key(cls, key, s, network):
+        return NamedPublicKey.parse(key, s, network=network)
+
+    @classmethod
+    def parse_X(cls, s):
+        return X.parse(s)
 
     @classmethod
     def parse(cls, s, tx_out, network=None):
@@ -1746,17 +1804,17 @@ PSBT Pubs:\n{self.named_pubs}
                     raise KeyError("Wrong length for the key")
                 if redeem_script:
                     raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
-                redeem_script = RedeemScript.parse(s)
+                redeem_script = cls.parse_redeem_script(s)
             elif psbt_type == PSBT_OUT_WITNESS_SCRIPT:
                 if len(key) != 1:
                     raise KeyError("Wrong length for the key")
                 if witness_script:
                     raise KeyError(f"Duplicate Key in parsing: {key.hex()}")
-                witness_script = WitnessScript.parse(s)
+                witness_script = cls.parse_witness_script(s)
             elif psbt_type == PSBT_OUT_BIP32_DERIVATION:
                 if len(key) != 34:
                     raise KeyError("Wrong length for the key")
-                named_pub = NamedPublicKey.parse(key, s, network=network)
+                named_pub = cls.parse_named_public_key.parse(key, s, network=network)
                 named_pubs[named_pub.sec()] = named_pub
             else:
                 if extra_map.get(key):
