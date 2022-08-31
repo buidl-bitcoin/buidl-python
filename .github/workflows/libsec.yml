@@ -1,0 +1,59 @@
+# https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
+
+name: fast libsec
+on: push
+jobs:
+
+  all-tests:
+    # Super fast but only Ubuntu
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
+        # Downgrading to 20.04 to avoid this openssl bug
+        # https://github.com/bitcoin/bitcoin/issues/23710
+        os: [ubuntu-20.04]
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+        cache-dependency-path: '**/requirements*.txt'
+    - name: Install python dependencies
+      run: |
+        pip install -r requirements-test.txt && pip install -r requirements-libsec.txt
+    - name: pytest python unit tests, excluding slowest ones
+      # all of the tests excluded here get run below once libsec is installed
+      run: |
+        pytest -vv --durations=0 -k "not musig and not psbt and not descriptor and not hd and not taproot and not script and not schnorr and not blinding and not shamir and not mnemonic" buidl/test 
+    - name: Install secp256k1 dependencies
+      run: |
+        sudo apt install -y libffi-dev pkg-config
+    - name: Install secp256k1
+      run: |
+        # https://github.com/bitcoin-core/secp256k1/issues/542
+        time git clone --depth 1 https://github.com/bitcoin-core/secp256k1 && cd secp256k1 && time ./autogen.sh && time ./configure --prefix=/usr --enable-module-extrakeys --enable-module-schnorrsig --enable-experimental && time make && time sudo make install
+    - name: Build libsec
+      run: |
+        python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
+    - name: libsec ALL unit tests
+      run: |
+        pytest -vv --durations=0  buidl/test 
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --statistics
+    - name: Lint with black
+      run: |
+        black . --diff --check
+    - name: pytest CLI singlesig
+      run: |
+        # We retry these 3x if needed, which is a disgusting hack but GH is really buggy for CLI apps
+        pytest -vv test_singlesweep.py || pytest -vv test_singlesweep.py || pytest -vv test_singlesweep.py
+    - name: pytest CLI multisig
+      run: |
+        # We retry these 3x if needed, which is a disgusting hack but GH is really buggy for CLI apps
+        pytest -vv test_multiwallet.py || pytest -vv test_multiwallet.py || pytest -vv test_multiwallet.py
+      env:
+        SKIP_GH_UNRELIABLE_TESTS: True

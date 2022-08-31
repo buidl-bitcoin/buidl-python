@@ -1,72 +1,39 @@
 # https://docs.github.com/en/free-pro-team@latest/actions/guides/building-and-testing-python
 
-name: Python
-
-on: [push]
-
+name: slow python
+on:
+  pull_request:
+    # These tests are so slow that we only run them when a PR is opened/reopened
+    # If an existing PR gets new commits, only the libsec tests will run (to manually trigger a full test-suite, close and reopen the github PR)
+    types: [opened, reopened]
+      
 jobs:
-
-  lint:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        os: [ubuntu-20.04, macos-11, windows-2019]
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install python testing dependencies
-      run: |
-        pip install -r requirements-test.txt
-    - name: Lint with black
-      run: |
-        black . --diff --check
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --statistics
-
-  cli-apps:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        # TODO CLI app testing doesn't work on windows due to different handling of pexcept:
-        # https://github.com/pexpect/pexpect/issues/321
-        os: [ubuntu-20.04, macos-11]
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install python testing dependencies
-      run: |
-        pip install -r requirements-test.txt
-    - name: pytest CLI multisig
-      run: |
-        pytest -v test_multiwallet.py
-      env:
-        SKIP_GH_UNRELIABLE_TESTS: True
-    - name: pytest CLI singlesig
-      run: |
-        pytest -v test_singlesweep.py
 
   unit-tests:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        # TODO: consider cutting down on python-version/os combos for speed
         python-version: [3.6, 3.7, 3.8, 3.9, "3.10"]
-        os: [ubuntu-20.04, macos-11, windows-2019]
+        os: [ubuntu-20.04, macos-11, macos-12, windows-2019, windows-2022]
+        # TODO: add ubuntu-22.04 support! Something is up with openssl for that
+        # https://github.com/bitcoin-core/secp256k1/issues/542
+        exclude:
+          # Ubuntu 22.04 doesn't come with python 3.6 installed
+          - os: ubuntu-22.04
+            python-version: 3.6
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install python testing dependencies
+        cache: 'pip'
+        cache-dependency-path: '**/requirements-test.txt'
+    - name: Install python dependencies
       run: |
         pip install -r requirements-test.txt
-    - name: pytest unit tests
+    - name: pytest unit tests in pure python
       run: |
-        pytest -v buidl/test
+        pytest -vv --durations=0  buidl/test 
+ 
+
