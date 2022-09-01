@@ -538,13 +538,16 @@ Extra:\n{self.extra_map}
         return tx_obj
 
     @classmethod
-    def parse_base64(cls, b64, network=None):
+    def parse_base64(cls, b64, network=None, require_prevtx=True):
         stream = BytesIO(base64_decode(b64))
-        return cls.parse(stream, network=network)
+        return cls.parse(stream, network=network, require_prevtx=require_prevtx)
 
     @classmethod
-    def parse(cls, s, network=None):
-        """Returns an instance of PSBT from a stream"""
+    def parse(cls, s, network=None, require_prevtx=True):
+        """
+        Returns an instance of PSBT from a stream
+        `require_prevtx` is an EXPERTS ONLY flag
+        """
         # prefix
         magic = s.read(4)
         if magic != PSBT_MAGIC:
@@ -585,7 +588,9 @@ Extra:\n{self.extra_map}
         # per input data
         psbt_ins = []
         for tx_in in tx_obj.tx_ins:
-            psbt_in = PSBTIn.parse(s, tx_in, network=network)
+            psbt_in = PSBTIn.parse(
+                s, tx_in, network=network, require_prevtx=require_prevtx
+            )
             for named_pub in psbt_in.named_pubs.values():
                 if network is None:
                     network = named_pub.network
@@ -1116,6 +1121,7 @@ class PSBTIn:
         script_sig=None,
         witness=None,
         extra_map=None,
+        require_prevtx=True,
     ):
         self.tx_in = tx_in
         self.prev_tx = prev_tx
@@ -1128,10 +1134,14 @@ class PSBTIn:
         self.script_sig = script_sig
         self.witness = witness
         self.extra_map = extra_map or {}
-        self.validate()
+        self.validate(require_prevtx=require_prevtx)
 
-    def validate(self):
-        """Checks the PSBTIn for consistency"""
+    def validate(self, require_prevtx=True):
+        """
+        Checks the PSBTIn for consistency
+        `require_prevtx` is an EXPERTS ONLY flag to allow a nonstandard PSBT without prev_tx objects (for each PSBTIn)
+        Only use this is you understand the bandwidth/security tradeoffs
+        """
         script_pubkey = self.script_pubkey()
         if self.prev_tx:
             if self.tx_in.prev_tx != self.prev_tx.hash():
@@ -1190,22 +1200,36 @@ class PSBTIn:
         else:
             # non-witness input
             if self.redeem_script:
-                if not script_pubkey.is_p2sh():
-                    raise ValueError("RedeemScript defined for non-p2sh ScriptPubKey")
+                if require_prevtx:
+                    # Excluding prev_tx for non-witness inputs reduces validation and is against the BIP174 PSBT spec
+                    # It can save a ton on bandwidth if you understand the risks and perform these checks elsewhere
+                    # https://github.com/buidl-bitcoin/buidl-python/pull/145
+                    if script_pubkey is None:
+                        raise ValueError(
+                            "Cannot validate prev_tx without a script_pubkey"
+                        )
+
+                    if not script_pubkey.is_p2sh():
+                        raise ValueError(
+                            "RedeemScript defined for non-p2sh ScriptPubKey"
+                        )
+                    h160 = script_pubkey.commands[1]
+                    if self.redeem_script.hash160() != h160:
+                        raise ValueError(
+                            "RedeemScript hash160 and ScriptPubKey hash160 do not match"
+                        )
+
                 # non-witness p2sh
                 if self.redeem_script.is_p2wsh() or self.redeem_script.is_p2wpkh():
                     raise ValueError("Non-witness UTXO provided for witness input")
-                h160 = script_pubkey.commands[1]
-                if self.redeem_script.hash160() != h160:
-                    raise ValueError(
-                        "RedeemScript hash160 and ScriptPubKey hash160 do not match"
-                    )
+
                 for sec in self.named_pubs.keys():
                     try:
                         # this will raise a ValueError if it's not in there
                         self.redeem_script.commands.index(sec)
                     except ValueError:
                         raise ValueError(f"pubkey is not in RedeemScript {self}")
+
             elif script_pubkey and script_pubkey.is_p2pkh():
                 if len(self.named_pubs) > 1:
                     raise ValueError("too many pubkeys in p2pkh")
@@ -1232,7 +1256,7 @@ Witness:\n{self.witness}
 """
 
     @classmethod
-    def parse(cls, s, tx_in, network=None):
+    def parse(cls, s, tx_in, network=None, require_prevtx=True):
         prev_tx = None
         prev_out = None
         sigs = {}
@@ -1325,6 +1349,7 @@ Witness:\n{self.witness}
             script_sig,
             witness,
             extra_map,
+            require_prevtx,
         )
 
     def serialize(self):
