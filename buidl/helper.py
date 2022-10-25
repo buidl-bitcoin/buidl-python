@@ -361,7 +361,7 @@ def path_network(root_path):
     components = root_path.split("/")
     if len(components) < 2:
         return "mainnet"
-    elif components[1] in ("44'", "84'", "48'") and components[2] == "1'":
+    elif components[1] in ("44'", "45'", "84'", "48'") and components[2] == "1'":
         return "testnet"
     else:
         return "mainnet"
