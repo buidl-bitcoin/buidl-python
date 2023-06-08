@@ -43,7 +43,7 @@ jobs:
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --statistics --config .flake8
+        flake8 . --count --statistics
     - name: Lint with black
       run: |
         black . --diff --check --exclude='tests_wycheproof_generate.py'
