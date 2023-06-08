@@ -384,7 +384,7 @@ class PrivateKey:
         ):
             raise RuntimeError("libsecp256k1 keypair creation problem")
         raw_sig = ffi.new("unsigned char [64]")
-        if not lib.secp256k1_schnorrsig_sign(GLOBAL_CTX, raw_sig, msg, keypair, aux):
+        if not lib.secp256k1_schnorrsig_sign32(GLOBAL_CTX, raw_sig, msg, keypair, aux):
             raise RuntimeError("libsecp256k1 schnorr signing problem")
         return SchnorrSignature(bytes(ffi.buffer(raw_sig, 64)))
 
