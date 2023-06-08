@@ -1,0 +1,7 @@
+[tool.black]
+extend-exclude = '''
+/(
+  # You can add more by starting lines with |
+  | tests_wycheproof_generate.py
+)/
+'''
