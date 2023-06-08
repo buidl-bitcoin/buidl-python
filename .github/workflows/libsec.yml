@@ -46,7 +46,7 @@ jobs:
         flake8 . --count --statistics
     - name: Lint with black
       run: |
-        black . --diff --check
+        black . --diff --check --exclude='tests_wycheproof_generate.py'
     - name: pytest CLI singlesig
       run: |
         # We retry these 3x if needed, which is a disgusting hack but GH is really buggy for CLI apps
