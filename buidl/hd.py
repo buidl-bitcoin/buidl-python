@@ -158,7 +158,8 @@ class HDPrivateKey:
         """Returns the child HDPrivateKey at a particular index.
         Hardened children return for indices >= 0x8000000.
         """
-        # if index >= 0x80000000
+        if index < 0:
+            raise ValueError("index should always be positive")
         if index >= 0x80000000:
             # the message data is the private key secret in 33 bytes in
             #  big-endian and the index in 4 bytes big-endian.
@@ -589,11 +590,13 @@ class HDPublicKey:
 
     def child(self, index):
         """Returns the child HDPublicKey at a particular index.
-        Raises ValueError for indices >= 0x8000000.
+        Raises ValueError for indices >= 0x8000000 and indices < 0.
         """
-        # if index >= 0x80000000, raise a ValueError
         if index >= 0x80000000:
             raise ValueError("child number should always be less than 2^31")
+        if index < 0:
+            raise ValueError("child number should always be positive")
+
         # data is the SEC compressed and the index in 4 bytes big-endian
         data = self.point.sec() + int_to_big_endian(index, 4)
         # get hmac_sha512 with chain code, data

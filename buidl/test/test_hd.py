@@ -55,7 +55,11 @@ class HDTest(TestCase):
             addr = priv.child(0x80000002).p2wpkh_address()
             self.assertEqual(addr, want2)
             with self.assertRaises(ValueError):
+                priv.child(-1)
+            with self.assertRaises(ValueError):
                 pub.child(0x80000002)
+            with self.assertRaises(ValueError):
+                pub.child(-1)
 
     def test_traverse(self):
         seed = b"jimmy@programmingblockchain.com Jimmy Song"
