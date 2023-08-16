@@ -10,7 +10,7 @@ It is easy-to-read, has extensive test coverage, simple to install on airgapped 
 * **Performant** - optional [secp256k1 library bindings](https://github.com/bitcoin-core/secp256k1) offers a ~100x speedup, see [performance section below](#performance)
 * **Wallet tools** for various script types (`p2pkh`, `p2sh`, `p2sh-wrapped-p2wsh`, `p2wsh` and `p2tr` (coming soon) ), compressed/uncompressed pubkeys, address encodings, HD support (BIP32, BIP39, BIP44, seedpicker, etc), PSBT generation/decoding/validation, etc
 * **Extensive multisig support**/tooling for output descriptors, receive address validation, change address detection, fee verification, blinding xpubs, PSBTs, [BCUR v0](https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2020-005-ur.md) (v1 coming soon), airgap signing, etc
-* **SPV proofs and compact block filters** (Neutrino) - build powerful trust-minimized apps without scanning the whole blockchain
+* **SPV proofs and compact block filters** (Neutrino) - build powerful trust-minimized apps without scanning the whole blockchain.
 * **P2P gossip network** - connect directly to the bitcoin network
 * **Footgun protection** - from elegantly structured OOP classes to [RFC6979](https://datatracker.ietf.org/doc/html/rfc6979) deterministic k-values, `buidl` is designed to be usable for non-cryptographers
 * **0 altcoins** - for maximum readability/focus. The only other supported coins are bitcoin's `testnet` and `signet`, which intentionally have no value.
