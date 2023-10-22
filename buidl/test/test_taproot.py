@@ -11,7 +11,6 @@ from buidl.taproot import (
     ControlBlock,
     TapLeaf,
     TapBranch,
-    TapRoot,
 )
 from buidl.tx import Tx
 from buidl.witness import Witness
@@ -26,7 +25,7 @@ class TaprootTest(TestCase):
         )
         t = TapRoot(point)
         self.assertEqual(
-            t.tweak_point.bip340().hex(),
+            t.tweak_point.xonly().hex(),
             "a60869f0dbcf1dc659c9cecbaf8050135ea9e8cdc487053f1dc6880949dc684c",
         )
 
@@ -58,16 +57,16 @@ class TaprootTest(TestCase):
             },
         ]
         for test in tests:
-            point = S256Point.parse_bip340(
+            point = S256Point.parse_xonly(
                 bytes.fromhex(test["given"]["internalPubkey"])
             )
             raw_tweak = bytes.fromhex(test["intermediary"]["tweak"])
             tap_root = TapRoot(point)
             self.assertEqual(tap_root.tweak, big_endian_to_int(raw_tweak))
-            tweak_point_want = S256Point.parse_bip340(
+            tweak_point_want = S256Point.parse_xonly(
                 bytes.fromhex(test["intermediary"]["tweakedPubkey"])
             )
-            self.assertEqual(tap_root.bip340(), tweak_point_want.bip340())
+            self.assertEqual(tap_root.xonly(), tweak_point_want.xonly())
             stream = BytesIO(
                 encode_varstr(bytes.fromhex(test["expected"]["scriptPubKey"]))
             )
@@ -287,7 +286,7 @@ class TaprootTest(TestCase):
                 return TapBranch(parse_item(item[0]), parse_item(item[1]))
 
         for test in tests:
-            point = S256Point.parse_bip340(
+            point = S256Point.parse_xonly(
                 bytes.fromhex(test["given"]["internalPubkey"])
             )
             tap_tree = parse_item(test["given"]["scriptTree"])
@@ -297,10 +296,10 @@ class TaprootTest(TestCase):
             tap_root = TapRoot(point, tap_tree)
             raw_tweak = bytes.fromhex(test["intermediary"]["tweak"])
             self.assertEqual(tap_root.tweak, big_endian_to_int(raw_tweak))
-            tweak_point_want = S256Point.parse_bip340(
+            tweak_point_want = S256Point.parse_xonly(
                 bytes.fromhex(test["intermediary"]["tweakedPubkey"])
             )
-            self.assertEqual(tap_root.bip340(), tweak_point_want.bip340())
+            self.assertEqual(tap_root.xonly(), tweak_point_want.xonly())
             stream = BytesIO(
                 encode_varstr(bytes.fromhex(test["expected"]["scriptPubKey"]))
             )
@@ -579,7 +578,7 @@ class TaprootTest(TestCase):
             pubkey = private_key.point
             hash_type = input_data["given"]["hashType"]
             self.assertEqual(
-                pubkey.bip340().hex(), input_data["intermediary"]["internalPubkey"]
+                pubkey.xonly().hex(), input_data["intermediary"]["internalPubkey"]
             )
             mr_hex = input_data["given"]["merkleRoot"]
             if mr_hex is None:

@@ -89,7 +89,7 @@ class MuSigTest(TestCase):
             self.assertEqual(nonce_sums[1], r_2_sum)
             self.assertEqual(musig.compute_coefficient(nonce_sums, msg), test[-2])
             r = musig.compute_r(nonce_sums, msg)
-            self.assertEqual(r.bip340().hex(), want)
+            self.assertEqual(r.xonly().hex(), want)
 
     def test_musig2_point_aggregation(self):
         tests = [
@@ -144,9 +144,9 @@ class MuSigTest(TestCase):
         ]
         for test in tests:
             want = bytes.fromhex(test[-1])
-            points = [S256Point.parse_bip340(bytes.fromhex(h)) for h in test[:-1]]
+            points = [S256Point.parse_xonly(bytes.fromhex(h)) for h in test[:-1]]
             tap_script = MuSigTapScript(points)
-            self.assertEqual(tap_script.point.bip340(), want)
+            self.assertEqual(tap_script.point.xonly(), want)
 
     def test_single_leaf_multisig(self):
         hd_priv_key = HDPrivateKey.from_mnemonic(

@@ -266,7 +266,7 @@ class Script:
                         if tweak_point.parity != control_block.parity:
                             print("bad tweak point parity")
                             return False
-                        if tweak_point.bip340() != stack.pop():
+                        if tweak_point.xonly() != stack.pop():
                             print("bad tweak point")
                             return False
                         # pop off the 1 and start fresh
@@ -533,7 +533,7 @@ class P2TRScriptPubKey(ScriptPubKey):
     def __init__(self, point):
         super().__init__()
         if type(point) == S256Point:
-            raw_point = point.bip340()
+            raw_point = point.xonly()
         elif type(point) == bytes:
             raw_point = point
         else:

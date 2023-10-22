@@ -264,11 +264,28 @@ class S256Point(Point):
             y = int_to_big_endian(self.y.num, 32)
             return b"\x04" + x + y
 
-    def bip340(self):
-        # returns the binary version of BIP340 pubkey
+    def xonly(self):
+        # returns the binary version of XONLY pubkey
         if self.x is None:
             return int_to_big_endian(0, 32)
         return int_to_big_endian(self.x.num, 32)
+
+    def tweak(self, merkle_root=b""):
+        """returns the tweak for use in p2tr if there's no script path"""
+        # take the hash_taptweak of the xonly and the merkle root
+        tweak = hash_taptweak(self.xonly() + merkle_root)
+        return tweak
+
+    def tweaked_key(self, merkle_root=b""):
+        """Creates the tweaked external key for a particular tweak."""
+        # Get the tweak with the merkle root
+        tweak = self.tweak(merkle_root)
+        # t is the tweak interpreted as a big endian integer
+        t = big_endian_to_int(tweak)
+        # Q = P + tG
+        external_key = self + t
+        # return the external key
+        return external_key
 
     def hash160(self, compressed=True):
         # get the sec
@@ -299,9 +316,10 @@ class S256Point(Point):
     def p2tr_script(self):
         """Returns the p2tr Script object"""
         # avoid circular dependency
-        from buidl.taproot import TapRoot
+        from buidl.script import P2TRScriptPubKey
 
-        return TapRoot(self).script_pubkey()
+        external_pubkey = self.tweaked_key(merkle_root)
+        return P2TRScriptPubKey(self)
 
     def p2pk_tap_script(self):
         """Returns the p2tr Script object"""
@@ -355,20 +373,20 @@ class S256Point(Point):
             point = self
         if schnorr_sig.r.x is None:
             return False
-        message = schnorr_sig.r.bip340() + point.bip340() + msg
+        message = schnorr_sig.r.xonly() + point.xonly() + msg
         challenge = big_endian_to_int(hash_challenge(message)) % N
         result = -challenge * point + schnorr_sig.s
         if result.x is None:
             return False
         if result.parity:
             return False
-        return result.bip340() == schnorr_sig.r.bip340()
+        return result.xonly() == schnorr_sig.r.xonly()
 
     @classmethod
     def parse(cls, binary):
-        """returns a Point object from a SEC or BIP340 pubkey"""
+        """returns a Point object from a SEC or XONLY pubkey"""
         if len(binary) == 32:
-            return cls.parse_bip340(binary)
+            return cls.parse_xonly(binary)
         elif len(binary) in (33, 65):
             return cls.parse_sec(binary)
         else:
@@ -399,9 +417,9 @@ class S256Point(Point):
             return cls(x, odd_beta)
 
     @classmethod
-    def parse_bip340(cls, bip340_bin):
-        """returns a Point object from a BIP340 pubkey"""
-        n = big_endian_to_int(bip340_bin)
+    def parse_xonly(cls, xonly_bin):
+        """returns a Point object from a XONLY pubkey"""
+        n = big_endian_to_int(xonly_bin)
         if n == 0:
             # point at infinity
             return cls(None, None)
@@ -498,7 +516,7 @@ class SchnorrSignature:
         return self.r == other.r and self.s == other.s
 
     def serialize(self):
-        return self.r.bip340() + int_to_big_endian(self.s, 32)
+        return self.r.xonly() + int_to_big_endian(self.s, 32)
 
     @classmethod
     def parse(cls, signature_bin):
@@ -547,12 +565,12 @@ class PrivateKey:
         if len(aux) != 32:
             raise ValueError("aux needs to be 32 bytes")
         t = xor_bytes(int_to_big_endian(d, 32), hash_aux(aux))
-        k = big_endian_to_int(hash_nonce(t + self.point.bip340() + msg)) % N
+        k = big_endian_to_int(hash_nonce(t + self.point.xonly() + msg)) % N
         r = k * G
         if r.parity:
             k = N - k
             r = k * G
-        message = r.bip340() + self.point.bip340() + msg
+        message = r.xonly() + self.point.xonly() + msg
         e = big_endian_to_int(hash_challenge(message)) % N
         s = (k + e * d) % N
         sig = SchnorrSignature(r, s)

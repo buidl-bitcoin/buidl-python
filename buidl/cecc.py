@@ -134,8 +134,8 @@ class S256Point:
                 self.usec = bytes(ffi.buffer(serialized, 65))
             return self.usec
 
-    def bip340(self):
-        # returns the binary version of BIP340 pubkey
+    def xonly(self):
+        # returns the binary version of XONLY pubkey
         xonly_key = ffi.new("secp256k1_xonly_pubkey *")
         if not lib.secp256k1_xonly_pubkey_from_pubkey(
             GLOBAL_CTX, xonly_key, ffi.NULL, self.c
@@ -145,6 +145,23 @@ class S256Point:
         if not lib.secp256k1_xonly_pubkey_serialize(GLOBAL_CTX, output32, xonly_key):
             raise RuntimeError("libsecp256k1 xonly serialize error")
         return bytes(ffi.buffer(output32, 32))
+
+    def tweak(self, merkle_root=b""):
+        """returns the tweak for use in p2tr if there's no script path"""
+        # take the hash_taptweak of the xonly and the merkle root
+        tweak = hash_taptweak(self.xonly() + merkle_root)
+        return tweak
+
+    def tweaked_key(self, merkle_root=b""):
+        """Creates the tweaked external key for a particular tweak."""
+        # Get the tweak with the merkle root
+        tweak = self.tweak(merkle_root)
+        # t is the tweak interpreted as a big endian integer
+        t = big_endian_to_int(tweak)
+        # Q = P + tG
+        external_key = self + t
+        # return the external key
+        return external_key
 
     def hash160(self, compressed=True):
         # get the sec
@@ -175,15 +192,15 @@ class S256Point:
     def p2tr_script(self):
         """Returns the p2tr Script object"""
         # avoid circular dependency
-        from buidl.taproot import TapRoot
+        from buidl.script import P2TRScriptPubKey
 
-        return TapRoot(self).script_pubkey()
+        external_pubkey = self.tweaked_key(merkle_root)
+        return P2TRScriptPubKey(self)
 
     def p2pk_tap_script(self):
         """Returns the p2tr Script object"""
         # avoid circular dependency
         from buidl.script import P2PKTapScript
-
         return P2PKTapScript(self)
 
     def address(self, compressed=True, network="mainnet"):
@@ -214,9 +231,9 @@ class S256Point:
 
     @classmethod
     def parse(cls, binary):
-        """returns a Point object from a SEC or BIP340 pubkey"""
+        """returns a Point object from a SEC or XONLY pubkey"""
         if len(binary) == 32:
-            return cls.parse_bip340(binary)
+            return cls.parse_xonly(binary)
         elif len(binary) in (33, 65):
             return cls.parse_sec(binary)
         else:
@@ -231,7 +248,7 @@ class S256Point:
             return cls(csec=sec_bin)
 
     @classmethod
-    def parse_bip340(cls, binary):
+    def parse_xonly(cls, binary):
         sec_bin = b"\x02" + binary
         return cls(csec=sec_bin)
 

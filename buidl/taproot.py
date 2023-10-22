@@ -109,17 +109,17 @@ class TapBranch:
 
 class TapRoot:
     def __init__(self, internal_pubkey, tap_node=None, merkle_root=None):
-        self.internal_pubkey = S256Point.parse_bip340(internal_pubkey.bip340())
+        self.internal_pubkey = S256Point.parse_xonly(internal_pubkey.xonly())
         self.tap_node = tap_node
         if merkle_root is not None:
             self.tweak = big_endian_to_int(
-                hash_taptweak(internal_pubkey.bip340() + merkle_root)
+                hash_taptweak(internal_pubkey.xonly() + merkle_root)
             )
         elif tap_node is None:
-            self.tweak = big_endian_to_int(hash_taptweak(internal_pubkey.bip340()))
+            self.tweak = big_endian_to_int(hash_taptweak(internal_pubkey.xonly()))
         else:
             self.tweak = big_endian_to_int(
-                hash_taptweak(internal_pubkey.bip340() + tap_node.hash())
+                hash_taptweak(internal_pubkey.xonly() + tap_node.hash())
             )
         self.tweak_point = self.internal_pubkey + self.tweak
         self.parity = self.tweak_point.parity
@@ -127,8 +127,8 @@ class TapRoot:
     def address(self, network="mainnet"):
         return self.script_pubkey().address(network=network)
 
-    def bip340(self):
-        return self.tweak_point.bip340()
+    def xonly(self):
+        return self.tweak_point.xonly()
 
     def leaves(self):
         if self.tap_node:
@@ -145,7 +145,7 @@ class TapRoot:
         if leaf not in self.tap_node.leaves():
             return None
         raw = int_to_byte(leaf.tapleaf_version + self.tweak_point.parity)
-        raw += self.internal_pubkey.bip340()
+        raw += self.internal_pubkey.xonly()
         raw += self.tap_node.path_hashes(leaf)
         return ControlBlock.parse(raw)
 
@@ -173,14 +173,14 @@ class ControlBlock:
         return current
 
     def tweak(self, leaf):
-        return hash_taptweak(self.internal_pubkey.bip340() + self.merkle_root(leaf))
+        return hash_taptweak(self.internal_pubkey.xonly() + self.merkle_root(leaf))
 
     def tweak_point(self, leaf):
         return self.internal_pubkey + big_endian_to_int(self.tweak(leaf))
 
     def serialize(self):
         s = int_to_byte(self.tapleaf_version + self.parity)
-        s += self.internal_pubkey.bip340()
+        s += self.internal_pubkey.xonly()
         for h in self.hashes:
             s += h
         return s
@@ -194,7 +194,7 @@ class ControlBlock:
             raise ValueError(f"length is outside the bounds {b_len}")
         tapleaf_version = b[0] & 0xFE
         parity = b[0] & 1
-        internal_pubkey = S256Point.parse_bip340(b[1:33])
+        internal_pubkey = S256Point.parse_xonly(b[1:33])
         m = (b_len - 33) // 32
         hashes = [b[33 + 32 * i : 65 + 32 * i] for i in range(m)]
         return cls(tapleaf_version, parity, internal_pubkey, hashes)
@@ -209,7 +209,7 @@ class P2PKTapScript(TapScript):
     def __init__(self, point):
         super().__init__()
         if type(point) == S256Point:
-            raw_point = point.bip340()
+            raw_point = point.xonly()
         elif type(point) == bytes:
             raw_point = point
         else:
@@ -226,18 +226,18 @@ class MultiSigTapScript(TapScript):
         super().__init__()
         if len(points) == 0:
             raise ValueError("To initialize MultiSigTapScript at least one point")
-        bip340s = sorted([p.bip340() for p in points])
-        self.points = [S256Point.parse_bip340(b) for b in bip340s]
+        xonlys = sorted([p.xonly() for p in points])
+        self.points = [S256Point.parse_xonly(b) for b in xonlys]
         if locktime is not None:
             self.commands = locktime_commands(locktime)
         elif sequence is not None:
             self.commands = sequence_commands(sequence)
         else:
             self.commands = []
-        self.commands += [bip340s[0], 0xAC]
+        self.commands += [xonlys[0], 0xAC]
         if len(points) > 1:
-            for bip340 in bip340s[1:]:
-                self.commands += [bip340, 0xBA]
+            for xonly in xonlys[1:]:
+                self.commands += [xonly, 0xBA]
             self.commands += [number_to_op_code(k), 0x87]
 
 
@@ -250,15 +250,15 @@ class MuSigTapScript(TapScript):
         super().__init__()
         if len(points) == 0:
             raise ValueError("Need at least one public key")
-        bip340s = sorted([p.bip340() for p in points])
-        self.points = [S256Point.parse_bip340(b) for b in bip340s]
-        self.commitment = hash_keyagglist(b"".join(bip340s))
+        xonlys = sorted([p.xonly() for p in points])
+        self.points = [S256Point.parse_xonly(b) for b in xonlys]
+        self.commitment = hash_keyagglist(b"".join(xonlys))
         self.coefs = [
-            big_endian_to_int(hash_keyaggcoef(self.commitment + b)) for b in bip340s
+            big_endian_to_int(hash_keyaggcoef(self.commitment + b)) for b in xonlys
         ]
         # the second unique public key has a coefficient of 1
         self.coefs[1] = 1
-        self.coef_lookup = {b: c for c, b in zip(self.coefs, bip340s)}
+        self.coef_lookup = {b: c for c, b in zip(self.coefs, xonlys)}
         # aggregate point
         self.point = S256Point.combine([c * p for c, p in zip(self.coefs, self.points)])
         if locktime is not None:
@@ -267,7 +267,7 @@ class MuSigTapScript(TapScript):
             self.commands = sequence_commands(sequence)
         else:
             self.commands = []
-        self.commands += [self.point.bip340(), 0xAC]
+        self.commands += [self.point.xonly(), 0xAC]
 
     def get_tweak_point(self, tweak):
         if self.point.parity:
@@ -287,7 +287,7 @@ class MuSigTapScript(TapScript):
 
     def compute_coefficient(self, nonce_sums, sig_hash):
         bytes_to_hash = (
-            nonce_sums[0].sec() + nonce_sums[1].sec() + self.point.bip340() + sig_hash
+            nonce_sums[0].sec() + nonce_sums[1].sec() + self.point.xonly() + sig_hash
         )
         return big_endian_to_int(hash_musignonce(bytes_to_hash))
 
@@ -301,9 +301,9 @@ class MuSigTapScript(TapScript):
 
     def sign(self, private_key, k, r, sig_hash, tweak=0):
         tweak_point = self.get_tweak_point(tweak)
-        msg = r.bip340() + tweak_point.bip340() + sig_hash
+        msg = r.xonly() + tweak_point.xonly() + sig_hash
         challenge = big_endian_to_int(hash_challenge(msg)) % N
-        h_i = self.coef_lookup[private_key.point.bip340()]
+        h_i = self.coef_lookup[private_key.point.xonly()]
         c_i = h_i * challenge % N
         if r.parity == tweak_point.parity:
             k_real = k
@@ -318,7 +318,7 @@ class MuSigTapScript(TapScript):
     def get_signature(self, s_sum, r, sig_hash, tweak=0):
         tweak_point = self.get_tweak_point(tweak)
         if tweak:
-            msg = r.bip340() + tweak_point.bip340() + sig_hash
+            msg = r.xonly() + tweak_point.xonly() + sig_hash
             challenge = big_endian_to_int(hash_challenge(msg)) % N
             if tweak_point.parity:
                 s = (-s_sum - challenge * tweak) % N
@@ -327,7 +327,7 @@ class MuSigTapScript(TapScript):
         else:
             s = s_sum % N
         s_raw = int_to_big_endian(s, 32)
-        sig = r.bip340() + s_raw
+        sig = r.xonly() + s_raw
         schnorrsig = SchnorrSignature.parse(sig)
         if not tweak_point.verify_schnorr(sig_hash, schnorrsig):
             raise ValueError("Invalid signature")

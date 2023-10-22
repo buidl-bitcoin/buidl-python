@@ -220,7 +220,7 @@ class PrivateKeyTest(TestCase):
         if r.parity:
             k = N - k
             r = k * G
-        message = r.bip340() + tweak_point.bip340() + msg
+        message = r.xonly() + tweak_point.xonly() + msg
         challenge = big_endian_to_int(hash_challenge(message)) % N
         if pk.point.parity == tweak_point.parity:
             secret = pk.secret
@@ -231,5 +231,5 @@ class PrivateKeyTest(TestCase):
             s = (s - challenge * tweak) % N
         else:
             s = (s + challenge * tweak) % N
-        sig = SchnorrSignature.parse(r.bip340() + int_to_big_endian(s, 32))
+        sig = SchnorrSignature.parse(r.xonly() + int_to_big_endian(s, 32))
         self.assertTrue(tweak_point.verify_schnorr(msg, sig))
