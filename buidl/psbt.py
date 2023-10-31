@@ -665,7 +665,6 @@ Extra:\n{self.extra_map}
                 raise ValueError(f"xfp_hex {xfp_to_hide} not found in psbt")
 
     def _describe_basic_multisig_inputs(self, hdpubkey_map):
-
         # These will be used for all inputs and change outputs
         inputs_quorum_m, inputs_quorum_n = None, None
 
@@ -791,7 +790,6 @@ Extra:\n{self.extra_map}
         expected_quorum_n,
         hdpubkey_map={},
     ):
-
         # intialize variable we'll loop through to set
         outputs_desc = []
         spend_addr, spend_sats = "", 0
@@ -1608,7 +1606,7 @@ Witness:\n{self.witness}
             # for each command in the RedeemScript
             for command in self.redeem_script.commands:
                 # skip if the command is an integer
-                if type(command) == int:
+                if isinstance(command, int):
                     continue
                 # grab the sig for the pubkey
                 sig = self.sigs.get(command)

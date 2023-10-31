@@ -8,7 +8,6 @@ from buidl.hash import hash_challenge
 from buidl.helper import big_endian_to_int, int_to_big_endian
 
 
-
 class S256Test(TestCase):
     def test_pubpoint(self):
         # write a test that tests the public point for the following

@@ -39,7 +39,6 @@ class P2SHTest(TestCase):
         # https://blockstream.info/testnet/tx/4412d2a7664d01bb784a0a359e9aacf160ee436067c6a42dca355da4817ca7da
 
     def test_sweep_1of2_p2sh(self):
-
         # This test will produce a validly signed TX for the 1-of-2 p2sh using either key, which will result in a different TX ID
         # d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490 is the one that was broadcast to the testnet blockchain:
         # https://blockstream.info/testnet/tx/d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490
@@ -108,7 +107,6 @@ class P2SHTest(TestCase):
 
             root_path_to_use = None
             for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
-
                 self.assertEqual(psbt_in.redeem_script.get_quorum(), (1, 2))
 
                 # For this TX there is only one psbt_in (1 input)
@@ -140,7 +138,6 @@ class P2SHTest(TestCase):
         create_multisig_psbt(**kwargs, script_type="p2sh")
 
     def test_sweep_1of2_p2sh_with_non_BIP67_input(self):
-
         # This test will produce a validly signed TX for the 1-of-2 p2sh using either key, which will result in a different TX ID
         # d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490 is the one that was broadcast to the testnet blockchain:
         # https://blockstream.info/testnet/tx/d8172be9981a4f57e6e4ebe0f4785f5f2035aee40ffbb2d6f1200810a879d490
@@ -209,7 +206,6 @@ class P2SHTest(TestCase):
 
             root_path_to_use = None
             for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
-
                 self.assertEqual(psbt_in.redeem_script.get_quorum(), (1, 2))
 
                 # For this TX there is only one psbt_in (1 input)
@@ -233,7 +229,6 @@ class P2SHTest(TestCase):
             self.assertEqual(psbt_obj.final_tx().hash().hex(), signed_tx_hash_hex)
 
     def test_spend_1of2_with_change(self):
-
         kwargs = {
             # this part is unchanged from the previous
             "public_key_records": [
@@ -316,7 +311,6 @@ class P2SHTest(TestCase):
 
             root_path_to_use = None
             for cnt, psbt_in in enumerate(psbt_obj.psbt_ins):
-
                 self.assertEqual(psbt_in.redeem_script.get_quorum(), (1, 2))
 
                 # For this TX there is only one psbt_in (1 input)
@@ -579,7 +573,6 @@ class P2SHTest(TestCase):
             psbt_desc_want,
             expected_tx_hash,
         ) in test_outputs:
-
             # Return all the funds to the faucet address
             psbt_obj = create_multisig_psbt(
                 public_key_records=pubkey_records,

@@ -15,7 +15,6 @@ class MultiwalletTest(unittest.TestCase):
         """
         buffer = ""
         while True:
-
             try:
                 # This will error out at the end of the buffer
                 latest_char = self.child.read(1)

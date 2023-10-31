@@ -217,7 +217,7 @@ class S256Field(FieldElement):
 class S256Point(Point):
     def __init__(self, x, y, a=None, b=None):
         a, b = S256Field(A), S256Field(B)
-        if type(x) == int:
+        if isinstance(x, int):
             super().__init__(x=S256Field(x), y=S256Field(y), a=a, b=b)
         else:
             super().__init__(x=x, y=y, a=a, b=b)
@@ -244,7 +244,7 @@ class S256Point(Point):
 
     def __add__(self, other):
         """If other is an int, multiplies scalar by generator, adds result to current point"""
-        if type(other) == int:
+        if isinstance(other, int):
             return super().__add__(other * G)
         else:
             return super().__add__(other)

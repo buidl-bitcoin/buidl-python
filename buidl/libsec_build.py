@@ -13,5 +13,10 @@ header = """
 
 ffi = FFI()
 ffi.cdef(source)
-ffi.set_source("_libsec", header, libraries=["secp256k1"], include_dirs=["/opt/homebrew/Cellar/libsecp256k1/0.1/include"])
+ffi.set_source(
+    "_libsec",
+    header,
+    libraries=["secp256k1"],
+    include_dirs=["/opt/homebrew/Cellar/libsecp256k1/0.1/include"],
+)
 ffi.compile(verbose=True)

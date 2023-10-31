@@ -42,7 +42,7 @@ class Locktime(int):
         )
 
     def __lt__(self, other):
-        if type(other) == int:
+        if type(other) is int:
             return super().__lt__(other)
         if self.is_comparable(other):
             return super().__lt__(other)
@@ -108,7 +108,7 @@ class Sequence(int):
         )
 
     def __lt__(self, other):
-        if type(other) == int:
+        if type(other) is int:
             return super().__lt__(other)
         if self.is_comparable(other):
             return self & SEQUENCE_MASK < other & SEQUENCE_MASK

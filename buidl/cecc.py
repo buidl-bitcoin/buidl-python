@@ -209,6 +209,7 @@ class S256Point:
         """Returns the p2tr Script object"""
         # avoid circular dependency
         from buidl.script import P2PKTapScript
+
         return P2PKTapScript(self)
 
     def address(self, compressed=True, network="mainnet"):

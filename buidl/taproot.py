@@ -9,7 +9,6 @@ from buidl.hash import (
     hash_musignonce,
     hash_tapbranch,
     hash_tapleaf,
-    hash_taptweak,
 )
 from buidl.helper import (
     big_endian_to_int,
@@ -20,7 +19,7 @@ from buidl.op import (
     encode_minimal_num,
     number_to_op_code,
 )
-from buidl.script import Script, ScriptPubKey, P2TRScriptPubKey
+from buidl.script import Script, ScriptPubKey
 from buidl.timelock import Locktime, Sequence
 
 
@@ -48,7 +47,7 @@ class TapLeaf:
 
     def __eq__(self, other):
         return (
-            type(self) == type(other)
+            type(self) is type(other)
             and self.tapleaf_version == other.tapleaf_version
             and self.tap_script == other.tap_script
         )

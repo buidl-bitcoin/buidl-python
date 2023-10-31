@@ -68,8 +68,12 @@ class TaprootTest(TestCase):
             external_pubkey = point.tweaked_key(tweak=raw_tweak)
             self.assertEqual(external_pubkey.xonly(), external_pubkey_want.xonly())
             script_pubkey_want = bytes.fromhex(test["expected"]["scriptPubKey"])
-            self.assertEqual(point.p2tr_script(tweak=raw_tweak).raw_serialize(), script_pubkey_want)
-            self.assertEqual(point.p2tr_address(tweak=raw_tweak), test["expected"]["bip350Address"])
+            self.assertEqual(
+                point.p2tr_script(tweak=raw_tweak).raw_serialize(), script_pubkey_want
+            )
+            self.assertEqual(
+                point.p2tr_address(tweak=raw_tweak), test["expected"]["bip350Address"]
+            )
 
     def test_p2tr_general(self):
         tests = [
@@ -272,7 +276,7 @@ class TaprootTest(TestCase):
         ]
 
         def parse_item(item):
-            if type(item) == dict:
+            if isinstance(item, dict):
                 tapleaf_version = item["leafVersion"]
                 tap_script = TapScript.parse(
                     BytesIO(encode_varstr(bytes.fromhex(item["script"])))
@@ -302,7 +306,9 @@ class TaprootTest(TestCase):
             )
             script_pubkey_want = ScriptPubKey.parse(stream)
             self.assertEqual(point.p2tr_script(merkle_root), script_pubkey_want)
-            self.assertEqual(point.p2tr_address(merkle_root), test["expected"]["bip350Address"])
+            self.assertEqual(
+                point.p2tr_address(merkle_root), test["expected"]["bip350Address"]
+            )
             control_blocks = test["expected"]["scriptPathControlBlocks"]
             leaf_hashes = test["intermediary"]["leafHashes"]
             for control_block_hex, tap_leaf, leaf_hash in zip(
@@ -318,8 +324,12 @@ class TaprootTest(TestCase):
                 )
                 self.assertEqual(control_block.serialize(), control_block_raw)
                 self.assertEqual(control_block.internal_pubkey, point)
-                self.assertEqual(control_block.merkle_root(tap_leaf.tap_script), merkle_root)
-                self.assertEqual(control_block.internal_pubkey.tweak(merkle_root), raw_tweak)
+                self.assertEqual(
+                    control_block.merkle_root(tap_leaf.tap_script), merkle_root
+                )
+                self.assertEqual(
+                    control_block.internal_pubkey.tweak(merkle_root), raw_tweak
+                )
 
     def test_p2tr_spending(self):
         test = {

@@ -21,7 +21,7 @@ def secure_mnemonic(num_bits=256, extra_entropy=0):
     """
     if num_bits not in (128, 160, 192, 224, 256):
         raise ValueError(f"Invalid num_bits: {num_bits}")
-    if type(extra_entropy) is not int:
+    if not isinstance(extra_entropy, int):
         raise TypeError(f"extra_entropy must be an int: {extra_entropy}")
     if extra_entropy < 0:
         raise ValueError(f"extra_entropy cannot be negative: {extra_entropy}")
@@ -115,9 +115,9 @@ class WordList:
                 self.lookup[word[:4]] = i
 
     def __getitem__(self, key):
-        if type(key) == str:
+        if isinstance(key, str):
             return self.lookup[key]
-        elif type(key) == int:
+        elif isinstance(key, int):
             return self.words[key]
         else:
             raise KeyError("key needs to be a str or int")

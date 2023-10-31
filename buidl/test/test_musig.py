@@ -1,9 +1,9 @@
 from itertools import combinations
 from unittest import TestCase
 
-from buidl.ecc import S256Point, N, SchnorrSignature
+from buidl.ecc import S256Point
 from buidl.hd import HDPrivateKey
-from buidl.helper import SIGHASH_DEFAULT, big_endian_to_int, int_to_big_endian
+from buidl.helper import SIGHASH_DEFAULT
 from buidl.script import address_to_script_pubkey
 from buidl.taproot import MultiSigTapScript, MuSigTapScript, TapRootMultiSig
 from buidl.timelock import Locktime, Sequence
@@ -439,7 +439,9 @@ class MuSigTest(TestCase):
             leaf = MultiSigTapScript(pubkeys, 3).tap_leaf()
             self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_obj.initialize_p2tr_multisig(
-                input_index, branch.control_block(internal_pubkey, leaf), leaf.tap_script
+                input_index,
+                branch.control_block(internal_pubkey, leaf),
+                leaf.tap_script,
             )
             sigs = []
             for priv in private_keys:
@@ -1162,7 +1164,9 @@ class MuSigTest(TestCase):
             leaf = MultiSigTapScript(pubkeys, 3).tap_leaf()
             self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_obj.initialize_p2tr_multisig(
-                input_index, branch.control_block(internal_pubkey, leaf), leaf.tap_script
+                input_index,
+                branch.control_block(internal_pubkey, leaf),
+                leaf.tap_script,
             )
             sigs = []
             for priv in private_keys:
@@ -1230,9 +1234,7 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
-        branch = tr_multisig.degrading_multisig_tree(
-            sequence_time_interval=18 * 512
-        )
+        branch = tr_multisig.degrading_multisig_tree(sequence_time_interval=18 * 512)
         merkle_root = branch.hash()
         internal_pubkey = tr_multisig.default_internal_pubkey
         self.assertEqual(
@@ -1394,9 +1396,7 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
-        branch = tr_multisig.degrading_multisig_tree(
-            sequence_block_interval=18
-        )
+        branch = tr_multisig.degrading_multisig_tree(sequence_block_interval=18)
         merkle_root = branch.hash()
         internal_pubkey = tr_multisig.default_internal_pubkey
         self.assertEqual(
