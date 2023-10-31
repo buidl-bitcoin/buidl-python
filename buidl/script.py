@@ -260,8 +260,8 @@ class Script:
                     elif len(witness) > 1:
                         # this is a script path spend
                         control_block = witness.control_block()
-                        tap_leaf = witness.tap_leaf()
-                        tweak_point = control_block.tweak_point(tap_leaf)
+                        tap_script = witness.tap_script()
+                        tweak_point = control_block.external_pubkey(tap_script)
                         # the tweak point should be what's on the stack
                         if tweak_point.parity != control_block.parity:
                             print("bad tweak point parity")

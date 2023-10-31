@@ -1,3 +1,5 @@
+from os import urandom
+from random import randint
 from unittest import TestCase
 
 from buidl.ecc import G, N, S256Point, PrivateKey, Signature, SchnorrSignature
@@ -5,7 +7,6 @@ from buidl.bech32 import decode_bech32
 from buidl.hash import hash_challenge
 from buidl.helper import big_endian_to_int, int_to_big_endian
 
-from random import randint
 
 
 class S256Test(TestCase):
@@ -212,24 +213,25 @@ class PrivateKeyTest(TestCase):
         msg = int_to_big_endian(randint(1, N), 32)
         sig = pk.sign_schnorr(msg, aux=b"\x00" * 32)
         self.assertTrue(pk.point.verify_schnorr(msg, sig))
-        # tweak
-        tweak = randint(1, N)
-        tweak_point = pk.tweaked(tweak).point
+        # merkle root
+        merkle_root = urandom(32)
+        tweak = big_endian_to_int(pk.point.tweak(merkle_root))
+        external_pubkey = pk.tweaked_key(merkle_root).point
         k = randint(1, N)
         r = k * G
         if r.parity:
             k = N - k
             r = k * G
-        message = r.xonly() + tweak_point.xonly() + msg
+        message = r.xonly() + external_pubkey.xonly() + msg
         challenge = big_endian_to_int(hash_challenge(message)) % N
-        if pk.point.parity == tweak_point.parity:
+        if pk.point.parity == external_pubkey.parity:
             secret = pk.secret
         else:
             secret = -pk.secret
         s = (k + challenge * secret) % N
-        if tweak_point.parity:
+        if external_pubkey.parity:
             s = (s - challenge * tweak) % N
         else:
             s = (s + challenge * tweak) % N
         sig = SchnorrSignature.parse(r.xonly() + int_to_big_endian(s, 32))
-        self.assertTrue(tweak_point.verify_schnorr(msg, sig))
+        self.assertTrue(external_pubkey.verify_schnorr(msg, sig))

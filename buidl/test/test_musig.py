@@ -1,9 +1,9 @@
 from itertools import combinations
 from unittest import TestCase
 
-from buidl.ecc import S256Point
+from buidl.ecc import S256Point, N, SchnorrSignature
 from buidl.hd import HDPrivateKey
-from buidl.helper import SIGHASH_DEFAULT
+from buidl.helper import SIGHASH_DEFAULT, big_endian_to_int, int_to_big_endian
 from buidl.script import address_to_script_pubkey
 from buidl.taproot import MultiSigTapScript, MuSigTapScript, TapRootMultiSig
 from buidl.timelock import Locktime, Sequence
@@ -158,10 +158,11 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
-        tap_root_input = tr_multisig.single_leaf_tap_root()
-        leaf = tap_root_input.tap_node
+        internal_pubkey = tr_multisig.default_internal_pubkey
+        leaf = tr_multisig.single_leaf()
+        merkle_root = leaf.hash()
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1ppjjz7akunmrldfsldkhe5m7vhyx58g85pv7pw79jcere9tl4huqqdqezny",
         )
         prev_tx = bytes.fromhex(
@@ -171,7 +172,7 @@ class MuSigTest(TestCase):
         for prev_index in range(11):
             tx_in = TxIn(prev_tx, prev_index)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -184,8 +185,8 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
-                tap_root_input.tap_node.tap_script,
+                leaf.control_block(internal_pubkey, leaf),
+                leaf.tap_script,
             )
             sigs = []
             for priv in private_keys:
@@ -211,8 +212,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -229,10 +230,11 @@ class MuSigTest(TestCase):
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
         current_locktime = Locktime(1643332867)
-        tap_root_input = tr_multisig.single_leaf_tap_root(locktime=current_locktime)
-        leaf = tap_root_input.tap_node
+        internal_pubkey = tr_multisig.default_internal_pubkey
+        leaf = tr_multisig.single_leaf(locktime=current_locktime)
+        merkle_root = leaf.hash()
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1pg67krjn69exwkdam3um0w5devyk4qs7eetzkm3twzfnqrk58xdlsyd62rg",
         )
         prev_tx = bytes.fromhex(
@@ -242,7 +244,7 @@ class MuSigTest(TestCase):
         for prev_index in range(11):
             tx_in = TxIn(prev_tx, prev_index, sequence=0xFFFFFFFE)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -257,8 +259,8 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
-                tap_root_input.tap_node.tap_script,
+                leaf.control_block(internal_pubkey, leaf),
+                leaf.tap_script,
             )
             sigs = []
             for priv in private_keys:
@@ -284,8 +286,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -296,8 +298,8 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
-                tap_root_input.tap_node.tap_script,
+                leaf.control_block(internal_pubkey, leaf),
+                leaf.tap_script,
             )
             sigs = []
             for priv in private_keys:
@@ -320,10 +322,11 @@ class MuSigTest(TestCase):
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
         current_sequence = Sequence.from_relative_time(3000)
-        tap_root_input = tr_multisig.single_leaf_tap_root(sequence=current_sequence)
-        leaf = tap_root_input.tap_node
+        internal_pubkey = tr_multisig.default_internal_pubkey
+        leaf = tr_multisig.single_leaf(sequence=current_sequence)
+        merkle_root = leaf.hash()
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1p64cjudufu6699ddtw767zwjepl3ktaax8mgkgrpc9trclghtv9dqmazesf",
         )
         prev_tx = bytes.fromhex(
@@ -333,7 +336,7 @@ class MuSigTest(TestCase):
         for prev_index in range(11):
             tx_in = TxIn(prev_tx, prev_index, sequence=current_sequence)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -346,8 +349,8 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
-                tap_root_input.tap_node.tap_script,
+                leaf.control_block(internal_pubkey, leaf),
+                leaf.tap_script,
             )
             sigs = []
             for priv in private_keys:
@@ -373,8 +376,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -385,8 +388,8 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
-                tap_root_input.tap_node.tap_script,
+                leaf.control_block(internal_pubkey, leaf),
+                leaf.tap_script,
             )
             sigs = []
             for priv in private_keys:
@@ -407,10 +410,12 @@ class MuSigTest(TestCase):
             hd_priv_key.get_p2tr_receiving_privkey(address_num=i) for i in range(5)
         ]
         points = [priv.point for priv in private_keys]
-        multisig = TapRootMultiSig(points, 3)
-        tap_root_input = multisig.multi_leaf_tap_root()
+        tr_multisig = TapRootMultiSig(points, 3)
+        internal_pubkey = tr_multisig.default_internal_pubkey
+        branch = tr_multisig.multi_leaf_tree()
+        merkle_root = branch.hash()
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1pkyedped6jxzamm88nmf4wc22jaz4rqxnsh8h2kjz7t6fnjl87q5qdfjmwf",
         )
         prev_tx = bytes.fromhex(
@@ -420,7 +425,7 @@ class MuSigTest(TestCase):
         for prev_index in range(11):
             tx_in = TxIn(prev_tx, prev_index)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -432,9 +437,9 @@ class MuSigTest(TestCase):
             tx_in = tx_ins[input_index]
             tx_in.witness.items = []
             leaf = MultiSigTapScript(pubkeys, 3).tap_leaf()
-            self.assertTrue(tap_root_input.control_block(leaf))
+            self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_obj.initialize_p2tr_multisig(
-                input_index, tap_root_input.control_block(leaf), leaf.tap_script
+                input_index, branch.control_block(internal_pubkey, leaf), leaf.tap_script
             )
             sigs = []
             for priv in private_keys:
@@ -458,8 +463,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -475,10 +480,12 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
+        internal_pubkey = tr_multisig.default_internal_pubkey
         current_locktime = Locktime(74930)
-        tap_root_input = tr_multisig.multi_leaf_tap_root(locktime=current_locktime)
+        branch = tr_multisig.multi_leaf_tree(locktime=current_locktime)
+        merkle_root = branch.hash()
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1p7glmm24y2gqsf58emquv6mzy9m6msnwtenj5s77df33t3cal3wkssw5320",
         )
         prev_tx = bytes.fromhex(
@@ -488,7 +495,7 @@ class MuSigTest(TestCase):
         for prev_index in range(11):
             tx_in = TxIn(prev_tx, prev_index, sequence=0xFFFFFFFE)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -500,12 +507,12 @@ class MuSigTest(TestCase):
         )
         for input_index, pubkeys in enumerate(combinations(points, 3)):
             leaf = MultiSigTapScript(pubkeys, 3, locktime=current_locktime).tap_leaf()
-            self.assertTrue(tap_root_input.control_block(leaf))
+            self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_in = tx_ins[input_index]
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -532,8 +539,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -545,7 +552,7 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -568,10 +575,12 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
+        internal_pubkey = tr_multisig.default_internal_pubkey
         current_sequence = Sequence.from_relative_blocks(50)
-        tap_root_input = tr_multisig.multi_leaf_tap_root(sequence=current_sequence)
+        branch = tr_multisig.multi_leaf_tree(sequence=current_sequence)
+        merkle_root = branch.hash()
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1p2qgnkwl2ny40d0xcy0fldljzmsk5vpj8navrhh5y2vsvle6xnj5ssvzrck",
         )
         prev_tx = bytes.fromhex(
@@ -581,7 +590,7 @@ class MuSigTest(TestCase):
         for prev_index in range(11):
             tx_in = TxIn(prev_tx, prev_index, sequence=current_sequence)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -591,12 +600,12 @@ class MuSigTest(TestCase):
         tx_obj = Tx(2, tx_ins, [tx_out], 0, network="signet", segwit=True)
         for input_index, pubkeys in enumerate(combinations(points, 3)):
             leaf = MultiSigTapScript(pubkeys, 3, sequence=current_sequence).tap_leaf()
-            self.assertTrue(tap_root_input.control_block(leaf))
+            self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_in = tx_ins[input_index]
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -623,8 +632,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -636,7 +645,7 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -659,9 +668,11 @@ class MuSigTest(TestCase):
             private_keys.append(hd_priv_key.get_p2tr_receiving_privkey(address_num=i))
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
-        tap_root_input = tr_multisig.musig_tap_root()
+        internal_pubkey = tr_multisig.default_internal_pubkey
+        branch = tr_multisig.musig_tree()
+        merkle_root = branch.hash()
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1pd4rlyggzaj902pa92awwdrryftmyjeyd0unmuqf2atsg09jdv90qrp7pzs",
         )
         prev_tx = bytes.fromhex(
@@ -671,7 +682,7 @@ class MuSigTest(TestCase):
         for prev_index in range(11):
             tx_in = TxIn(prev_tx, prev_index)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -683,7 +694,7 @@ class MuSigTest(TestCase):
             tx_in = tx_obj.tx_ins[input_index]
             musig = MuSigTapScript(pubkeys)
             leaf = musig.tap_leaf()
-            cb = tap_root_input.control_block(leaf)
+            cb = branch.control_block(internal_pubkey, leaf)
             self.assertTrue(cb)
             tx_in.witness.items = [leaf.tap_script.raw_serialize(), cb.serialize()]
             sig_hash = tx_obj.sig_hash(input_index, SIGHASH_DEFAULT)
@@ -720,8 +731,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -737,10 +748,12 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
+        internal_pubkey = tr_multisig.default_internal_pubkey
         current_locktime = Locktime(1643332867)
-        tap_root_input = tr_multisig.musig_tap_root(locktime=current_locktime)
+        branch = tr_multisig.musig_tree(locktime=current_locktime)
+        merkle_root = branch.hash()
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1pc357vk4y2qadgtkdfy3xqtmf5hfqh9apdqs3ajaw7kwspthtjt5sj8l4rh",
         )
         prev_tx = bytes.fromhex(
@@ -750,7 +763,7 @@ class MuSigTest(TestCase):
         for prev_index in range(11):
             tx_in = TxIn(prev_tx, prev_index, sequence=0xFFFFFFFE)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -764,7 +777,7 @@ class MuSigTest(TestCase):
             musig = MuSigTapScript(pubkeys, locktime=current_locktime)
             leaf = musig.tap_leaf()
             tx_in = tx_ins[input_index]
-            cb = tap_root_input.control_block(leaf)
+            cb = branch.control_block(internal_pubkey, leaf)
             self.assertTrue(cb)
             tx_in.witness.items = [leaf.tap_script.raw_serialize(), cb.serialize()]
             sig_hash = tx_obj.sig_hash(input_index, SIGHASH_DEFAULT)
@@ -801,8 +814,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -812,7 +825,7 @@ class MuSigTest(TestCase):
             musig = MuSigTapScript(pubkeys, locktime=current_locktime)
             leaf = musig.tap_leaf()
             tx_in = tx_ins[input_index]
-            cb = tap_root_input.control_block(leaf)
+            cb = branch.control_block(internal_pubkey, leaf)
             self.assertTrue(cb)
             tx_in.witness.items = [leaf.tap_script.raw_serialize(), cb.serialize()]
             sig_hash = tx_obj.sig_hash(input_index, SIGHASH_DEFAULT)
@@ -844,10 +857,12 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
+        internal_pubkey = tr_multisig.default_internal_pubkey
         current_sequence = Sequence.from_relative_time(3000)
-        tap_root_input = tr_multisig.musig_tap_root(sequence=current_sequence)
+        branch = tr_multisig.musig_tree(sequence=current_sequence)
+        merkle_root = branch.hash()
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1ppqsvmxljh0e6tjaedamk52ft5k549nxd5wcgzc0luh6rxgwf7djs8s6h0p",
         )
         prev_tx = bytes.fromhex(
@@ -857,7 +872,7 @@ class MuSigTest(TestCase):
         for prev_index in range(11):
             tx_in = TxIn(prev_tx, prev_index, sequence=current_sequence)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -869,7 +884,7 @@ class MuSigTest(TestCase):
             musig = MuSigTapScript(pubkeys, sequence=current_sequence)
             leaf = musig.tap_leaf()
             tx_in = tx_ins[input_index]
-            cb = tap_root_input.control_block(leaf)
+            cb = branch.control_block(internal_pubkey, leaf)
             self.assertTrue(cb)
             tx_in.witness.items = [leaf.tap_script.raw_serialize(), cb.serialize()]
             sig_hash = tx_obj.sig_hash(input_index, SIGHASH_DEFAULT)
@@ -906,8 +921,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -917,7 +932,7 @@ class MuSigTest(TestCase):
             leaf = musig.tap_leaf()
             tx_in = tx_ins[input_index]
             tx_in.sequence = Sequence(current_sequence - 1)
-            cb = tap_root_input.control_block(leaf)
+            cb = branch.control_block(internal_pubkey, leaf)
             self.assertTrue(cb)
             tx_in.witness.items = [leaf.tap_script.raw_serialize(), cb.serialize()]
             sig_hash = tx_obj.sig_hash(input_index, SIGHASH_DEFAULT)
@@ -949,11 +964,13 @@ class MuSigTest(TestCase):
             private_keys.append(hd_priv_key.get_p2tr_receiving_privkey(address_num=i))
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
+        internal_pubkey = tr_multisig.default_internal_pubkey
         musig = MuSigTapScript(points)
-        tap_root_input = tr_multisig.musig_tap_root()
-        self.assertEqual(tr_multisig.default_internal_pubkey, musig.point)
+        branch = tr_multisig.musig_tree()
+        merkle_root = branch.hash()
+        self.assertEqual(internal_pubkey, musig.point)
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1pd4rlyggzaj902pa92awwdrryftmyjeyd0unmuqf2atsg09jdv90qrp7pzs",
         )
         prev_tx = bytes.fromhex(
@@ -963,7 +980,7 @@ class MuSigTest(TestCase):
         for prev_index in range(3):
             tx_in = TxIn(prev_tx, prev_index)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -984,8 +1001,8 @@ class MuSigTest(TestCase):
             s_sum = 0
             for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
                 k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-                s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-            schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+                s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+            schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
             tx_in.witness = Witness([schnorr.serialize()])
             self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -1001,10 +1018,11 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
-        tap_root_input = tr_multisig.musig_and_single_leaf_tap_root()
-        leaf = tap_root_input.tap_node
+        internal_pubkey = tr_multisig.default_internal_pubkey
+        branch = tr_multisig.musig_and_single_leaf_tree()
+        merkle_root = branch.hash()
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1pxspe3588dj53da5krsln9uszhudprt4qcc7srahn583j3q34cnts7pazqd",
         )
         prev_tx = bytes.fromhex(
@@ -1014,7 +1032,7 @@ class MuSigTest(TestCase):
         for prev_index in range(21):
             tx_in = TxIn(prev_tx, prev_index)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -1028,7 +1046,7 @@ class MuSigTest(TestCase):
             leaf = tr_multisig.single_leaf()
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1043,7 +1061,7 @@ class MuSigTest(TestCase):
             tx_in = tx_obj.tx_ins[input_index + 10]
             musig = MuSigTapScript(pubkeys)
             leaf = musig.tap_leaf()
-            cb = tap_root_input.control_block(leaf)
+            cb = branch.control_block(internal_pubkey, leaf)
             self.assertTrue(cb)
             tx_in.witness.items = [leaf.tap_script.raw_serialize(), cb.serialize()]
             sig_hash = tx_obj.sig_hash(input_index + 10, SIGHASH_DEFAULT)
@@ -1067,7 +1085,7 @@ class MuSigTest(TestCase):
         input_index = len(tx_ins) - 1
         tx_in = tx_ins[input_index]
         musig = MuSigTapScript(points)
-        self.assertEqual(tr_multisig.default_internal_pubkey, musig.point)
+        self.assertEqual(internal_pubkey, musig.point)
         nonce_secret_pairs = []
         nonce_point_pairs = []
         for _ in points:
@@ -1080,8 +1098,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root=merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -1097,10 +1115,11 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
-        tap_root_input = tr_multisig.everything_tap_root()
-        leaf = tap_root_input.tap_node
+        branch = tr_multisig.everything_tree()
+        merkle_root = branch.hash()
+        internal_pubkey = tr_multisig.default_internal_pubkey
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1pttvce83hlk5ktd248tj5dw0xtge9qfcnkhlfs86p4wzvtzzt79hq2h0p77",
         )
         prev_tx = bytes.fromhex(
@@ -1110,7 +1129,7 @@ class MuSigTest(TestCase):
         for prev_index in range(31):
             tx_in = TxIn(prev_tx, prev_index)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         change_script = address_to_script_pubkey(
             "tb1q7kn55vf3mmd40gyj46r245lw87dc6us5n50lrg"
@@ -1124,7 +1143,7 @@ class MuSigTest(TestCase):
             leaf = tr_multisig.single_leaf()
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1141,9 +1160,9 @@ class MuSigTest(TestCase):
             tx_in = tx_obj.tx_ins[input_index]
             tx_in.witness.items = []
             leaf = MultiSigTapScript(pubkeys, 3).tap_leaf()
-            self.assertTrue(tap_root_input.control_block(leaf))
+            self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_obj.initialize_p2tr_multisig(
-                input_index, tap_root_input.control_block(leaf), leaf.tap_script
+                input_index, branch.control_block(internal_pubkey, leaf), leaf.tap_script
             )
             sigs = []
             for priv in private_keys:
@@ -1157,7 +1176,7 @@ class MuSigTest(TestCase):
             tx_in = tx_obj.tx_ins[input_index]
             musig = MuSigTapScript(pubkeys)
             leaf = musig.tap_leaf()
-            cb = tap_root_input.control_block(leaf)
+            cb = branch.control_block(internal_pubkey, leaf)
             self.assertTrue(cb)
             tx_in.witness.items = [leaf.tap_script.raw_serialize(), cb.serialize()]
             sig_hash = tx_obj.sig_hash(input_index, SIGHASH_DEFAULT)
@@ -1181,7 +1200,7 @@ class MuSigTest(TestCase):
         input_index = len(tx_ins) - 1
         tx_in = tx_ins[input_index]
         musig = MuSigTapScript(points)
-        self.assertEqual(tr_multisig.default_internal_pubkey, musig.point)
+        self.assertEqual(internal_pubkey, musig.point)
         nonce_secret_pairs = []
         nonce_point_pairs = []
         for _ in points:
@@ -1194,8 +1213,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -1211,11 +1230,13 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
-        tap_root_input = tr_multisig.degrading_multisig_tap_root(
+        branch = tr_multisig.degrading_multisig_tree(
             sequence_time_interval=18 * 512
         )
+        merkle_root = branch.hash()
+        internal_pubkey = tr_multisig.default_internal_pubkey
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1p80glz296ahqunke7tzp7d3s5swjfa5c8ff4vs5xqymee02gs9dkqs27p8u",
         )
         prev_tx = bytes.fromhex(
@@ -1225,7 +1246,7 @@ class MuSigTest(TestCase):
         for prev_index in range(26):
             tx_in = TxIn(prev_tx, prev_index)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         sequence_1 = Sequence.from_relative_time(18 * 512)
         sequence_2 = Sequence.from_relative_time(18 * 512 * 2)
@@ -1241,12 +1262,12 @@ class MuSigTest(TestCase):
         tx_obj = Tx(2, tx_ins, [tx_out], 0, network="signet", segwit=True)
         for input_index, pubkeys in enumerate(combinations(points, 3)):
             leaf = MultiSigTapScript(pubkeys, 3).tap_leaf()
-            self.assertTrue(tap_root_input.control_block(leaf))
+            self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_in = tx_ins[input_index]
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1261,12 +1282,12 @@ class MuSigTest(TestCase):
         for i, pubkeys in enumerate(combinations(points, 2)):
             input_index = i + 10
             leaf = MultiSigTapScript(pubkeys, 2, sequence=sequence_1).tap_leaf()
-            self.assertTrue(tap_root_input.control_block(leaf))
+            self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_in = tx_ins[input_index]
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1281,12 +1302,12 @@ class MuSigTest(TestCase):
         for i, pubkeys in enumerate(combinations(points, 1)):
             input_index = i + 20
             leaf = MultiSigTapScript(pubkeys, 1, sequence=sequence_2).tap_leaf()
-            self.assertTrue(tap_root_input.control_block(leaf))
+            self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_in = tx_ins[input_index]
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1314,8 +1335,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -1331,7 +1352,7 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1350,7 +1371,7 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1373,11 +1394,13 @@ class MuSigTest(TestCase):
         ]
         points = [priv.point for priv in private_keys]
         tr_multisig = TapRootMultiSig(points, 3)
-        tap_root_input = tr_multisig.degrading_multisig_tap_root(
+        branch = tr_multisig.degrading_multisig_tree(
             sequence_block_interval=18
         )
+        merkle_root = branch.hash()
+        internal_pubkey = tr_multisig.default_internal_pubkey
         self.assertEqual(
-            tap_root_input.address(network="signet"),
+            internal_pubkey.p2tr_address(merkle_root, network="signet"),
             "tb1ps00xd4jzdw982gjmmjgxzrhsca8ez5yfu6p4l6rt83ueqzlfns2qxf3qat",
         )
         prev_tx = bytes.fromhex(
@@ -1387,7 +1410,7 @@ class MuSigTest(TestCase):
         for prev_index in range(26):
             tx_in = TxIn(prev_tx, prev_index)
             tx_in._value = 1000000
-            tx_in._script_pubkey = tap_root_input.script_pubkey()
+            tx_in._script_pubkey = internal_pubkey.p2tr_script(merkle_root)
             tx_ins.append(tx_in)
         sequence_1 = Sequence.from_relative_blocks(18)
         sequence_2 = Sequence.from_relative_blocks(18 * 2)
@@ -1403,12 +1426,12 @@ class MuSigTest(TestCase):
         tx_obj = Tx(2, tx_ins, [tx_out], 0, network="signet", segwit=True)
         for input_index, pubkeys in enumerate(combinations(points, 3)):
             leaf = MultiSigTapScript(pubkeys, 3).tap_leaf()
-            self.assertTrue(tap_root_input.control_block(leaf))
+            self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_in = tx_ins[input_index]
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1423,12 +1446,12 @@ class MuSigTest(TestCase):
         for i, pubkeys in enumerate(combinations(points, 2)):
             input_index = 10 + i
             leaf = MultiSigTapScript(pubkeys, 2, sequence=sequence_1).tap_leaf()
-            self.assertTrue(tap_root_input.control_block(leaf))
+            self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_in = tx_ins[input_index]
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1443,12 +1466,12 @@ class MuSigTest(TestCase):
         for i, pubkeys in enumerate(combinations(points, 1)):
             input_index = 20 + i
             leaf = MultiSigTapScript(pubkeys, 1, sequence=sequence_2).tap_leaf()
-            self.assertTrue(tap_root_input.control_block(leaf))
+            self.assertTrue(branch.control_block(internal_pubkey, leaf))
             tx_in = tx_ins[input_index]
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1476,8 +1499,8 @@ class MuSigTest(TestCase):
         s_sum = 0
         for nonce_secrets, priv in zip(nonce_secret_pairs, private_keys):
             k = musig.compute_k(nonce_secrets, nonce_sums, sig_hash)
-            s_sum += musig.sign(priv, k, r, sig_hash, tweak=tap_root_input.tweak)
-        schnorr = musig.get_signature(s_sum, r, sig_hash, tap_root_input.tweak)
+            s_sum += musig.sign(priv, k, r, sig_hash, merkle_root)
+        schnorr = musig.get_signature(s_sum, r, sig_hash, merkle_root)
         tx_in.finalize_p2tr_keypath(schnorr.serialize())
         self.assertTrue(tx_obj.verify_input(input_index))
         self.assertEqual(tx_obj.vbytes(), tx_obj.fee())
@@ -1493,7 +1516,7 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []
@@ -1512,7 +1535,7 @@ class MuSigTest(TestCase):
             tx_in.witness.items = []
             tx_obj.initialize_p2tr_multisig(
                 input_index,
-                tap_root_input.control_block(leaf),
+                branch.control_block(internal_pubkey, leaf),
                 leaf.tap_script,
             )
             sigs = []

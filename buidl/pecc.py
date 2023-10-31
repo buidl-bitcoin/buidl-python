@@ -7,6 +7,7 @@ from buidl.hash import (
     hash_aux,
     hash_challenge,
     hash_nonce,
+    hash_taptweak,
 )
 from buidl.helper import (
     big_endian_to_int,
@@ -248,6 +249,12 @@ class S256Point(Point):
         else:
             return super().__add__(other)
 
+    def even_point(self):
+        if self.parity:
+            return -1 * self
+        else:
+            return self
+
     def sec(self, compressed=True):
         # returns the binary version of the sec format, NOT hex
         # if compressed, starts with b'\x02' if self.y.num is even, b'\x03' if self.y is odd
@@ -276,14 +283,15 @@ class S256Point(Point):
         tweak = hash_taptweak(self.xonly() + merkle_root)
         return tweak
 
-    def tweaked_key(self, merkle_root=b""):
+    def tweaked_key(self, merkle_root=b"", tweak=None):
         """Creates the tweaked external key for a particular tweak."""
         # Get the tweak with the merkle root
-        tweak = self.tweak(merkle_root)
+        if tweak is None:
+            tweak = self.tweak(merkle_root)
         # t is the tweak interpreted as a big endian integer
         t = big_endian_to_int(tweak)
         # Q = P + tG
-        external_key = self + t
+        external_key = self.even_point() + t
         # return the external key
         return external_key
 
@@ -313,13 +321,13 @@ class S256Point(Point):
         """Returns the RedeemScript for a p2sh-p2wpkh redemption"""
         return self.p2wpkh_script().redeem_script()
 
-    def p2tr_script(self):
+    def p2tr_script(self, merkle_root=b"", tweak=None):
         """Returns the p2tr Script object"""
+        external_pubkey = self.tweaked_key(merkle_root, tweak)
         # avoid circular dependency
         from buidl.script import P2TRScriptPubKey
 
-        external_pubkey = self.tweaked_key(merkle_root)
-        return P2TRScriptPubKey(self)
+        return P2TRScriptPubKey(external_pubkey)
 
     def p2pk_tap_script(self):
         """Returns the p2tr Script object"""
@@ -340,9 +348,9 @@ class S256Point(Point):
         """Returns the p2sh-p2wpkh base58 address string"""
         return self.p2wpkh_script().p2sh_address(network)
 
-    def p2tr_address(self, network="mainnet"):
+    def p2tr_address(self, merkle_root=b"", tweak=None, network="mainnet"):
         """Returns the p2tr bech32m address string"""
-        return self.p2tr_script().address(network)
+        return self.p2tr_script(merkle_root, tweak).address(network)
 
     def verify(self, z, sig):
         # remember sig.r and sig.s are the main things we're checking
@@ -555,28 +563,55 @@ class PrivateKey:
         # Signature(r, s)
         return Signature(r, s)
 
-    def sign_schnorr(self, msg, aux):
+    def even_secret(self):
         if self.point.parity:
-            d = N - self.secret
+            return N - self.secret
         else:
-            d = self.secret
+            return self.secret
+
+    def bip340_k(self, msg, aux=None):
+        # k is generated using the aux variable, which can be set
+        # to a known value to make k deterministic
+        # the idea of k generation here is to mix in the private key
+        # and the msg to ensure it's unique and not reused
+        if aux is None:
+            aux = b"\x00" * 32
+        e = self.even_secret()
         if len(msg) != 32:
             raise ValueError("msg needs to be 32 bytes")
         if len(aux) != 32:
             raise ValueError("aux needs to be 32 bytes")
-        t = xor_bytes(int_to_big_endian(d, 32), hash_aux(aux))
-        k = big_endian_to_int(hash_nonce(t + self.point.xonly() + msg)) % N
+        # t contains the secret, msg is added so it's unique to the
+        # message and private key
+        t = xor_bytes(int_to_big_endian(e, 32), hash_aux(aux))
+        return big_endian_to_int(hash_nonce(t + self.point.xonly() + msg)) % N
+
+    def sign_schnorr(self, msg, aux=None):
+        # e is the secret that generates an even y with the even_secret method
+        e = self.even_secret()
+        # get k using the self.bip340_k method
+        k = self.bip340_k(msg, aux)
+        # get the resulting R=kG point
         r = k * G
+        # if R's y coordinate is odd (use parity property), flip the k
         if r.parity:
+            # set k to N - k
             k = N - k
+            # recalculate R
             r = k * G
-        message = r.xonly() + self.point.xonly() + msg
-        e = big_endian_to_int(hash_challenge(message)) % N
-        s = (k + e * d) % N
-        sig = SchnorrSignature(r, s)
-        if not self.point.verify_schnorr(msg, sig):
+        # calculate the commitment which is: R || P || msg
+        commitment = r.xonly() + self.point.xonly() + msg
+        # h is hash_challenge of the commitment as a big endian integer mod N
+        h = big_endian_to_int(hash_challenge(commitment)) % N
+        # calculate s which is (k+eh) mod N
+        s = (k + e * h) % N
+        # create a SchnorrSignature object using the R and s
+        schnorr = SchnorrSignature(r, s)
+        # check that this schnorr signature verifies
+        if not self.point.verify_schnorr(msg, schnorr):
             raise RuntimeError("Bad Signature")
-        return sig
+        # return the signature
+        return schnorr
 
     def deterministic_k(self, z):
         k = b"\x00" * 32
@@ -625,12 +660,15 @@ class PrivateKey:
         # encode_base58_checksum the whole thing
         return encode_base58_checksum(prefix + secret_bytes + suffix)
 
-    def tweaked(self, tweak):
-        if self.point.parity:
-            s = N - self.secret
-        else:
-            s = self.secret
-        new_secret = (s + tweak) % N
+    def tweaked_key(self, merkle_root=b""):
+        e = self.even_secret()
+        # get the tweak from the point's tweak method
+        tweak = self.point.tweak(merkle_root)
+        # t is the tweak interpreted as big endian
+        t = big_endian_to_int(tweak)
+        # new secret is the secret plus t (make sure to mod by N)
+        new_secret = (e + t) % N
+        # create a new instance of this class using self.__class__
         return self.__class__(new_secret, network=self.network)
 
     @classmethod

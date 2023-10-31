@@ -20,24 +20,26 @@ from buidl.op import (
     encode_minimal_num,
     number_to_op_code,
 )
-from buidl.script import ScriptPubKey, P2TRScriptPubKey
+from buidl.script import Script, ScriptPubKey, P2TRScriptPubKey
 from buidl.timelock import Locktime, Sequence
 
 
 def locktime_commands(locktime):
-    assert type(locktime) == Locktime, f"{locktime} needs to be Locktime"
+    assert isinstance(locktime, Locktime), f"{locktime} needs to be Locktime"
     # 0xB1 is OP_CLTV, 0x75 is OP_DROP
     return [encode_minimal_num(locktime), 0xB1, 0x75]
 
 
 def sequence_commands(sequence):
-    assert type(sequence) == Sequence, f"{sequence} needs to be Sequence"
+    assert isinstance(sequence, Sequence), f"{sequence} needs to be Sequence"
     # 0xB2 is OP_CSV, 0x75 is OP_DROP
     return [encode_minimal_num(sequence), 0xB2, 0x75]
 
 
 class TapLeaf:
     def __init__(self, tap_script, tapleaf_version=0xC0):
+        if not isinstance(tap_script, Script):
+            raise ValueError("Script is required")
         self.tap_script = tap_script
         self.tapleaf_version = tapleaf_version
 
@@ -60,7 +62,23 @@ class TapLeaf:
         return [self]
 
     def path_hashes(self, leaf):
-        return b""
+        return []
+
+    def external_pubkey(self, internal_pubkey):
+        return internal_pubkey.tweaked_key(self.hash())
+
+    def control_block(self, internal_pubkey, tap_leaf=None):
+        """Assumes that this TapLeaf is the Merkle Root and constructs the
+        control block"""
+        if tap_leaf is not None and tap_leaf != self:
+            return None
+        external_pubkey = self.external_pubkey(internal_pubkey)
+        return ControlBlock(
+            self.tapleaf_version,
+            external_pubkey.parity,
+            internal_pubkey,
+            self.path_hashes(None),
+        )
 
 
 class TapBranch:
@@ -91,11 +109,27 @@ class TapBranch:
 
     def path_hashes(self, leaf):
         if leaf in self.left.leaves():
-            return self.left.path_hashes(leaf) + self.right.hash()
+            return [*self.left.path_hashes(leaf), self.right.hash()]
         elif leaf in self.right.leaves():
-            return self.right.path_hashes(leaf) + self.left.hash()
+            return [*self.right.path_hashes(leaf), self.left.hash()]
         else:
             return None
+
+    def external_pubkey(self, internal_pubkey):
+        return internal_pubkey.tweaked_key(self.hash())
+
+    def control_block(self, internal_pubkey, leaf):
+        """Assumes this TapBranch is the Merkle Root and returns the control
+        block. Also requires the leaf to be one of the descendents"""
+        if leaf not in self.leaves():
+            return None
+        external_pubkey = self.external_pubkey(internal_pubkey)
+        return ControlBlock(
+            leaf.tapleaf_version,
+            external_pubkey.parity,
+            internal_pubkey,
+            self.path_hashes(leaf),
+        )
 
     @classmethod
     def combine(cls, nodes):
@@ -105,49 +139,6 @@ class TapBranch:
         left = cls.combine(nodes[:half_way])
         right = cls.combine(nodes[half_way:])
         return cls(left, right)
-
-
-class TapRoot:
-    def __init__(self, internal_pubkey, tap_node=None, merkle_root=None):
-        self.internal_pubkey = S256Point.parse_xonly(internal_pubkey.xonly())
-        self.tap_node = tap_node
-        if merkle_root is not None:
-            self.tweak = big_endian_to_int(
-                hash_taptweak(internal_pubkey.xonly() + merkle_root)
-            )
-        elif tap_node is None:
-            self.tweak = big_endian_to_int(hash_taptweak(internal_pubkey.xonly()))
-        else:
-            self.tweak = big_endian_to_int(
-                hash_taptweak(internal_pubkey.xonly() + tap_node.hash())
-            )
-        self.tweak_point = self.internal_pubkey + self.tweak
-        self.parity = self.tweak_point.parity
-
-    def address(self, network="mainnet"):
-        return self.script_pubkey().address(network=network)
-
-    def xonly(self):
-        return self.tweak_point.xonly()
-
-    def leaves(self):
-        if self.tap_node:
-            return self.tap_node.leaves()
-        else:
-            return []
-
-    def script_pubkey(self):
-        return P2TRScriptPubKey(self.tweak_point)
-
-    def control_block(self, leaf):
-        if self.tap_node is None:
-            return None
-        if leaf not in self.tap_node.leaves():
-            return None
-        raw = int_to_byte(leaf.tapleaf_version + self.tweak_point.parity)
-        raw += self.internal_pubkey.xonly()
-        raw += self.tap_node.path_hashes(leaf)
-        return ControlBlock.parse(raw)
 
 
 class ControlBlock:
@@ -163,20 +154,26 @@ class ControlBlock:
     def __eq__(self, other):
         return self.serialize() == other.serialize()
 
-    def merkle_root(self, leaf):
+    def merkle_root(self, tap_script):
+        # create a TapLeaf from the tap_script and the tapleaf version in the control block
+        leaf = TapLeaf(tap_script, self.tapleaf_version)
+        # initialize the hash with the leaf's hash
         current = leaf.hash()
+        # go through the hashes in self.hashes
         for h in self.hashes:
+            # set the current hash as the hash_tapbranch of the sorted hashes
             if current < h:
                 current = hash_tapbranch(current + h)
             else:
                 current = hash_tapbranch(h + current)
+        # return the current hash
         return current
 
-    def tweak(self, leaf):
-        return hash_taptweak(self.internal_pubkey.xonly() + self.merkle_root(leaf))
-
-    def tweak_point(self, leaf):
-        return self.internal_pubkey + big_endian_to_int(self.tweak(leaf))
+    def external_pubkey(self, tap_script):
+        # get the Merkle Root using self.merkle_root
+        merkle_root = self.merkle_root(tap_script)
+        # return the external pubkey using the tweaked_key method of internal pubkey
+        return self.internal_pubkey.tweaked_key(merkle_root)
 
     def serialize(self):
         s = int_to_byte(self.tapleaf_version + self.parity)
@@ -208,9 +205,9 @@ class TapScript(ScriptPubKey):
 class P2PKTapScript(TapScript):
     def __init__(self, point):
         super().__init__()
-        if type(point) == S256Point:
+        if isinstance(point, S256Point):
             raw_point = point.xonly()
-        elif type(point) == bytes:
+        elif isinstance(point, bytes):
             raw_point = point
         else:
             raise TypeError("To initialize P2PKTapScript, a point is needed")
@@ -269,12 +266,6 @@ class MuSigTapScript(TapScript):
             self.commands = []
         self.commands += [self.point.xonly(), 0xAC]
 
-    def get_tweak_point(self, tweak):
-        if self.point.parity:
-            return -1 * self.point + tweak
-        else:
-            return self.point + tweak
-
     def generate_nonces(self):
         k_1, k_2 = randbelow(N), randbelow(N)
         r_1, r_2 = k_1 * G, k_2 * G
@@ -299,13 +290,16 @@ class MuSigTapScript(TapScript):
         h = self.compute_coefficient(nonce_sums, sig_hash)
         return S256Point.combine([nonce_sums[0], h * nonce_sums[1]])
 
-    def sign(self, private_key, k, r, sig_hash, tweak=0):
-        tweak_point = self.get_tweak_point(tweak)
-        msg = r.xonly() + tweak_point.xonly() + sig_hash
+    def sign(self, private_key, k, r, sig_hash, merkle_root=b""):
+        if merkle_root:
+            external_pubkey = self.point.tweaked_key(merkle_root)
+        else:
+            external_pubkey = self.point.even_point()
+        msg = r.xonly() + external_pubkey.xonly() + sig_hash
         challenge = big_endian_to_int(hash_challenge(msg)) % N
         h_i = self.coef_lookup[private_key.point.xonly()]
         c_i = h_i * challenge % N
-        if r.parity == tweak_point.parity:
+        if r.parity == external_pubkey.parity:
             k_real = k
         else:
             k_real = -k
@@ -315,21 +309,22 @@ class MuSigTapScript(TapScript):
             secret = -private_key.secret
         return (k_real + c_i * secret) % N
 
-    def get_signature(self, s_sum, r, sig_hash, tweak=0):
-        tweak_point = self.get_tweak_point(tweak)
-        if tweak:
-            msg = r.xonly() + tweak_point.xonly() + sig_hash
+    def get_signature(self, s_sum, r, sig_hash, merkle_root=b""):
+        if merkle_root:
+            external_pubkey = self.point.tweaked_key(merkle_root)
+            tweak = big_endian_to_int(self.point.tweak(merkle_root))
+            msg = r.xonly() + external_pubkey.xonly() + sig_hash
             challenge = big_endian_to_int(hash_challenge(msg)) % N
-            if tweak_point.parity:
+            if external_pubkey.parity:
                 s = (-s_sum - challenge * tweak) % N
             else:
                 s = (s_sum + challenge * tweak) % N
         else:
+            external_pubkey = self.point.even_point()
             s = s_sum % N
-        s_raw = int_to_big_endian(s, 32)
-        sig = r.xonly() + s_raw
-        schnorrsig = SchnorrSignature.parse(sig)
-        if not tweak_point.verify_schnorr(sig_hash, schnorrsig):
+        serialized = r.xonly() + int_to_big_endian(s, 32)
+        schnorrsig = SchnorrSignature.parse(serialized)
+        if not external_pubkey.verify_schnorr(sig_hash, schnorrsig):
             raise ValueError("Invalid signature")
         return schnorrsig
 
@@ -349,66 +344,42 @@ class TapRootMultiSig:
         )
         return tap_script.tap_leaf()
 
-    def single_leaf_tap_root(self, internal_pubkey=None, locktime=None, sequence=None):
-        if internal_pubkey is None:
-            internal_pubkey = self.default_internal_pubkey
-        return TapRoot(
-            internal_pubkey, self.single_leaf(locktime=locktime, sequence=sequence)
-        )
-
-    def multi_leaf_tap_node(self, locktime=None, sequence=None):
+    def multi_leaf_tree(self, locktime=None, sequence=None):
         leaves = []
         for pubkeys in combinations(self.points, self.k):
             tap_script = MultiSigTapScript(pubkeys, self.k, locktime, sequence)
             leaves.append(tap_script.tap_leaf())
         return TapBranch.combine(leaves)
 
-    def multi_leaf_tap_root(self, internal_pubkey=None, locktime=None, sequence=None):
-        if internal_pubkey is None:
-            internal_pubkey = self.default_internal_pubkey
-        return TapRoot(
-            internal_pubkey,
-            self.multi_leaf_tap_node(locktime=locktime, sequence=sequence),
-        )
-
-    def musig_tap_node(self, locktime=None, sequence=None):
+    def musig_tree(self, locktime=None, sequence=None):
         leaves = []
         for pubkeys in combinations(self.points, self.k):
             tap_script = MuSigTapScript(pubkeys, locktime=locktime, sequence=sequence)
             leaves.append(tap_script.tap_leaf())
         return TapBranch.combine(leaves)
 
-    def musig_tap_root(self, internal_pubkey=None, locktime=None, sequence=None):
-        if internal_pubkey is None:
-            internal_pubkey = self.default_internal_pubkey
-        return TapRoot(
-            internal_pubkey, self.musig_tap_node(locktime=locktime, sequence=sequence)
-        )
-
-    def musig_and_single_leaf_tap_root(
+    def musig_and_single_leaf_tree(
         self, internal_pubkey=None, locktime=None, sequence=None
     ):
         if internal_pubkey is None:
             internal_pubkey = self.default_internal_pubkey
-        node = TapBranch(
+        return TapBranch(
             self.single_leaf(locktime=locktime, sequence=sequence),
-            self.musig_tap_node(locktime=locktime, sequence=sequence),
+            self.musig_tree(locktime=locktime, sequence=sequence),
         )
-        return TapRoot(internal_pubkey, node)
 
-    def everything_tap_root(self, internal_pubkey=None, locktime=None, sequence=None):
+    def everything_tree(self, internal_pubkey=None, locktime=None, sequence=None):
         if internal_pubkey is None:
             internal_pubkey = self.default_internal_pubkey
-        node = TapBranch(
+        return TapBranch(
             self.single_leaf(locktime=locktime, sequence=sequence),
             TapBranch(
-                self.multi_leaf_tap_node(locktime=locktime, sequence=sequence),
-                self.musig_tap_node(locktime=locktime, sequence=sequence),
+                self.multi_leaf_tree(locktime=locktime, sequence=sequence),
+                self.musig_tree(locktime=locktime, sequence=sequence),
             ),
         )
-        return TapRoot(internal_pubkey, node)
 
-    def degrading_multisig_tap_node(
+    def degrading_multisig_tree(
         self, sequence_block_interval=None, sequence_time_interval=None
     ):
         """Can unlock with multisig as k-of-n, or (k-1)-of-n after a
@@ -434,19 +405,3 @@ class TapRootMultiSig:
                 )
                 leaves.append(tap_script.tap_leaf())
         return TapBranch.combine(leaves)
-
-    def degrading_multisig_tap_root(
-        self,
-        internal_pubkey=None,
-        sequence_block_interval=None,
-        sequence_time_interval=None,
-    ):
-        if internal_pubkey is None:
-            internal_pubkey = self.default_internal_pubkey
-        return TapRoot(
-            internal_pubkey,
-            self.degrading_multisig_tap_node(
-                sequence_block_interval=sequence_block_interval,
-                sequence_time_interval=sequence_time_interval,
-            ),
-        )
