@@ -748,7 +748,7 @@ def op_checksig_schnorr(stack, tx_obj, input_index):
         return False
     pubkey = stack.pop()
     signature = stack.pop()
-    point = S256Point.parse_bip340(pubkey)
+    point = S256Point.parse_xonly(pubkey)
     if len(signature) == 65:
         hash_type = signature[-1]
         signature = signature[:-1]
@@ -777,7 +777,7 @@ def op_checksigadd_schnorr(stack, tx_obj, input_index):
     pubkey = stack.pop()
     n = decode_num(stack.pop())
     signature = stack.pop()
-    point = S256Point.parse_bip340(pubkey)
+    point = S256Point.parse_xonly(pubkey)
     if len(signature) == 65:
         hash_type = signature[-1]
         signature = signature[:-1]

@@ -11,7 +11,7 @@ from buidl.taproot import (
     ControlBlock,
     TapLeaf,
     TapBranch,
-    TapRoot,
+    TapScript,
 )
 from buidl.tx import Tx
 from buidl.witness import Witness
@@ -19,14 +19,13 @@ from buidl.witness import Witness
 
 class TaprootTest(TestCase):
     def test_hd(self):
-        point = S256Point.parse_bip340(
+        point = S256Point.parse_xonly(
             bytes.fromhex(
                 "cc8a4bc64d897bddc5fbc2f670f7a8ba0b386779106cf1223c6fc5d7cd6fc115"
             )
         )
-        t = TapRoot(point)
         self.assertEqual(
-            t.tweak_point.bip340().hex(),
+            point.tweaked_key().xonly().hex(),
             "a60869f0dbcf1dc659c9cecbaf8050135ea9e8cdc487053f1dc6880949dc684c",
         )
 
@@ -58,22 +57,23 @@ class TaprootTest(TestCase):
             },
         ]
         for test in tests:
-            point = S256Point.parse_bip340(
+            point = S256Point.parse_xonly(
                 bytes.fromhex(test["given"]["internalPubkey"])
             )
             raw_tweak = bytes.fromhex(test["intermediary"]["tweak"])
-            tap_root = TapRoot(point)
-            self.assertEqual(tap_root.tweak, big_endian_to_int(raw_tweak))
-            tweak_point_want = S256Point.parse_bip340(
+            self.assertEqual(point.tweak(), raw_tweak)
+            external_pubkey_want = S256Point.parse_xonly(
                 bytes.fromhex(test["intermediary"]["tweakedPubkey"])
             )
-            self.assertEqual(tap_root.bip340(), tweak_point_want.bip340())
-            stream = BytesIO(
-                encode_varstr(bytes.fromhex(test["expected"]["scriptPubKey"]))
+            external_pubkey = point.tweaked_key(tweak=raw_tweak)
+            self.assertEqual(external_pubkey.xonly(), external_pubkey_want.xonly())
+            script_pubkey_want = bytes.fromhex(test["expected"]["scriptPubKey"])
+            self.assertEqual(
+                point.p2tr_script(tweak=raw_tweak).raw_serialize(), script_pubkey_want
             )
-            script_pubkey_want = ScriptPubKey.parse(stream)
-            self.assertEqual(tap_root.script_pubkey(), script_pubkey_want)
-            self.assertEqual(tap_root.address(), test["expected"]["bip350Address"])
+            self.assertEqual(
+                point.p2tr_address(tweak=raw_tweak), test["expected"]["bip350Address"]
+            )
 
     def test_p2tr_general(self):
         tests = [
@@ -276,9 +276,9 @@ class TaprootTest(TestCase):
         ]
 
         def parse_item(item):
-            if type(item) == dict:
+            if isinstance(item, dict):
                 tapleaf_version = item["leafVersion"]
-                tap_script = Script.parse(
+                tap_script = TapScript.parse(
                     BytesIO(encode_varstr(bytes.fromhex(item["script"])))
                 )
                 tap_leaf = TapLeaf(tap_script, tapleaf_version)
@@ -287,26 +287,28 @@ class TaprootTest(TestCase):
                 return TapBranch(parse_item(item[0]), parse_item(item[1]))
 
         for test in tests:
-            point = S256Point.parse_bip340(
+            point = S256Point.parse_xonly(
                 bytes.fromhex(test["given"]["internalPubkey"])
             )
             tap_tree = parse_item(test["given"]["scriptTree"])
             merkle_root = tap_tree.hash()
             merkle_root_want = bytes.fromhex(test["intermediary"]["merkleRoot"])
             self.assertEqual(merkle_root, merkle_root_want)
-            tap_root = TapRoot(point, tap_tree)
             raw_tweak = bytes.fromhex(test["intermediary"]["tweak"])
-            self.assertEqual(tap_root.tweak, big_endian_to_int(raw_tweak))
-            tweak_point_want = S256Point.parse_bip340(
+            self.assertEqual(point.tweak(merkle_root), raw_tweak)
+            tweak_point_want = S256Point.parse_xonly(
                 bytes.fromhex(test["intermediary"]["tweakedPubkey"])
             )
-            self.assertEqual(tap_root.bip340(), tweak_point_want.bip340())
+            external_pubkey = point.tweaked_key(merkle_root)
+            self.assertEqual(external_pubkey.xonly(), tweak_point_want.xonly())
             stream = BytesIO(
                 encode_varstr(bytes.fromhex(test["expected"]["scriptPubKey"]))
             )
             script_pubkey_want = ScriptPubKey.parse(stream)
-            self.assertEqual(tap_root.script_pubkey(), script_pubkey_want)
-            self.assertEqual(tap_root.address(), test["expected"]["bip350Address"])
+            self.assertEqual(point.p2tr_script(merkle_root), script_pubkey_want)
+            self.assertEqual(
+                point.p2tr_address(merkle_root), test["expected"]["bip350Address"]
+            )
             control_blocks = test["expected"]["scriptPathControlBlocks"]
             leaf_hashes = test["intermediary"]["leafHashes"]
             for control_block_hex, tap_leaf, leaf_hash in zip(
@@ -315,16 +317,19 @@ class TaprootTest(TestCase):
                 self.assertEqual(tap_leaf.hash(), bytes.fromhex(leaf_hash))
                 control_block_raw = bytes.fromhex(control_block_hex)
                 control_block_want = ControlBlock.parse(control_block_raw)
-                control_block = tap_root.control_block(tap_leaf)
+                control_block = tap_tree.control_block(point, tap_leaf)
                 self.assertEqual(control_block, control_block_want)
                 self.assertEqual(
                     tap_leaf.tapleaf_version, control_block.tapleaf_version
                 )
-                self.assertEqual(tap_root.parity, control_block.parity)
                 self.assertEqual(control_block.serialize(), control_block_raw)
                 self.assertEqual(control_block.internal_pubkey, point)
-                self.assertEqual(control_block.merkle_root(tap_leaf), merkle_root)
-                self.assertEqual(control_block.tweak(tap_leaf), raw_tweak)
+                self.assertEqual(
+                    control_block.merkle_root(tap_leaf.tap_script), merkle_root
+                )
+                self.assertEqual(
+                    control_block.internal_pubkey.tweak(merkle_root), raw_tweak
+                )
 
     def test_p2tr_spending(self):
         test = {
@@ -579,19 +584,16 @@ class TaprootTest(TestCase):
             pubkey = private_key.point
             hash_type = input_data["given"]["hashType"]
             self.assertEqual(
-                pubkey.bip340().hex(), input_data["intermediary"]["internalPubkey"]
+                pubkey.xonly().hex(), input_data["intermediary"]["internalPubkey"]
             )
             mr_hex = input_data["given"]["merkleRoot"]
             if mr_hex is None:
-                merkle_root = None
+                merkle_root = b""
             else:
                 merkle_root = bytes.fromhex(mr_hex)
-            tap_root = TapRoot(pubkey, merkle_root=merkle_root)
-            tweak_want = big_endian_to_int(
-                bytes.fromhex(input_data["intermediary"]["tweak"])
-            )
-            self.assertEqual(tap_root.tweak, tweak_want)
-            tweaked_private_key = private_key.tweaked(tap_root.tweak)
+            tweak_want = bytes.fromhex(input_data["intermediary"]["tweak"])
+            self.assertEqual(pubkey.tweak(merkle_root), tweak_want)
+            tweaked_private_key = private_key.tweaked_key(merkle_root)
             tweaked_want = big_endian_to_int(
                 bytes.fromhex(input_data["intermediary"]["tweakedPrivkey"])
             )

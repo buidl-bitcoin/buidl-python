@@ -649,7 +649,7 @@ tx_outs:\n{tx_outs}
             tx_in.witness = Witness(
                 [tap_script.raw_serialize(), control_block.serialize()]
             )
-            if type(tap_script) != MultiSigTapScript:
+            if type(tap_script) is not MultiSigTapScript:
                 raise RuntimeError("tap script must be MultiSigTapScript")
             tx_in.tap_script = tap_script
 

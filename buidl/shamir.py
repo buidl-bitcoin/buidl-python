@@ -339,7 +339,8 @@ class ShareSet:
     @classmethod
     def generate_shares(cls, mnemonic, k, n, passphrase=b"", exponent=0):
         """Takes a BIP39 mnemonic along with k, n, passphrase and exponent.
-        Returns a list of SLIP39 mnemonics, any k of of which, along with the passphrase, recover the secret"""
+        Returns a list of SLIP39 mnemonics, any k of of which, along with the passphrase, recover the secret
+        """
         # convert mnemonic to a shared secret
         secret = mnemonic_to_bytes(mnemonic)
         num_bits = len(secret) * 8

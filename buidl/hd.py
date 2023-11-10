@@ -332,9 +332,8 @@ class HDPrivateKey:
         return hd_priv.private_key
 
     def _get_address(self, purpose, account_num=0, is_external=True, address_num=0):
-        """Returns the proper address among purposes 44', 49' and 84'.
-        p2pkh for 44', p2sh-p2wpkh for 49' and p2wpkh for 84'."""
-        # if purpose is not one of 44', 49' or 84', raise ValueError
+        """Returns the proper address among purposes 44', 49', 84' and 86'.
+        p2pkh for 44', p2sh-p2wpkh for 49', p2wpkh for 84', and p2tr for 86'."""
         point = self.get_private_key(
             purpose=purpose,
             account_num=account_num,
@@ -353,6 +352,7 @@ class HDPrivateKey:
         # if 86', return the p2tr_address
         elif purpose == "86'":
             return point.p2tr_address(network=self.network)
+        # if purpose is not one of 44', 49', 84' or 86', raise ValueError
         else:
             raise ValueError(
                 f"Cannot create an address without a proper purpose: {purpose}"

@@ -151,7 +151,6 @@ def parse_any_key_record(key_record_str):
 
 
 class P2WSHSortedMulti:
-
     # TODO: make an inheritable base descriptor class that this inherits from
 
     def __init__(

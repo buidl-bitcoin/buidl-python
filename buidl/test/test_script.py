@@ -197,7 +197,6 @@ class WitnessScriptTest(TestCase):
         self.assertEqual(witness_script.p2sh_address(network="signet"), want)
 
     def test_p2wsh_with_quorum(self):
-
         p2wsh_script_hex = "ad51210236a6cf4254c8290a168ecab4aee771018d357ea87154a5b5fea9ed9baee2585e210355ec1001c2c4f1dce2de940beacbdcb7d7746140281a9283000aa46d251d46312103833d6e7c4121180fb79180b78a0573ad57c299825f18f49f6942cb38b6bf023a2103a9e341c32d8870706115443cf163bfc3d2da0ca8515a29bcc1a500c65cfb23bb2103b2ac11803043c0db884dcddfdcff02599324d5e747b26e4235f57b8019fae04155ae"
         witness_script = WitnessScript.parse(BytesIO(bytes.fromhex((p2wsh_script_hex))))
 

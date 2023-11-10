@@ -254,7 +254,6 @@ class CFHeadersMessage:
 
 
 class GetCFCheckPointMessage:
-
     command = b"getcfcheckpt"
     define_network = False
 

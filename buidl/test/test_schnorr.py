@@ -46,14 +46,14 @@ class SchnorrTest(TestCase):
         for (
             index,
             secret,
-            bip340_pk,
+            xonly_pk,
             aux_rand,
             message,
             signature,
             comment,
         ) in tests:
             private_key = PrivateKey(secret=int(secret, 16))
-            public_key = S256Point.parse(bytes.fromhex(bip340_pk))
+            public_key = S256Point.parse(bytes.fromhex(xonly_pk))
             aux = bytes.fromhex(aux_rand)
             msg = bytes.fromhex(message)
             want_sig = SchnorrSignature.parse(bytes.fromhex(signature))
@@ -74,8 +74,8 @@ class SchnorrTest(TestCase):
                 "23b1d4ff27b16af4b0fcb9672df671701a1a7f5a6bb7352b051f461edbc614aa6068b3e5313a174f90f3d95dc4e06f69bebd9cf5a3098fde034b01e69e8e7889",
             ),
         ]
-        for bip340_pk, message, signature in tests:
-            public_key = S256Point.parse(bytes.fromhex(bip340_pk))
+        for xonly_pk, message, signature in tests:
+            public_key = S256Point.parse(bytes.fromhex(xonly_pk))
             msg = bytes.fromhex(message)
             sig = SchnorrSignature.parse(bytes.fromhex(signature))
             self.assertTrue(public_key.verify_schnorr(msg, sig))
@@ -153,10 +153,10 @@ class SchnorrTest(TestCase):
                 "public key is not a valid X coordinate because it exceeds the field size",
             ),
         ]
-        for bip340_pk, message, signature, error, comment in tests:
+        for xonly_pk, message, signature, error, comment in tests:
             with self.assertRaises(error):
                 print(comment)
-                public_key = S256Point.parse(bytes.fromhex(bip340_pk))
+                public_key = S256Point.parse(bytes.fromhex(xonly_pk))
                 msg = bytes.fromhex(message)
                 sig = SchnorrSignature.parse(bytes.fromhex(signature))
                 assert public_key.verify_schnorr(msg, sig)

@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import secrets
 
+from buidl.hash import hash_taptweak
 from buidl.helper import (
     big_endian_to_int,
     encode_base58_checksum,
@@ -86,6 +87,12 @@ class S256Point:
             raise RuntimeError("libsecp256k1 serialize error")
         return self.__class__(usec=bytes(serialized))
 
+    def even_point(self):
+        if self.parity:
+            return -1 * self
+        else:
+            return self
+
     def verify(self, z, sig):
         msg = int_to_big_endian(z, 32)
         sig_data = sig.cdata()
@@ -134,8 +141,8 @@ class S256Point:
                 self.usec = bytes(ffi.buffer(serialized, 65))
             return self.usec
 
-    def bip340(self):
-        # returns the binary version of BIP340 pubkey
+    def xonly(self):
+        # returns the binary version of XONLY pubkey
         xonly_key = ffi.new("secp256k1_xonly_pubkey *")
         if not lib.secp256k1_xonly_pubkey_from_pubkey(
             GLOBAL_CTX, xonly_key, ffi.NULL, self.c
@@ -145,6 +152,24 @@ class S256Point:
         if not lib.secp256k1_xonly_pubkey_serialize(GLOBAL_CTX, output32, xonly_key):
             raise RuntimeError("libsecp256k1 xonly serialize error")
         return bytes(ffi.buffer(output32, 32))
+
+    def tweak(self, merkle_root=b""):
+        """returns the tweak for use in p2tr"""
+        # take the hash_taptweak of the xonly and the merkle root
+        tweak = hash_taptweak(self.xonly() + merkle_root)
+        return tweak
+
+    def tweaked_key(self, merkle_root=b"", tweak=None):
+        """Creates the tweaked external key for a particular merkle root/tweak."""
+        # Get the tweak with the merkle root
+        if tweak is None:
+            tweak = self.tweak(merkle_root)
+        # t is the tweak interpreted as a big endian integer
+        t = big_endian_to_int(tweak)
+        # Q = P + tG
+        external_key = self.even_point() + t
+        # return the external key
+        return external_key
 
     def hash160(self, compressed=True):
         # get the sec
@@ -172,12 +197,13 @@ class S256Point:
         """Returns the RedeemScript for a p2sh-p2wpkh redemption"""
         return self.p2wpkh_script().redeem_script()
 
-    def p2tr_script(self):
+    def p2tr_script(self, merkle_root=b"", tweak=None):
         """Returns the p2tr Script object"""
+        external_pubkey = self.tweaked_key(merkle_root, tweak)
         # avoid circular dependency
-        from buidl.taproot import TapRoot
+        from buidl.script import P2TRScriptPubKey
 
-        return TapRoot(self).script_pubkey()
+        return P2TRScriptPubKey(external_pubkey)
 
     def p2pk_tap_script(self):
         """Returns the p2tr Script object"""
@@ -198,9 +224,9 @@ class S256Point:
         """Returns the p2sh-p2wpkh base58 address string"""
         return self.p2wpkh_script().p2sh_address(network)
 
-    def p2tr_address(self, network="mainnet"):
+    def p2tr_address(self, merkle_root=b"", tweak=None, network="mainnet"):
         """Returns the p2tr bech32m address string"""
-        return self.p2tr_script().address(network)
+        return self.p2tr_script(merkle_root, tweak).address(network)
 
     def verify_message(self, message, sig):
         """Verify a message in the form of bytes. Assumes that the z
@@ -214,9 +240,9 @@ class S256Point:
 
     @classmethod
     def parse(cls, binary):
-        """returns a Point object from a SEC or BIP340 pubkey"""
+        """returns a Point object from a SEC or XONLY pubkey"""
         if len(binary) == 32:
-            return cls.parse_bip340(binary)
+            return cls.parse_xonly(binary)
         elif len(binary) in (33, 65):
             return cls.parse_sec(binary)
         else:
@@ -231,7 +257,7 @@ class S256Point:
             return cls(csec=sec_bin)
 
     @classmethod
-    def parse_bip340(cls, binary):
+    def parse_xonly(cls, binary):
         sec_bin = b"\x02" + binary
         return cls(csec=sec_bin)
 
@@ -348,6 +374,12 @@ class PrivateKey:
     def hex(self):
         return "{:x}".format(self.secret).zfill(64)
 
+    def even_secret(self):
+        if self.point.parity:
+            return N - self.secret
+        else:
+            return self.secret
+
     def sign(self, z):
         # per libsecp256k1 documentation, this helps against side-channel attacks
         if not lib.secp256k1_context_randomize(
@@ -435,12 +467,15 @@ class PrivateKey:
         # encode_base58_checksum the whole thing
         return encode_base58_checksum(prefix + secret_bytes + suffix)
 
-    def tweaked(self, tweak):
-        if self.point.parity:
-            s = N - self.secret
-        else:
-            s = self.secret
-        new_secret = (s + tweak) % N
+    def tweaked_key(self, merkle_root=b""):
+        e = self.even_secret()
+        # get the tweak from the point's tweak method
+        tweak = self.point.tweak(merkle_root)
+        # t is the tweak interpreted as big endian
+        t = big_endian_to_int(tweak)
+        # new secret is the secret plus t (make sure to mod by N)
+        new_secret = (e + t) % N
+        # create a new instance of this class using self.__class__
         return self.__class__(new_secret, network=self.network)
 
     @classmethod

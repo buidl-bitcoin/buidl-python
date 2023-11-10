@@ -37,7 +37,7 @@ class Script:
     def __repr__(self):
         result = ""
         for command in self.commands:
-            if type(command) == int:
+            if isinstance(command, int):
                 if OP_CODE_NAMES.get(command):
                     name = OP_CODE_NAMES.get(command)
                 else:
@@ -123,7 +123,7 @@ class Script:
         # go through each command
         for command in self.commands:
             # if the command is an integer, it's an op code
-            if type(command) == int:
+            if isinstance(command, int):
                 # turn the command into a single byte integer using int_to_byte
                 result += int_to_byte(command)
             else:
@@ -166,7 +166,7 @@ class Script:
         op_lookup = OP_CODE_FUNCTIONS
         while len(commands) > 0:
             command = commands.pop(0)
-            if type(command) == int:
+            if isinstance(command, int):
                 # do what the op code says
                 operation = op_lookup[command]
                 if command in (99, 100):
@@ -198,7 +198,7 @@ class Script:
                 if (
                     len(commands) == 3
                     and commands[0] == 0xA9
-                    and type(commands[1]) == bytes
+                    and isinstance(commands[1], bytes)
                     and len(commands[1]) == 20
                     and commands[2] == 0x87
                 ):
@@ -260,13 +260,13 @@ class Script:
                     elif len(witness) > 1:
                         # this is a script path spend
                         control_block = witness.control_block()
-                        tap_leaf = witness.tap_leaf()
-                        tweak_point = control_block.tweak_point(tap_leaf)
+                        tap_script = witness.tap_script()
+                        tweak_point = control_block.external_pubkey(tap_script)
                         # the tweak point should be what's on the stack
                         if tweak_point.parity != control_block.parity:
                             print("bad tweak point parity")
                             return False
-                        if tweak_point.bip340() != stack.pop():
+                        if tweak_point.xonly() != stack.pop():
                             print("bad tweak point")
                             return False
                         # pop off the 1 and start fresh
@@ -290,7 +290,7 @@ class Script:
             len(self.commands) == 5
             and self.commands[0] == 0x76
             and self.commands[1] == 0xA9
-            and type(self.commands[2]) == bytes
+            and isinstance(self.commands[2], bytes)
             and len(self.commands[2]) == 20
             and self.commands[3] == 0x88
             and self.commands[4] == 0xAC
@@ -304,7 +304,7 @@ class Script:
         return (
             len(self.commands) == 3
             and self.commands[0] == 0xA9
-            and type(self.commands[1]) == bytes
+            and isinstance(self.commands[1], bytes)
             and len(self.commands[1]) == 20
             and self.commands[2] == 0x87
         )
@@ -315,7 +315,7 @@ class Script:
         return (
             len(self.commands) == 2
             and self.commands[0] == 0x00
-            and type(self.commands[1]) == bytes
+            and isinstance(self.commands[1], bytes)
             and len(self.commands[1]) == 20
         )
 
@@ -325,7 +325,7 @@ class Script:
         return (
             len(self.commands) == 2
             and self.commands[0] == 0x00
-            and type(self.commands[1]) == bytes
+            and isinstance(self.commands[1], bytes)
             and len(self.commands[1]) == 32
         )
 
@@ -335,7 +335,7 @@ class Script:
         return (
             len(self.commands) == 2
             and self.commands[0] == 0x51
-            and type(self.commands[1]) == bytes
+            and isinstance(self.commands[1], bytes)
             and len(self.commands[1]) == 32
         )
 
@@ -376,7 +376,7 @@ class ScriptPubKey(Script):
 class P2PKHScriptPubKey(ScriptPubKey):
     def __init__(self, h160):
         super().__init__()
-        if type(h160) != bytes:
+        if not isinstance(h160, bytes):
             raise TypeError("To initialize P2PKHScriptPubKey, a hash160 is needed")
         self.commands = [0x76, 0xA9, h160, 0x88, 0xAC]
 
@@ -395,7 +395,7 @@ class P2PKHScriptPubKey(ScriptPubKey):
 class P2SHScriptPubKey(ScriptPubKey):
     def __init__(self, h160):
         super().__init__()
-        if type(h160) != bytes:
+        if not isinstance(h160, bytes):
             raise TypeError("To initialize P2SHScriptPubKey, a hash160 is needed")
         self.commands = [0xA9, h160, 0x87]
 
@@ -516,7 +516,7 @@ class SegwitPubKey(ScriptPubKey):
 class P2WPKHScriptPubKey(SegwitPubKey):
     def __init__(self, h160):
         super().__init__()
-        if type(h160) != bytes:
+        if not isinstance(h160, bytes):
             raise TypeError("To initialize P2WPKHScriptPubKey, a hash160 is needed")
         self.commands = [0x00, h160]
 
@@ -524,7 +524,7 @@ class P2WPKHScriptPubKey(SegwitPubKey):
 class P2WSHScriptPubKey(SegwitPubKey):
     def __init__(self, s256):
         super().__init__()
-        if type(s256) != bytes:
+        if not isinstance(s256, bytes):
             raise TypeError("To initialize P2WSHScriptPubKey, a sha256 is needed")
         self.commands = [0x00, s256]
 
@@ -532,9 +532,9 @@ class P2WSHScriptPubKey(SegwitPubKey):
 class P2TRScriptPubKey(ScriptPubKey):
     def __init__(self, point):
         super().__init__()
-        if type(point) == S256Point:
-            raw_point = point.bip340()
-        elif type(point) == bytes:
+        if isinstance(point, S256Point):
+            raw_point = point.xonly()
+        elif isinstance(point, bytes):
             raw_point = point
         else:
             raise TypeError(
@@ -586,8 +586,8 @@ class WitnessScript(Script):
     def is_p2wsh_multisig(self):
         return (
             OP_CODE_NAMES[self.commands[-1]] == "OP_CHECKMULTISIG"
-            and type(self.commands[0]) == int
-            and type(self.commands[-2]) == int
+            and isinstance(self.commands[0], int)
+            and isinstance(self.commands[-2], int)
         )
 
     def get_quorum(self):

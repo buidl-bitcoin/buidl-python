@@ -19,7 +19,7 @@ def secure_secret_path(depth=4):
         8: 248
         9: 279
     """
-    if type(depth) != int:
+    if not isinstance(depth, int):
         raise ValueError(f"depth must be an int: {depth}")
     if depth >= 32:
         raise ValueError(

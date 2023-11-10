@@ -80,7 +80,6 @@ def create_multisig_psbt(
 
     tx_ins, total_input_sats = [], 0
     for cnt, input_dict in enumerate(input_dicts):
-
         # Prev tx stuff
         prev_tx_dict = input_dict["prev_tx_dict"]
         prev_tx_obj = Tx.parse_hex(prev_tx_dict["hex"], network=network)
