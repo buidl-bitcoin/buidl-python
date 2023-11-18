@@ -46,7 +46,7 @@ $ multiwallet.py
 Welcome to multiwallet...
 ```
 
-For more information on installing multiwallet, see [multiwallet.md](docs/multiwallet.md) or check out [this demo](https://twitter.com/mflaxman/status/1321503036724989952).
+For more information on installing multiwallet, see [docs/multiwallet.md](https://github.com/buidl-bitcoin/buidl-python/blob/main/docs/multiwallet.md) or check out [this demo](https://twitter.com/mflaxman/status/1321503036724989952).
 
 `singlesweep.py` works the same way for sweeping out of paper wallets, but is intentionally undocumented.
 
@@ -100,3 +100,4 @@ $ sudo make install
 $ git clone git@github.com:buidl-bitcoin/buidl-python.git && cd buidl-python && python3 -m pip install -r requirements-libsec.txt && python3 -m pip install --editable . && cd buidl && python3 libsec_build.py && cd .. && python3 -c "from buidl import *; print('success') if is_libsec_enabled() else print('LIBSEC INSTALL FAIL')"
 
 ```
+(Or run the included [`install_libsec.sh`](https://github.com/buidl-bitcoin/buidl-python/blob/main/install_libsec.sh) script)
