@@ -47,6 +47,9 @@ class S256Point:
     def __eq__(self, other):
         return self.sec() == other.sec()
 
+    def __hash__(self):
+        return hash(self.sec())
+
     def __repr__(self):
         return f"S256Point({self.sec().hex()})"
 

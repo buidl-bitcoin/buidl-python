@@ -231,6 +231,9 @@ class S256Point(Point):
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
 
+    def __hash__(self):
+        return hash(self.sec())
+
     def __repr__(self):
         if self.x is None:
             return "S256Point(infinity)"
