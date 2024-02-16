@@ -44,7 +44,6 @@ class ScriptTest(TestCase):
         want = "4d6a4b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
         test_element_75_bytes = b'\x00' * 75
         test_script = Script([0x6a, test_element_75_bytes])
-        print(test_script.serialize().hex())
         self.assertEqual(test_script.serialize().hex(), want)
 
 
