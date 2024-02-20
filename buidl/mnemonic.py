@@ -1,6 +1,7 @@
 from os import path
 from secrets import randbits
 from time import time
+from math import ceil
 
 from buidl.helper import big_endian_to_int, int_to_big_endian, sha256
 
@@ -96,6 +97,40 @@ def bytes_to_mnemonic(b, num_bits):
         all_bits >>= 11
     # return the mnemonic phrase by putting spaces between
     return " ".join(mnemonic)
+
+
+def dice_rolls_to_mnemonic(dice_rolls, num_words=24, allow_low_entropy=False):
+    """
+    returns a mnemonic from a string of 6-sided dice rolls
+    (>=100 rolls for 24 words recommended)
+    (>=50 rolls for 12 words recommended)
+    """
+    # check that the number of words provided is 12, 15, 18, 21, or 24
+    if num_words not in (12, 15, 18, 21, 24):
+        raise InvalidBIP39Length(
+            f"{num_words} words requested (must be 12, 15, 18, 21, or 24 words)"
+        )
+    # check that valid dice rolls have been provided
+    if not isinstance(dice_rolls, str):
+        raise ValueError("Dice rolls must be provided as a string")
+    if (
+        len([roll for roll in dice_rolls if roll not in ("1", "2", "3", "4", "5", "6")])
+        > 0
+    ):
+        raise ValueError("Dice roll string contained invalid dice numbers")
+    # entropy (in bits) per 6-sided dice roll (i.e. log2(6)=2.585)
+    entropy_per_roll = 2.585
+    mnemonic_entropy = {12: 128, 15: 160, 18: 192, 21: 224, 24: 256}
+    # check that the appropriate amount of entropy had been provided
+    min_rolls_needed = ceil(mnemonic_entropy[num_words] / entropy_per_roll)
+    if not allow_low_entropy and (len(dice_rolls) < min_rolls_needed):
+        raise ValueError(
+            f"Received {len(dice_rolls)} rolls but need at least {min_rolls_needed}"
+            f" rolls (for {mnemonic_entropy[num_words]} bits of entropy)"
+        )
+    kept_bytes = mnemonic_entropy[num_words] // 8
+    rolls_hash = sha256(dice_rolls.encode())[:kept_bytes]
+    return bytes_to_mnemonic(rolls_hash, kept_bytes * 8)
 
 
 class WordList:
