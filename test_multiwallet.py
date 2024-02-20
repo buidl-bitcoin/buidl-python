@@ -72,6 +72,59 @@ class MultiwalletTest(unittest.TestCase):
             self.expect("Last word: bacon")
             self.expect(expected_key_record)
 
+    def test_dice_basic(self):
+        dice_tests = [  # num_words, dice_rolls, is_mainnet, expected_mnemonic_str, expected_key_record
+            [
+                "24",
+                "123456123456123456123456123456123456123456123456123456123456123456123456123456123456123456123456123456",
+                "Y",
+                "Full (24 word) mnemonic (including last word): more matter caught bind tip twin indicate visa rifle angle defense lizard stock cave cradle injury always mule photo horse range opinion affair garlic",
+                "[cd34af7b/48h/0h/0h/2h]Zpub75DH7vGKCEESq3UW3cL6fQe2VuF2LgZsteVsMvvjC2as9f2wuR2UxhYH9WV5xeNvgeHPhaZQuniaCxc6TP1tqMPNjMbsfnLkDf1S3dXAuHj",
+            ],
+            [
+                "24",
+                "123456123456123456123456123456123456123456123456123456123456123456123456123456123456123456123456123456",
+                "N",
+                "Full (24 word) mnemonic (including last word): more matter caught bind tip twin indicate visa rifle angle defense lizard stock cave cradle injury always mule photo horse range opinion affair garlic",
+                "[cd34af7b/48h/1h/0h/2h]Vpub5mBykPsR2S12QVvWiC9eXr7zsLJHNfLbdjF8k5BE85Tk5moEH2ZuBGfn5XZmePouE62PG76GGR4Bu3dD9zs3KfGWCjA8hQYaU9WMqX1Ywgc",
+            ],
+            [
+                "12",
+                "12345612345612345612345612345612345612345612345612",
+                "Y",
+                "Full (12 word) mnemonic (including last word): unveil nice picture region tragic fault cream strike tourist control recipe tourist",
+                "85480bc5/48h/0h/0h/2h]Zpub75si7yux5xBVmPDFifgnh8WDUFqYLD9u1HNZXJ7zB14yBJCV1dXkLWokUkSXiYB3zaivyXnw57vFFXoPyXjEjhczEFHk8GtaU3s98wBxebV",
+            ],
+            [
+                "12",
+                "12345612345612345612345612345612345612345612345612",
+                "N",
+                "Full (12 word) mnemonic (including last word): unveil nice picture region tragic fault cream strike tourist control recipe tourist",
+                "85480bc5/48h/1h/0h/2h]Vpub5nVGWRi82pLmKvPbos31HGTJ6vtrUHB4p8h54qVBRmmph8KwpGmYwRAyz4GLMSf7TETRXZKm5u4ybtY2u7KYFevt5tqgYBZynJptbfa36QA",
+            ],
+        ]
+        for (
+            num_words,
+            dice_rolls,
+            is_mainnet,
+            expected_mnemonic_str,
+            expected_key_record,
+        ) in dice_tests:
+            self.child.sendline("generate_seed_from_dice")
+
+            self.expect("How many mnemonic words should be generated?")
+            self.child.sendline(num_words)
+
+            self.expect("100 values recommended")
+            self.child.sendline(dice_rolls)
+
+            self.expect("Use Mainnet?")
+            self.child.sendline(is_mainnet)
+
+            self.expect("Dice rolls used: " + dice_rolls)
+            self.expect(expected_mnemonic_str)
+            self.expect(expected_key_record)
+
     def test_create_output_descriptors_blinded(self):
         # Blinded example from https://github.com/mflaxman/blind-xpub/blob/90af581695ef4ab1b7c40324c4cd7f2ce70e3403/README.md#create-output-descriptors
 

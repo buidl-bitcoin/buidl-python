@@ -21,7 +21,7 @@ from buidl.hd import (
     DEFAULT_P2WSH_PATH,
 )
 from buidl.libsec_status import is_libsec_enabled
-from buidl.mnemonic import BIP39
+from buidl.mnemonic import BIP39, dice_rolls_to_mnemonic
 from buidl.shamir import ShareSet
 from buidl.psbt import MixedNetwork, PSBT
 
@@ -244,6 +244,35 @@ def _get_bip39_firstwords():
 
         readline.set_completer(old_completer)
         return fw
+
+
+#####################################################################
+# Dice rolls
+#####################################################################
+
+
+def _get_num_words():
+    num_words = _get_int(
+        prompt="How many mnemonic words should be generated?",
+        default=24,
+        minimum=12,
+        maximum=24,
+    )
+    if num_words not in (12, 15, 18, 21, 24):
+        raise ValueError(
+            "Provided number of mnemonic words must be 12, 15, 18, 21, or 24 words"
+        )
+    return num_words
+
+
+def _get_dice_values():
+    dice_vals = input(
+        blue_fg(
+            "Enter the numbers from the 6-sided dice rolls"
+            '\n(e.g., "14625363...", >= 100 values recommended): '
+        )
+    ).strip()
+    return dice_vals
 
 
 #####################################################################
@@ -479,6 +508,55 @@ class MultiWallet(Cmd):
         print_green(f"Last word: {last_word}")
         print_green(
             f"Full ({len(first_words.split()) + 1} word) mnemonic (including last word): {first_words + ' ' + last_word}"
+        )
+        if password:
+            print_green(f"Passphrase: {password}")
+
+        print_yellow(f"\nPUBLIC KEY INFO ({network})")
+        print_yellow("Copy-paste this into Specter-Desktop:")
+        print_green(key_record)
+
+    def do_generate_seed_from_dice(self, arg):
+        """Calculate bitcoin public and private key information from BIP39 words created from dice rolls"""
+
+        blue_fg("Generates a mnemonic from 6-sided dice rolls.")
+        num_words = _get_num_words()
+        dice_vals = _get_dice_values()
+
+        if self.ADVANCED_MODE:
+            password = _get_password()
+        else:
+            password = ""
+
+        if _get_bool(prompt="Use Mainnet?", default=False):
+            network = "mainnet"
+        else:
+            network = "testnet"
+
+        if self.ADVANCED_MODE:
+            path_to_use = _get_path(network=network)
+            use_slip132_version_byte = _get_bool(
+                prompt="Encode with SLIP132 version byte?", default=True
+            )
+        else:
+            path_to_use = None  # buidl will use default path
+            use_slip132_version_byte = True
+
+        words = dice_rolls_to_mnemonic(dice_vals, num_words)
+        hd_priv = HDPrivateKey.from_mnemonic(
+            mnemonic=words,
+            password=password.encode(),
+            network=network,
+        )
+
+        key_record = hd_priv.generate_p2wsh_key_record(
+            bip32_path=path_to_use, use_slip132_version_byte=use_slip132_version_byte
+        )
+
+        print(yellow_fg("SECRET INFO") + red_fg(" (guard this VERY carefully)"))
+        print_green(
+            f"Dice rolls used: {dice_vals}"
+            f"\nFull ({len(words.split())} word) mnemonic (including last word): {words}"
         )
         if password:
             print_green(f"Passphrase: {password}")
