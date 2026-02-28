@@ -1,9 +1,20 @@
 from unittest import TestCase
 
 from buidl.bech32 import (
-    encode_bech32_checksum,
-    decode_bech32,
     BECH32_ALPHABET,
+    bc32decode,
+    bc32encode,
+    bech32_create_checksum,
+    bech32_verify_checksum,
+    bech32m_create_checksum,
+    bech32m_verify_checksum,
+    cbor_decode,
+    cbor_encode,
+    convertbits,
+    decode_bech32,
+    encode_bech32_checksum,
+    group_32,
+    uses_only_bech32_chars,
 )
 
 
@@ -87,3 +98,141 @@ class Bech32Test(TestCase):
                 self.assertEqual(got_network, network)
                 self.assertEqual(got_version, version)
                 self.assertEqual(got_raw, raw[2:])
+
+
+class Bc32Test(TestCase):
+    def test_bc32_roundtrip(self):
+        data = b"hello world"
+        encoded = bc32encode(data)
+        self.assertEqual(encoded, "dpjkcmr0ypmk7unvvsrvvse8")
+        decoded = bc32decode(encoded)
+        self.assertEqual(decoded, data)
+
+    def test_bc32_empty(self):
+        encoded = bc32encode(b"")
+        decoded = bc32decode(encoded)
+        self.assertEqual(decoded, b"")
+
+    def test_bc32_roundtrip_binary(self):
+        data = bytes(range(256))
+        encoded = bc32encode(data)
+        decoded = bc32decode(encoded)
+        self.assertEqual(decoded, data)
+
+    def test_bc32_invalid_mixed_case(self):
+        # bc32 strings should be single case
+        result = bc32decode("DpJkCmR0")
+        self.assertIsNone(result)
+
+    def test_bc32_invalid_chars(self):
+        result = bc32decode("INVALIDCHARS!!!")
+        self.assertIsNone(result)
+
+    def test_bc32_bad_checksum(self):
+        encoded = bc32encode(b"test")
+        # corrupt last character
+        corrupted = encoded[:-1] + ("q" if encoded[-1] != "q" else "p")
+        result = bc32decode(corrupted)
+        self.assertIsNone(result)
+
+
+class CborTest(TestCase):
+    def test_cbor_short(self):
+        """Length <= 23 uses single-byte prefix."""
+        data = b"\x01\x02\x03"
+        encoded = cbor_encode(data)
+        self.assertEqual(encoded, bytes.fromhex("43010203"))
+        self.assertEqual(cbor_decode(encoded), data)
+
+    def test_cbor_medium(self):
+        """Length 24-255 uses 0x58 prefix."""
+        data = bytes(range(30))
+        encoded = cbor_encode(data)
+        self.assertEqual(encoded[0], 0x58)
+        self.assertEqual(encoded[1], 30)
+        self.assertEqual(cbor_decode(encoded), data)
+
+    def test_cbor_large(self):
+        """Length 256-65535 uses 0x59 prefix."""
+        data = bytes([0xAB]) * 300
+        encoded = cbor_encode(data)
+        self.assertEqual(encoded[0], 0x59)
+        self.assertEqual(int.from_bytes(encoded[1:3], "big"), 300)
+        self.assertEqual(cbor_decode(encoded), data)
+
+    def test_cbor_roundtrip_empty(self):
+        data = b""
+        self.assertEqual(cbor_decode(cbor_encode(data)), data)
+
+    def test_cbor_roundtrip_boundary_23(self):
+        data = bytes(range(23))
+        self.assertEqual(cbor_decode(cbor_encode(data)), data)
+
+    def test_cbor_roundtrip_boundary_24(self):
+        data = bytes(range(24))
+        encoded = cbor_encode(data)
+        self.assertEqual(encoded[0], 0x58)
+        self.assertEqual(cbor_decode(encoded), data)
+
+
+class ConvertbitsTest(TestCase):
+    def test_8_to_5(self):
+        result = convertbits([0, 1, 2, 3], 8, 5)
+        self.assertEqual(result, [0, 0, 0, 16, 4, 0, 24])
+
+    def test_roundtrip(self):
+        original = list(range(20))
+        five_bit = convertbits(original, 8, 5)
+        back = convertbits(five_bit, 5, 8, False)
+        self.assertEqual(back, original)
+
+    def test_invalid_value(self):
+        result = convertbits([-1], 8, 5)
+        self.assertIsNone(result)
+
+    def test_value_too_large(self):
+        result = convertbits([256], 8, 5)
+        self.assertIsNone(result)
+
+
+class Group32Test(TestCase):
+    def test_basic(self):
+        result = group_32(b"\x00\x01\x02")
+        self.assertEqual(result, [0, 0, 0, 16, 4])
+
+
+class UsesOnlyBech32CharsTest(TestCase):
+    def test_valid(self):
+        self.assertTrue(uses_only_bech32_chars("qpzry9x8gf2tvdw0s3jn54khce6mua7l"))
+
+    def test_valid_uppercase(self):
+        self.assertTrue(uses_only_bech32_chars("QPZRY9X8GF2TVDW0S3JN54KHCE6MUA7L"))
+
+    def test_invalid(self):
+        self.assertFalse(uses_only_bech32_chars("boi"))
+
+    def test_empty(self):
+        self.assertTrue(uses_only_bech32_chars(""))
+
+
+class Bech32ChecksumTest(TestCase):
+    def test_bech32_checksum_roundtrip(self):
+        hrp = "bc"
+        data = [0, 14, 20, 15, 7, 13, 26, 0]
+        checksum = bech32_create_checksum(hrp, data)
+        self.assertTrue(bech32_verify_checksum(hrp, data + checksum))
+
+    def test_bech32m_checksum_roundtrip(self):
+        hrp = "bc"
+        data = [1, 14, 20, 15, 7, 13, 26, 0]
+        checksum = bech32m_create_checksum(hrp, data)
+        self.assertTrue(bech32m_verify_checksum(hrp, data + checksum))
+
+    def test_decode_invalid_network(self):
+        with self.assertRaises(ValueError):
+            decode_bech32("xx1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq0l98cr")
+
+    def test_encode_invalid_network(self):
+        raw = bytes.fromhex("00140000000000000000000000000000000000000000")
+        with self.assertRaises(ValueError):
+            encode_bech32_checksum(raw, network="invalid")

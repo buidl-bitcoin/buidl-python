@@ -3,11 +3,69 @@ from io import BytesIO
 from buidl.op import (
     decode_num,
     encode_num,
+    encode_minimal_num,
+    number_to_op_code,
+    number_to_op_code_byte,
+    op_code_to_number,
+    op_0,
+    op_1,
+    op_1negate,
+    op_add,
+    op_sub,
+    op_1add,
+    op_1sub,
+    op_negate,
+    op_abs,
+    op_not,
+    op_0notequal,
+    op_booland,
+    op_boolor,
+    op_numequal,
+    op_numequalverify,
+    op_numnotequal,
+    op_lessthan,
+    op_greaterthan,
+    op_lessthanorequal,
+    op_greaterthanorequal,
+    op_min,
+    op_max,
+    op_within,
+    op_equal,
+    op_equalverify,
+    op_dup,
+    op_2dup,
+    op_3dup,
+    op_drop,
+    op_2drop,
+    op_swap,
+    op_rot,
+    op_over,
+    op_2over,
+    op_2rot,
+    op_2swap,
+    op_nip,
+    op_tuck,
+    op_pick,
+    op_roll,
+    op_ifdup,
+    op_depth,
+    op_size,
+    op_toaltstack,
+    op_fromaltstack,
+    op_verify,
+    op_return,
+    op_nop,
+    op_if,
+    op_notif,
+    op_ripemd160,
+    op_sha1,
+    op_sha256,
+    op_hash160,
+    op_hash256,
     op_checklocktimeverify,
     op_checkmultisig,
     op_checksequenceverify,
     op_checksig,
-    op_hash160,
 )
 from buidl.script import Script
 from buidl.timelock import Locktime, Sequence
@@ -16,12 +74,447 @@ from buidl.tx import Tx, TxIn, TxOut
 from buidl.test import OfflineTestCase
 
 
-class OpTest(OfflineTestCase):
+class EncodeDecodeNumTest(OfflineTestCase):
+    def test_zero(self):
+        self.assertEqual(encode_num(0), b"")
+        self.assertEqual(decode_num(b""), 0)
+
+    def test_positive_small(self):
+        self.assertEqual(decode_num(encode_num(1)), 1)
+        self.assertEqual(decode_num(encode_num(127)), 127)
+
+    def test_positive_boundary(self):
+        # 128 requires extra byte because top bit is sign bit
+        encoded = encode_num(128)
+        self.assertEqual(encoded, b"\x80\x00")
+        self.assertEqual(decode_num(encoded), 128)
+
+    def test_positive_large(self):
+        self.assertEqual(decode_num(encode_num(255)), 255)
+        self.assertEqual(decode_num(encode_num(256)), 256)
+        self.assertEqual(decode_num(encode_num(1000)), 1000)
+        self.assertEqual(decode_num(encode_num(65535)), 65535)
+
+    def test_negative_small(self):
+        self.assertEqual(decode_num(encode_num(-1)), -1)
+        self.assertEqual(decode_num(encode_num(-127)), -127)
+
+    def test_negative_boundary(self):
+        encoded = encode_num(-128)
+        self.assertEqual(encoded, b"\x80\x80")
+        self.assertEqual(decode_num(encoded), -128)
+
+    def test_negative_large(self):
+        self.assertEqual(decode_num(encode_num(-255)), -255)
+        self.assertEqual(decode_num(encode_num(-1000)), -1000)
+
+    def test_roundtrip(self):
+        for n in range(-1000, 1001):
+            self.assertEqual(decode_num(encode_num(n)), n)
+
+
+class NumberToOpCodeTest(OfflineTestCase):
+    def test_number_to_op_code(self):
+        self.assertEqual(number_to_op_code(0), 0)
+        self.assertEqual(number_to_op_code(1), 81)
+        self.assertEqual(number_to_op_code(16), 96)
+        self.assertEqual(number_to_op_code(-1), 79)
+
+    def test_number_to_op_code_invalid(self):
+        with self.assertRaises(ValueError):
+            number_to_op_code(-2)
+        with self.assertRaises(ValueError):
+            number_to_op_code(17)
+
+    def test_number_to_op_code_byte(self):
+        self.assertEqual(number_to_op_code_byte(0), b"\x00")
+        self.assertEqual(number_to_op_code_byte(1), b"\x51")
+        self.assertEqual(number_to_op_code_byte(16), b"\x60")
+        self.assertEqual(number_to_op_code_byte(-1), b"\x4f")
+
+    def test_op_code_to_number(self):
+        self.assertEqual(op_code_to_number(0), 0)
+        self.assertEqual(op_code_to_number(81), 1)
+        self.assertEqual(op_code_to_number(96), 16)
+        self.assertEqual(op_code_to_number(79), -1)
+
+    def test_op_code_to_number_invalid(self):
+        with self.assertRaises(ValueError):
+            op_code_to_number(1)
+        with self.assertRaises(ValueError):
+            op_code_to_number(78)
+
+    def test_encode_minimal_num(self):
+        # -1 to 16 should return op codes
+        for n in range(-1, 17):
+            self.assertEqual(encode_minimal_num(n), number_to_op_code(n))
+        # outside range should return encode_num
+        self.assertEqual(encode_minimal_num(17), encode_num(17))
+        self.assertEqual(encode_minimal_num(-2), encode_num(-2))
+
+
+class StackOpTest(OfflineTestCase):
+    def test_op_dup(self):
+        stack = [b"\x01"]
+        self.assertTrue(op_dup(stack))
+        self.assertEqual(stack, [b"\x01", b"\x01"])
+
+    def test_op_dup_empty(self):
+        self.assertFalse(op_dup([]))
+
+    def test_op_2dup(self):
+        stack = [b"\x01", b"\x02"]
+        self.assertTrue(op_2dup(stack))
+        self.assertEqual(stack, [b"\x01", b"\x02", b"\x01", b"\x02"])
+
+    def test_op_3dup(self):
+        stack = [b"\x01", b"\x02", b"\x03"]
+        self.assertTrue(op_3dup(stack))
+        self.assertEqual(len(stack), 6)
+
+    def test_op_drop(self):
+        stack = [b"\x01", b"\x02"]
+        self.assertTrue(op_drop(stack))
+        self.assertEqual(stack, [b"\x01"])
+
+    def test_op_2drop(self):
+        stack = [b"\x01", b"\x02", b"\x03"]
+        self.assertTrue(op_2drop(stack))
+        self.assertEqual(stack, [b"\x01"])
+
+    def test_op_swap(self):
+        stack = [b"\x01", b"\x02"]
+        self.assertTrue(op_swap(stack))
+        self.assertEqual(stack, [b"\x02", b"\x01"])
+
+    def test_op_rot(self):
+        stack = [b"\x01", b"\x02", b"\x03"]
+        self.assertTrue(op_rot(stack))
+        self.assertEqual(stack, [b"\x02", b"\x03", b"\x01"])
+
+    def test_op_over(self):
+        stack = [b"\x01", b"\x02"]
+        self.assertTrue(op_over(stack))
+        self.assertEqual(stack, [b"\x01", b"\x02", b"\x01"])
+
+    def test_op_2over(self):
+        stack = [b"\x01", b"\x02", b"\x03", b"\x04"]
+        self.assertTrue(op_2over(stack))
+        self.assertEqual(stack, [b"\x01", b"\x02", b"\x03", b"\x04", b"\x01", b"\x02"])
+
+    def test_op_2rot(self):
+        stack = [b"\x01", b"\x02", b"\x03", b"\x04", b"\x05", b"\x06"]
+        self.assertTrue(op_2rot(stack))
+        self.assertEqual(len(stack), 8)
+        self.assertEqual(stack[-2:], [b"\x01", b"\x02"])
+
+    def test_op_2swap(self):
+        stack = [b"\x01", b"\x02", b"\x03", b"\x04"]
+        self.assertTrue(op_2swap(stack))
+        self.assertEqual(stack, [b"\x03", b"\x04", b"\x01", b"\x02"])
+
+    def test_op_nip(self):
+        stack = [b"\x01", b"\x02"]
+        self.assertTrue(op_nip(stack))
+        self.assertEqual(stack, [b"\x02"])
+
+    def test_op_tuck(self):
+        stack = [b"\x01", b"\x02"]
+        self.assertTrue(op_tuck(stack))
+        self.assertEqual(stack, [b"\x02", b"\x01", b"\x02"])
+
+    def test_op_pick(self):
+        stack = [b"\x01", b"\x02", b"\x03", encode_num(2)]
+        self.assertTrue(op_pick(stack))
+        self.assertEqual(stack[-1], b"\x01")
+
+    def test_op_roll(self):
+        stack = [b"\x01", b"\x02", b"\x03", encode_num(2)]
+        self.assertTrue(op_roll(stack))
+        self.assertEqual(stack, [b"\x02", b"\x03", b"\x01"])
+
+    def test_op_ifdup_nonzero(self):
+        stack = [encode_num(1)]
+        self.assertTrue(op_ifdup(stack))
+        self.assertEqual(len(stack), 2)
+
+    def test_op_ifdup_zero(self):
+        stack = [encode_num(0)]
+        self.assertTrue(op_ifdup(stack))
+        self.assertEqual(len(stack), 1)
+
+    def test_op_depth(self):
+        stack = [b"\x01", b"\x02", b"\x03"]
+        self.assertTrue(op_depth(stack))
+        self.assertEqual(decode_num(stack[-1]), 3)
+
+    def test_op_size(self):
+        stack = [b"\x01\x02\x03"]
+        self.assertTrue(op_size(stack))
+        self.assertEqual(decode_num(stack[-1]), 3)
+
+    def test_op_toaltstack_fromaltstack(self):
+        stack = [b"\x01", b"\x02"]
+        altstack = []
+        self.assertTrue(op_toaltstack(stack, altstack))
+        self.assertEqual(stack, [b"\x01"])
+        self.assertEqual(altstack, [b"\x02"])
+        self.assertTrue(op_fromaltstack(stack, altstack))
+        self.assertEqual(stack, [b"\x01", b"\x02"])
+        self.assertEqual(altstack, [])
+
+    def test_op_fromaltstack_empty(self):
+        self.assertFalse(op_fromaltstack([], []))
+
+
+class ArithmeticOpTest(OfflineTestCase):
+    def test_op_add(self):
+        stack = [encode_num(2), encode_num(3)]
+        self.assertTrue(op_add(stack))
+        self.assertEqual(decode_num(stack[0]), 5)
+
+    def test_op_add_negative(self):
+        stack = [encode_num(-5), encode_num(3)]
+        self.assertTrue(op_add(stack))
+        self.assertEqual(decode_num(stack[0]), -2)
+
+    def test_op_sub(self):
+        stack = [encode_num(5), encode_num(3)]
+        self.assertTrue(op_sub(stack))
+        self.assertEqual(decode_num(stack[0]), 2)
+
+    def test_op_1add(self):
+        stack = [encode_num(5)]
+        self.assertTrue(op_1add(stack))
+        self.assertEqual(decode_num(stack[0]), 6)
+
+    def test_op_1sub(self):
+        stack = [encode_num(5)]
+        self.assertTrue(op_1sub(stack))
+        self.assertEqual(decode_num(stack[0]), 4)
+
+    def test_op_negate(self):
+        stack = [encode_num(5)]
+        self.assertTrue(op_negate(stack))
+        self.assertEqual(decode_num(stack[0]), -5)
+        stack = [encode_num(-3)]
+        self.assertTrue(op_negate(stack))
+        self.assertEqual(decode_num(stack[0]), 3)
+
+    def test_op_abs(self):
+        stack = [encode_num(-5)]
+        self.assertTrue(op_abs(stack))
+        self.assertEqual(decode_num(stack[0]), 5)
+        stack = [encode_num(5)]
+        self.assertTrue(op_abs(stack))
+        self.assertEqual(decode_num(stack[0]), 5)
+
+    def test_op_not(self):
+        stack = [encode_num(0)]
+        self.assertTrue(op_not(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+        stack = [encode_num(5)]
+        self.assertTrue(op_not(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+
+    def test_op_0notequal(self):
+        stack = [encode_num(0)]
+        self.assertTrue(op_0notequal(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+        stack = [encode_num(5)]
+        self.assertTrue(op_0notequal(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+
+    def test_op_booland(self):
+        stack = [encode_num(1), encode_num(1)]
+        self.assertTrue(op_booland(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+        stack = [encode_num(1), encode_num(0)]
+        self.assertTrue(op_booland(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+
+    def test_op_boolor(self):
+        stack = [encode_num(0), encode_num(0)]
+        self.assertTrue(op_boolor(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+        stack = [encode_num(1), encode_num(0)]
+        self.assertTrue(op_boolor(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+
+    def test_op_numequal(self):
+        stack = [encode_num(5), encode_num(5)]
+        self.assertTrue(op_numequal(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+        stack = [encode_num(5), encode_num(4)]
+        self.assertTrue(op_numequal(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+
+    def test_op_numnotequal(self):
+        stack = [encode_num(5), encode_num(4)]
+        self.assertTrue(op_numnotequal(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+        stack = [encode_num(5), encode_num(5)]
+        self.assertTrue(op_numnotequal(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+
+    def test_op_lessthan(self):
+        stack = [encode_num(3), encode_num(5)]
+        self.assertTrue(op_lessthan(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+        stack = [encode_num(5), encode_num(3)]
+        self.assertTrue(op_lessthan(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+
+    def test_op_greaterthan(self):
+        stack = [encode_num(5), encode_num(3)]
+        self.assertTrue(op_greaterthan(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+        stack = [encode_num(3), encode_num(5)]
+        self.assertTrue(op_greaterthan(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+
+    def test_op_lessthanorequal(self):
+        stack = [encode_num(5), encode_num(5)]
+        self.assertTrue(op_lessthanorequal(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+
+    def test_op_greaterthanorequal(self):
+        stack = [encode_num(5), encode_num(5)]
+        self.assertTrue(op_greaterthanorequal(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+
+    def test_op_min(self):
+        stack = [encode_num(3), encode_num(5)]
+        self.assertTrue(op_min(stack))
+        self.assertEqual(decode_num(stack[0]), 3)
+
+    def test_op_max(self):
+        stack = [encode_num(3), encode_num(5)]
+        self.assertTrue(op_max(stack))
+        self.assertEqual(decode_num(stack[0]), 5)
+
+    def test_op_within(self):
+        # 3 is within [2, 5)
+        stack = [encode_num(3), encode_num(2), encode_num(5)]
+        self.assertTrue(op_within(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+        # 5 is NOT within [2, 5) (exclusive upper bound)
+        stack = [encode_num(5), encode_num(2), encode_num(5)]
+        self.assertTrue(op_within(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+
+    def test_insufficient_stack(self):
+        self.assertFalse(op_add([encode_num(1)]))
+        self.assertFalse(op_sub([]))
+        self.assertFalse(op_1add([]))
+        self.assertFalse(op_negate([]))
+        self.assertFalse(op_lessthan([encode_num(1)]))
+
+
+class EqualOpTest(OfflineTestCase):
+    def test_op_equal_true(self):
+        stack = [b"\x01\x02", b"\x01\x02"]
+        self.assertTrue(op_equal(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+
+    def test_op_equal_false(self):
+        stack = [b"\x01", b"\x02"]
+        self.assertTrue(op_equal(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+
+    def test_op_equalverify_true(self):
+        stack = [b"\x01", b"\x01"]
+        self.assertTrue(op_equalverify(stack))
+        self.assertEqual(len(stack), 0)
+
+    def test_op_equalverify_false(self):
+        stack = [b"\x01", b"\x02"]
+        self.assertFalse(op_equalverify(stack))
+
+
+class CryptoOpTest(OfflineTestCase):
     def test_op_hash160(self):
         stack = [b"hello world"]
         self.assertTrue(op_hash160(stack))
         self.assertEqual(stack[0].hex(), "d7d5ee7824ff93f94c3055af9382c86c68b5ca92")
 
+    def test_op_sha256(self):
+        stack = [b""]
+        self.assertTrue(op_sha256(stack))
+        self.assertEqual(
+            stack[0].hex(),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        )
+
+    def test_op_sha1(self):
+        stack = [b""]
+        self.assertTrue(op_sha1(stack))
+        self.assertEqual(stack[0].hex(), "da39a3ee5e6b4b0d3255bfef95601890afd80709")
+
+    def test_op_ripemd160(self):
+        stack = [b""]
+        self.assertTrue(op_ripemd160(stack))
+        self.assertEqual(stack[0].hex(), "9c1185a5c5e9fc54612808977ee8f548b2258d31")
+
+    def test_op_hash256(self):
+        stack = [b""]
+        self.assertTrue(op_hash256(stack))
+        # hash256 = sha256(sha256(x))
+        self.assertEqual(len(stack[0]), 32)
+
+    def test_crypto_ops_empty_stack(self):
+        self.assertFalse(op_sha256([]))
+        self.assertFalse(op_sha1([]))
+        self.assertFalse(op_ripemd160([]))
+        self.assertFalse(op_hash160([]))
+        self.assertFalse(op_hash256([]))
+
+
+class FlowControlTest(OfflineTestCase):
+    def test_op_verify_true(self):
+        stack = [encode_num(1)]
+        self.assertTrue(op_verify(stack))
+
+    def test_op_verify_false(self):
+        stack = [encode_num(0)]
+        self.assertFalse(op_verify(stack))
+
+    def test_op_verify_empty(self):
+        self.assertFalse(op_verify([]))
+
+    def test_op_return(self):
+        self.assertFalse(op_return([]))
+
+    def test_op_nop(self):
+        self.assertTrue(op_nop([]))
+
+    def test_op_numequalverify_true(self):
+        stack = [encode_num(5), encode_num(5)]
+        self.assertTrue(op_numequalverify(stack))
+
+    def test_op_numequalverify_false(self):
+        stack = [encode_num(5), encode_num(4)]
+        self.assertFalse(op_numequalverify(stack))
+
+
+class PushNumberTest(OfflineTestCase):
+    def test_op_0(self):
+        stack = []
+        self.assertTrue(op_0(stack))
+        self.assertEqual(decode_num(stack[0]), 0)
+
+    def test_op_1(self):
+        stack = []
+        self.assertTrue(op_1(stack))
+        self.assertEqual(decode_num(stack[0]), 1)
+
+    def test_op_1negate(self):
+        stack = []
+        self.assertTrue(op_1negate(stack))
+        self.assertEqual(decode_num(stack[0]), -1)
+
+
+class OpTest(OfflineTestCase):
     def test_op_checksig(self):
         tests = (
             (
