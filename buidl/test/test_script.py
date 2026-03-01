@@ -38,6 +38,13 @@ class ScriptTest(TestCase):
         script_pubkey = BytesIO(bytes.fromhex(want))
         script = Script.parse(script_pubkey)
         self.assertEqual(script.serialize().hex(), want)
+    
+    # Added to test scripts with length 75 bytes are being serialized
+    def test_serialize_elem_75(self):
+        want = "4d6a4b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+        test_element_75_bytes = b'\x00' * 75
+        test_script = Script([0x6a, test_element_75_bytes])
+        self.assertEqual(test_script.serialize().hex(), want)
 
 
 class P2PKHScriptPubKeyTest(TestCase):
