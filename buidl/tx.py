@@ -51,6 +51,11 @@ class TxFetcher:
 
     @classmethod
     def get_url(cls, network="mainnet"):
+        if network not in URL:
+            raise ValueError(
+                f"No URL available for network '{network}'. "
+                "TxFetcher only supports mainnet, testnet, and signet."
+            )
         return URL[network]
 
     @classmethod
