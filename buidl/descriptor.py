@@ -78,11 +78,11 @@ def parse_full_key_record(key_record_str):
     parts = key_record_str.split("/")
     if parts[-1] != "*":
         raise ValueError(
-            "Invalid full key record, does not end with a *: {key_record_str}"
+            f"Invalid full key record, does not end with a *: {key_record_str}"
         )
     if not is_intable(parts[-2]):
         raise ValueError(
-            "Invalid full key record, account index `{parts[-2]}` is not an int: {key_record_str}"
+            f"Invalid full key record, account index `{parts[-2]}` is not an int: {key_record_str}"
         )
 
     # Now we strip off the trailing account index and *, and parse the rest as a partial key record
