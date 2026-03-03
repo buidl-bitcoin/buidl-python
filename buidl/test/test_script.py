@@ -8,6 +8,7 @@ from buidl.script import (
     address_to_script_pubkey,
     P2PKHScriptPubKey,
     P2SHScriptPubKey,
+    P2TRScriptPubKey,
     P2WPKHScriptPubKey,
     P2WSHScriptPubKey,
     RedeemScript,
@@ -232,6 +233,32 @@ class AddressToScriptPubKey(TestCase):
             ),
             (P2SHScriptPubKey, "2MvVx9ccWqyYVNa5Xz9pfCEVk99zVBZh9ms", "testnet"),
             (P2PKHScriptPubKey, "1BenRpVUFK65JFWcQSuHnJKzc4M8ZP8Eqa", "mainnet"),
+        )
+        for scriptpubkey_type, addr, network in tests:
+            res = address_to_script_pubkey(addr)
+            self.assertEqual(scriptpubkey_type, type(res))
+            self.assertEqual(res.address(network=network), addr)
+
+    def test_address_to_script_pubkey_regtest(self):
+        tests = (
+            # regtest P2WPKH (bcrt1q..., length 44)
+            (
+                P2WPKHScriptPubKey,
+                "bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080",
+                "regtest",
+            ),
+            # regtest P2WSH (bcrt1q..., length 64)
+            (
+                P2WSHScriptPubKey,
+                "bcrt1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qzf4jry",
+                "regtest",
+            ),
+            # regtest P2TR (bcrt1p..., length 64)
+            (
+                P2TRScriptPubKey,
+                "bcrt1prp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qg74mmc",
+                "regtest",
+            ),
         )
         for scriptpubkey_type, addr, network in tests:
             res = address_to_script_pubkey(addr)

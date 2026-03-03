@@ -613,15 +613,16 @@ def address_to_script_pubkey(s):
         # p2sh
         h160 = decode_base58(s)
         return P2SHScriptPubKey(h160)
-    elif s[:4] in ("bc1q", "tb1q"):
-        if len(s) == 42:
+    elif s[:4] in ("bc1q", "tb1q") or s[:6] == "bcrt1q":
+        # regtest p2wpkh is len 44, p2wsh is len 64 (2 extra for "bcrt" vs "bc"/"tb")
+        if len(s) in (42, 44):
             # p2wpkh
             return P2WPKHScriptPubKey(decode_bech32(s)[2])
-        elif len(s) == 62:
-            # p2wskh
+        elif len(s) in (62, 64):
+            # p2wsh
             return P2WSHScriptPubKey(decode_bech32(s)[2])
-    elif s[:4] in ("bc1p", "tb1p"):
-        if len(s) != 62:
+    elif s[:4] in ("bc1p", "tb1p") or s[:6] == "bcrt1p":
+        if len(s) not in (62, 64):
             raise RuntimeError(f"unknown type of address: {s}")
         # p2tr
         return P2TRScriptPubKey(decode_bech32(s)[2])

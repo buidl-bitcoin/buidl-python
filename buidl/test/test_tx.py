@@ -428,6 +428,13 @@ class TxTest(OfflineTestCase):
         self.assertIsNone(tx.coinbase_height())
 
 
+class TxFetcherRegtestTest(OfflineTestCase):
+    def test_get_url_regtest(self):
+        with self.assertRaises(ValueError) as cm:
+            TxFetcher.get_url("regtest")
+        self.assertIn("regtest", str(cm.exception))
+
+
 @skipUnless(
     getenv("INCLUDE_NETWORK_TESTS"),
     reason="Requires (unreliable) network connection",
