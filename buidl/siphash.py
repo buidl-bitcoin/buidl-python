@@ -41,6 +41,7 @@ b'\x86L3\x9c\xb0\xdc\x0f\xac'
 b'310e0edd47db6f72'
 
 """
+
 import struct
 import binascii
 
@@ -121,6 +122,7 @@ class SipHash_2_4(object):
     >>> a.hash(), b.hash()
     (3258273892680892829, 6581475155582014123)
     """
+
     digest_size = 16
     block_size = 64
 

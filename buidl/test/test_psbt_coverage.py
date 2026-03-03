@@ -1,9 +1,10 @@
 """Additional PSBT tests to increase code coverage from 87% to 97%+."""
+
 from io import BytesIO
 from unittest import TestCase
 
-from buidl.ecc import PrivateKey, S256Point
-from buidl.hd import HDPrivateKey, HDPublicKey
+from buidl.ecc import PrivateKey
+from buidl.hd import HDPrivateKey
 from buidl.helper import (
     encode_varstr,
     int_to_little_endian,
@@ -12,19 +13,16 @@ from buidl.helper import (
     serialize_key_value,
 )
 from buidl.psbt import (
-    MixedNetwork,
     NamedHDPublicKey,
     NamedPublicKey,
     PSBT,
     PSBT_DELIMITER,
     PSBT_GLOBAL_UNSIGNED_TX,
-    PSBT_GLOBAL_XPUB,
     PSBT_IN_NON_WITNESS_UTXO,
     PSBT_IN_WITNESS_UTXO,
     PSBT_IN_SIGHASH_TYPE,
     PSBTIn,
     PSBTOut,
-    SuspiciousTransaction,
     path_to_child,
     serialize_binary_path,
 )
@@ -324,10 +322,12 @@ class PSBTReplaceXfpsTest(OfflineTestCase):
         psbt_obj = PSBT.parse(BytesIO(bytes.fromhex(hex_psbt)))
 
         # Replace xfps that are known to be in the PSBT
-        psbt_obj.replace_root_xfps({
-            "797dcdac": "11111111",
-            "fbfef36f": "22222222",
-        })
+        psbt_obj.replace_root_xfps(
+            {
+                "797dcdac": "11111111",
+                "fbfef36f": "22222222",
+            }
+        )
 
         # Verify the replacement happened
         for psbt_in in psbt_obj.psbt_ins:
@@ -384,7 +384,7 @@ class PSBTInValidateTest(TestCase):
     def test_witness_utxo_for_non_witness(self):
         """Covers lines 1143-1148: witness UTXO provided for non-witness input"""
         # p2pkh output is not a witness type
-        p2pkh_script = Script([0x76, 0xa9, bytes(20), 0x88, 0xac])
+        p2pkh_script = Script([0x76, 0xA9, bytes(20), 0x88, 0xAC])
         prev_out = TxOut(50000, p2pkh_script)
         tx_in = TxIn(bytes(32), 0)
         tx_in._script_pubkey = p2pkh_script
@@ -443,7 +443,7 @@ class PSBTInValidateTest(TestCase):
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
-            [TxOut(50000, Script([0x76, 0xa9, bytes(20), 0x88, 0xac]))],
+            [TxOut(50000, Script([0x76, 0xA9, bytes(20), 0x88, 0xAC]))],
             0,
         )
         tx_in = TxIn(prev_tx.hash(), 0)
@@ -457,7 +457,7 @@ class PSBTInValidateTest(TestCase):
         """Covers lines 1194-1195: Non-witness UTXO with witness redeem_script"""
         # Create a p2sh output
         inner_script = RedeemScript([0, bytes(20)])  # p2wpkh inside
-        p2sh_script = Script([0xa9, inner_script.hash160(), 0x87])
+        p2sh_script = Script([0xA9, inner_script.hash160(), 0x87])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -474,7 +474,7 @@ class PSBTInValidateTest(TestCase):
         """Covers lines 1208-1209: too many pubkeys in p2pkh"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        p2pkh_script = Script([0x76, 0xa9, priv1.point.hash160(), 0x88, 0xac])
+        p2pkh_script = Script([0x76, 0xA9, priv1.point.hash160(), 0x88, 0xAC])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -499,7 +499,7 @@ class PSBTInValidateTest(TestCase):
         """Covers lines 1212-1216: p2pkh pubkey doesn't match hash160"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        p2pkh_script = Script([0x76, 0xa9, priv1.point.hash160(), 0x88, 0xac])
+        p2pkh_script = Script([0x76, 0xA9, priv1.point.hash160(), 0x88, 0xAC])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -525,7 +525,7 @@ class PSBTInParseTest(TestCase):
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
-            [TxOut(50000, Script([0x76, 0xa9, bytes(20), 0x88, 0xac]))],
+            [TxOut(50000, Script([0x76, 0xA9, bytes(20), 0x88, 0xAC]))],
             0,
         )
         tx_in = TxIn(prev_tx.hash(), 0)
@@ -564,7 +564,10 @@ class PSBTInParseTest(TestCase):
         key_data = encode_varstr(PSBT_IN_WITNESS_UTXO)
         # Claim the value is longer than it actually is
         from buidl.helper import encode_varint
-        bad_data = key_data + encode_varint(len(tx_out_bytes) + 5) + tx_out_bytes + b"\x00" * 5
+
+        bad_data = (
+            key_data + encode_varint(len(tx_out_bytes) + 5) + tx_out_bytes + b"\x00" * 5
+        )
         bad_data += PSBT_DELIMITER
 
         with self.assertRaises(ValueError) as cm:
@@ -603,7 +606,7 @@ class PSBTInParseTest(TestCase):
         tx_in = TxIn(bytes(32), 0)
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
         ws_bytes = ws.raw_serialize()
 
         data = b""
@@ -667,11 +670,11 @@ class PSBTInCombineTest(TestCase):
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
-            [TxOut(50000, Script([0x76, 0xa9, bytes(20), 0x88, 0xac]))],
+            [TxOut(50000, Script([0x76, 0xA9, bytes(20), 0x88, 0xAC]))],
             0,
         )
         tx_in_2 = TxIn(prev_tx.hash(), 0)
-        p2wpkh_out = TxOut(50000, Script([0, bytes(20)]))
+        TxOut(50000, Script([0, bytes(20)]))
 
         psbt_in_2 = PSBTIn(
             tx_in_2,
@@ -717,7 +720,9 @@ class PSBTInFinalizeTest(TestCase):
         tx_in._script_pubkey = script_pubkey
 
         # Add a signature
-        fake_sig = priv.sign(int.from_bytes(bytes(32), "big")).der() + bytes([SIGHASH_ALL])
+        fake_sig = priv.sign(int.from_bytes(bytes(32), "big")).der() + bytes(
+            [SIGHASH_ALL]
+        )
         sigs = {priv.point.sec(): fake_sig}
 
         psbt_in = PSBTIn(tx_in, prev_out=prev_out, sigs=sigs)
@@ -761,7 +766,7 @@ class PSBTInFinalizeTest(TestCase):
         """Covers lines 1565-1568: p2wsh with insufficient signatures"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
 
         script_pubkey = Script([0, ws.sha256()])
         prev_out = TxOut(50000, script_pubkey)
@@ -770,7 +775,9 @@ class PSBTInFinalizeTest(TestCase):
         tx_in._script_pubkey = script_pubkey
 
         # Only provide 1 sig for 2-of-2
-        fake_sig = priv1.sign(int.from_bytes(bytes(32), "big")).der() + bytes([SIGHASH_ALL])
+        fake_sig = priv1.sign(int.from_bytes(bytes(32), "big")).der() + bytes(
+            [SIGHASH_ALL]
+        )
         sigs = {priv1.point.sec(): fake_sig}
 
         psbt_in = PSBTIn(
@@ -787,9 +794,9 @@ class PSBTInFinalizeTest(TestCase):
         """Covers lines 1595-1621: finalize p2sh multisig with not enough sigs"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        rs = RedeemScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        rs = RedeemScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
 
-        p2sh_script = Script([0xa9, rs.hash160(), 0x87])
+        p2sh_script = Script([0xA9, rs.hash160(), 0x87])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -799,7 +806,9 @@ class PSBTInFinalizeTest(TestCase):
         tx_in = TxIn(prev_tx.hash(), 0)
 
         # Only 1 sig for 2-of-2
-        fake_sig = priv1.sign(int.from_bytes(bytes(32), "big")).der() + bytes([SIGHASH_ALL])
+        fake_sig = priv1.sign(int.from_bytes(bytes(32), "big")).der() + bytes(
+            [SIGHASH_ALL]
+        )
         sigs = {priv1.point.sec(): fake_sig}
 
         psbt_in = PSBTIn(
@@ -815,7 +824,7 @@ class PSBTInFinalizeTest(TestCase):
     def test_finalize_p2pkh(self):
         """Covers lines 1626-1635: finalize p2pkh"""
         priv = PrivateKey(secret=12345)
-        p2pkh_script = Script([0x76, 0xa9, priv.point.hash160(), 0x88, 0xac])
+        p2pkh_script = Script([0x76, 0xA9, priv.point.hash160(), 0x88, 0xAC])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -824,7 +833,9 @@ class PSBTInFinalizeTest(TestCase):
         )
         tx_in = TxIn(prev_tx.hash(), 0)
 
-        fake_sig = priv.sign(int.from_bytes(bytes(32), "big")).der() + bytes([SIGHASH_ALL])
+        fake_sig = priv.sign(int.from_bytes(bytes(32), "big")).der() + bytes(
+            [SIGHASH_ALL]
+        )
         sigs = {priv.point.sec(): fake_sig}
 
         psbt_in = PSBTIn(tx_in, prev_tx=prev_tx, sigs=sigs)
@@ -839,7 +850,7 @@ class PSBTInFinalizeTest(TestCase):
     def test_finalize_p2pkh_wrong_sig_count(self):
         """Covers lines 1628-1629: p2pkh with != 1 signature"""
         priv = PrivateKey(secret=12345)
-        p2pkh_script = Script([0x76, 0xa9, priv.point.hash160(), 0x88, 0xac])
+        p2pkh_script = Script([0x76, 0xA9, priv.point.hash160(), 0x88, 0xAC])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -856,7 +867,7 @@ class PSBTInFinalizeTest(TestCase):
     def test_finalize_unknown_script_type(self):
         """Covers line 1637: unknown script type raises ValueError"""
         # OP_RETURN output - not a standard spendable type
-        script_pubkey = Script([0x6a, bytes(20)])  # OP_RETURN
+        script_pubkey = Script([0x6A, bytes(20)])  # OP_RETURN
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -874,7 +885,7 @@ class PSBTInFinalizeTest(TestCase):
 class PSBTOutValidateTest(TestCase):
     def test_p2pkh_with_redeem_script(self):
         """Covers lines 1666-1667: RedeemScript in p2pkh output"""
-        p2pkh_script = Script([0x76, 0xa9, bytes(20), 0x88, 0xac])
+        p2pkh_script = Script([0x76, 0xA9, bytes(20), 0x88, 0xAC])
         tx_out = TxOut(50000, p2pkh_script)
         rs = RedeemScript([0, bytes(20)])
 
@@ -884,10 +895,10 @@ class PSBTOutValidateTest(TestCase):
 
     def test_p2pkh_with_witness_script(self):
         """Covers lines 1668-1669: WitnessScript in p2pkh output"""
-        p2pkh_script = Script([0x76, 0xa9, bytes(20), 0x88, 0xac])
+        p2pkh_script = Script([0x76, 0xA9, bytes(20), 0x88, 0xAC])
         tx_out = TxOut(50000, p2pkh_script)
         priv = PrivateKey(secret=1)
-        ws = WitnessScript([0x52, priv.point.sec(), 0x51, 0xae])
+        ws = WitnessScript([0x52, priv.point.sec(), 0x51, 0xAE])
 
         with self.assertRaises(KeyError) as cm:
             PSBTOut(tx_out, witness_script=ws)
@@ -897,7 +908,7 @@ class PSBTOutValidateTest(TestCase):
         """Covers lines 1670-1671: too many pubkeys in p2pkh output"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        p2pkh_script = Script([0x76, 0xa9, priv1.point.hash160(), 0x88, 0xac])
+        p2pkh_script = Script([0x76, 0xA9, priv1.point.hash160(), 0x88, 0xAC])
         tx_out = TxOut(50000, p2pkh_script)
 
         np1 = priv1.point
@@ -915,7 +926,7 @@ class PSBTOutValidateTest(TestCase):
         """Covers lines 1674-1679: pubkey hash mismatch in p2pkh output"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        p2pkh_script = Script([0x76, 0xa9, priv1.point.hash160(), 0x88, 0xac])
+        p2pkh_script = Script([0x76, 0xA9, priv1.point.hash160(), 0x88, 0xAC])
         tx_out = TxOut(50000, p2pkh_script)
 
         np = priv2.point
@@ -941,7 +952,7 @@ class PSBTOutValidateTest(TestCase):
         p2wpkh_script = Script([0, bytes(20)])
         tx_out = TxOut(50000, p2wpkh_script)
         priv = PrivateKey(secret=1)
-        ws = WitnessScript([0x52, priv.point.sec(), 0x51, 0xae])
+        ws = WitnessScript([0x52, priv.point.sec(), 0x51, 0xAE])
 
         with self.assertRaises(KeyError) as cm:
             PSBTOut(tx_out, witness_script=ws)
@@ -986,7 +997,7 @@ class PSBTOutValidateTest(TestCase):
 class PSBTOutParseTest(TestCase):
     def test_parse_duplicate_redeem_script(self):
         """Covers line 1746: duplicate redeem_script in output"""
-        tx_out = TxOut(50000, Script([0xa9, bytes(20), 0x87]))
+        tx_out = TxOut(50000, Script([0xA9, bytes(20), 0x87]))
         rs = RedeemScript([0, bytes(20)])
         rs_bytes = rs.raw_serialize()
 
@@ -1001,7 +1012,7 @@ class PSBTOutParseTest(TestCase):
     def test_parse_duplicate_witness_script(self):
         """Covers line 1752: duplicate witness_script in output"""
         priv = PrivateKey(secret=1)
-        ws = WitnessScript([0x51, priv.point.sec(), 0x51, 0xae])
+        ws = WitnessScript([0x51, priv.point.sec(), 0x51, 0xAE])
         tx_out = TxOut(50000, Script([0, ws.sha256()]))
         ws_bytes = ws.raw_serialize()
 
@@ -1038,7 +1049,7 @@ class PSBTOutUpdateTest(OfflineTestCase):
 
     def test_update_p2sh_no_redeem(self):
         """Covers lines 1793-1796: p2sh output with no matching redeem_script returns early"""
-        p2sh_script = Script([0xa9, bytes(20), 0x87])
+        p2sh_script = Script([0xA9, bytes(20), 0x87])
         tx_out = TxOut(50000, p2sh_script)
         psbt_out = PSBTOut(tx_out)
         psbt_out.update({}, {}, {})
@@ -1053,7 +1064,7 @@ class PSBTOutUpdateTest(OfflineTestCase):
         # Find a child's hash160 to build a proper p2sh-p2wpkh output
         child = named_hd.child(0).child(0)
         redeem_script = RedeemScript([0, child.hash160()])
-        p2sh_script = Script([0xa9, redeem_script.hash160(), 0x87])
+        p2sh_script = Script([0xA9, redeem_script.hash160(), 0x87])
         tx_out = TxOut(50000, p2sh_script)
         psbt_out = PSBTOut(tx_out)
 
@@ -1068,7 +1079,7 @@ class PSBTOutUpdateTest(OfflineTestCase):
         # Get a child's hash160 for p2pkh
         child = named_hd.child(0).child(0)
         h160 = child.hash160()
-        p2pkh_script = Script([0x76, 0xa9, h160, 0x88, 0xac])
+        p2pkh_script = Script([0x76, 0xA9, h160, 0x88, 0xAC])
         tx_out = TxOut(50000, p2pkh_script)
         psbt_out = PSBTOut(tx_out)
 
@@ -1088,7 +1099,7 @@ class PSBTOutUpdateTest(OfflineTestCase):
         # Build a witness script from child keys
         child_1 = hd_1.child(0).child(0)
         child_2 = hd_2.child(0).child(0)
-        ws = WitnessScript([0x52, child_1.sec(), child_2.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, child_1.sec(), child_2.sec(), 0x52, 0xAE])
 
         p2wsh_script = Script([0, ws.sha256()])
         tx_out = TxOut(50000, p2wsh_script)
@@ -1111,9 +1122,9 @@ class PSBTOutUpdateTest(OfflineTestCase):
 
         child_1 = hd_1.child(0).child(0)
         child_2 = hd_2.child(0).child(0)
-        ws = WitnessScript([0x52, child_1.sec(), child_2.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, child_1.sec(), child_2.sec(), 0x52, 0xAE])
         inner = RedeemScript([0, ws.sha256()])
-        p2sh_script = Script([0xa9, inner.hash160(), 0x87])
+        p2sh_script = Script([0xA9, inner.hash160(), 0x87])
         tx_out = TxOut(50000, p2sh_script)
         psbt_out = PSBTOut(tx_out)
 
@@ -1135,8 +1146,8 @@ class PSBTOutUpdateTest(OfflineTestCase):
 
         child_1 = hd_1.child(0).child(0)
         child_2 = hd_2.child(0).child(0)
-        rs = RedeemScript([0x52, child_1.sec(), child_2.sec(), 0x52, 0xae])
-        p2sh_script = Script([0xa9, rs.hash160(), 0x87])
+        rs = RedeemScript([0x52, child_1.sec(), child_2.sec(), 0x52, 0xAE])
+        p2sh_script = Script([0xA9, rs.hash160(), 0x87])
         tx_out = TxOut(50000, p2sh_script)
         psbt_out = PSBTOut(tx_out)
 
@@ -1153,7 +1164,7 @@ class PSBTOutCombineTest(TestCase):
 
         priv = PrivateKey(secret=1)
         rs = RedeemScript([0, bytes(20)])
-        ws = WitnessScript([0x51, priv.point.sec(), 0x51, 0xae])
+        ws = WitnessScript([0x51, priv.point.sec(), 0x51, 0xAE])
 
         # Second output with redeem/witness scripts
         tx_out_2 = TxOut(50000, Script([0, bytes(20)]))
@@ -1176,7 +1187,7 @@ class PSBTInUpdateTest(OfflineTestCase):
 
     def test_update_p2sh_no_redeem(self):
         """Covers lines 1426-1427: p2sh input without matching redeem_script returns early"""
-        p2sh_script = Script([0xa9, bytes(20), 0x87])
+        p2sh_script = Script([0xA9, bytes(20), 0x87])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -1191,7 +1202,7 @@ class PSBTInUpdateTest(OfflineTestCase):
 
     def test_update_unknown_script_type(self):
         """Covers lines 1488-1491: unsupported script type raises ValueError"""
-        op_return_script = Script([0x6a, bytes(20)])
+        op_return_script = Script([0x6A, bytes(20)])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -1230,7 +1241,7 @@ class PSBTInWitnessScriptValidateTest(TestCase):
         priv2 = PrivateKey(secret=2)
 
         # Create a proper witness script
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
 
         # But use a DIFFERENT sha256 in the script_pubkey
         wrong_hash = bytes(32)  # all zeros
@@ -1250,7 +1261,7 @@ class PSBTInWitnessScriptValidateTest(TestCase):
         priv2 = PrivateKey(secret=2)
         priv3 = PrivateKey(secret=3)
 
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
         script_pubkey = Script([0, ws.sha256()])
         prev_out = TxOut(50000, script_pubkey)
 
@@ -1263,14 +1274,16 @@ class PSBTInWitnessScriptValidateTest(TestCase):
         np.add_raw_path_data(bytes(4) + serialize_binary_path("m/44'/0'/0'/0/0"))
 
         with self.assertRaises(ValueError) as cm:
-            PSBTIn(tx_in, prev_out=prev_out, witness_script=ws, named_pubs={np.sec(): np})
+            PSBTIn(
+                tx_in, prev_out=prev_out, witness_script=ws, named_pubs={np.sec(): np}
+            )
         self.assertIn("not in WitnessScript", str(cm.exception))
 
 
 class PSBTInFinalizeP2shNoRedeemTest(TestCase):
     def test_finalize_p2sh_no_redeem_script(self):
         """Covers line 1532: finalize p2sh without RedeemScript"""
-        p2sh_script = Script([0xa9, bytes(20), 0x87])
+        p2sh_script = Script([0xA9, bytes(20), 0x87])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -1288,7 +1301,7 @@ class PSBTInFinalizeP2shNoRedeemTest(TestCase):
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
         priv3 = PrivateKey(secret=3)
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
 
         script_pubkey = Script([0, ws.sha256()])
         prev_out = TxOut(50000, script_pubkey)
@@ -1298,9 +1311,13 @@ class PSBTInFinalizeP2shNoRedeemTest(TestCase):
         # Provide 2 sigs but for keys NOT in the witness script
         # The check at line 1565 passes (len(sigs) >= num_sigs=2),
         # but the loop won't find them in witness_script.commands
-        fake_sig = priv3.sign(int.from_bytes(bytes(32), "big")).der() + bytes([SIGHASH_ALL])
+        fake_sig = priv3.sign(int.from_bytes(bytes(32), "big")).der() + bytes(
+            [SIGHASH_ALL]
+        )
         priv4 = PrivateKey(secret=4)
-        fake_sig2 = priv4.sign(int.from_bytes(bytes(32), "big")).der() + bytes([SIGHASH_ALL])
+        fake_sig2 = priv4.sign(int.from_bytes(bytes(32), "big")).der() + bytes(
+            [SIGHASH_ALL]
+        )
         sigs = {priv3.point.sec(): fake_sig, priv4.point.sec(): fake_sig2}
 
         psbt_in = PSBTIn(tx_in, prev_out=prev_out, witness_script=ws, sigs=sigs)
@@ -1313,9 +1330,9 @@ class PSBTInFinalizeP2shNoRedeemTest(TestCase):
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
         priv3 = PrivateKey(secret=3)
-        rs = RedeemScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        rs = RedeemScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
 
-        p2sh_script = Script([0xa9, rs.hash160(), 0x87])
+        p2sh_script = Script([0xA9, rs.hash160(), 0x87])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -1325,9 +1342,13 @@ class PSBTInFinalizeP2shNoRedeemTest(TestCase):
         tx_in = TxIn(prev_tx.hash(), 0)
 
         # 2 sigs for keys NOT in the redeem script
-        fake_sig = priv3.sign(int.from_bytes(bytes(32), "big")).der() + bytes([SIGHASH_ALL])
+        fake_sig = priv3.sign(int.from_bytes(bytes(32), "big")).der() + bytes(
+            [SIGHASH_ALL]
+        )
         priv4 = PrivateKey(secret=4)
-        fake_sig2 = priv4.sign(int.from_bytes(bytes(32), "big")).der() + bytes([SIGHASH_ALL])
+        fake_sig2 = priv4.sign(int.from_bytes(bytes(32), "big")).der() + bytes(
+            [SIGHASH_ALL]
+        )
         sigs = {priv3.point.sec(): fake_sig, priv4.point.sec(): fake_sig2}
 
         psbt_in = PSBTIn(tx_in, prev_tx=prev_tx, redeem_script=rs, sigs=sigs)
@@ -1341,9 +1362,9 @@ class PSBTOutValidateP2shP2wshTest(TestCase):
         """Covers lines 1696-1702: valid p2sh-p2wsh output with redeem_script"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
         inner = RedeemScript([0, ws.sha256()])
-        p2sh_script = Script([0xa9, inner.hash160(), 0x87])
+        p2sh_script = Script([0xA9, inner.hash160(), 0x87])
         tx_out = TxOut(50000, p2sh_script)
 
         # Should not raise
@@ -1352,12 +1373,11 @@ class PSBTOutValidateP2shP2wshTest(TestCase):
         self.assertIsNotNone(psbt_out.redeem_script)
 
 
-
-
 class PSBTInParseDuplicatePartialSigTest(TestCase):
     def test_duplicate_partial_sig(self):
         """Covers line 1271: duplicate partial sig key"""
         from buidl.psbt import PSBT_IN_PARTIAL_SIG
+
         tx_in = TxIn(bytes(32), 0)
         priv = PrivateKey(secret=1)
         sec = priv.point.sec()
@@ -1375,8 +1395,11 @@ class PSBTInParseDuplicatePartialSigTest(TestCase):
     def test_wrong_key_length_bip32_derivation(self):
         """Covers line 1293 (key length != 34 for BIP32_DERIVATION, though this is 1271 in missing)"""
         from buidl.psbt import PSBT_IN_BIP32_DERIVATION
+
         tx_in = TxIn(bytes(32), 0)
-        bad_key = PSBT_IN_BIP32_DERIVATION + b"\x00" * 10  # should be 33 bytes after type
+        bad_key = (
+            PSBT_IN_BIP32_DERIVATION + b"\x00" * 10
+        )  # should be 33 bytes after type
 
         data = b""
         data += serialize_key_value(bad_key, b"\x00" * 20)
@@ -1395,7 +1418,7 @@ class PSBTInCombineMoreTest(TestCase):
 
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
         rs = RedeemScript([0, ws.sha256()])
 
         tx_in_2 = TxIn(bytes(32), 0)
@@ -1413,7 +1436,7 @@ class PSBTOutValidateWitnessScriptTest(TestCase):
         """Covers lines 1695-1710: PSBTOut.validate with witness_script on p2wsh output"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
         p2wsh_script = Script([0, ws.sha256()])
         tx_out = TxOut(50000, p2wsh_script)
 
@@ -1425,7 +1448,7 @@ class PSBTOutValidateWitnessScriptTest(TestCase):
         """Covers lines 1705-1710: WitnessScript sha256 mismatch in output"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
         # Use wrong sha256
         p2wsh_script = Script([0, bytes(32)])
         tx_out = TxOut(50000, p2wsh_script)
@@ -1439,7 +1462,7 @@ class PSBTOutValidateWitnessScriptTest(TestCase):
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
         priv3 = PrivateKey(secret=3)
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
         p2wsh_script = Script([0, ws.sha256()])
         tx_out = TxOut(50000, p2wsh_script)
 
@@ -1456,10 +1479,10 @@ class PSBTOutValidateWitnessScriptTest(TestCase):
         """Covers lines 1696-1701: p2sh-p2wsh output redeem_script hash160 mismatch"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
         inner = RedeemScript([0, ws.sha256()])
         # Use a DIFFERENT hash160 in the p2sh script
-        p2sh_script = Script([0xa9, bytes(20), 0x87])
+        p2sh_script = Script([0xA9, bytes(20), 0x87])
         tx_out = TxOut(50000, p2sh_script)
 
         with self.assertRaises(ValueError) as cm:
@@ -1471,8 +1494,8 @@ class PSBTOutValidateWitnessScriptTest(TestCase):
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
         priv3 = PrivateKey(secret=3)
-        rs = RedeemScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
-        p2sh_script = Script([0xa9, rs.hash160(), 0x87])
+        rs = RedeemScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
+        p2sh_script = Script([0xA9, rs.hash160(), 0x87])
         tx_out = TxOut(50000, p2sh_script)
 
         np = priv3.point
@@ -1492,8 +1515,8 @@ class PSBTInValidateRedeemScriptTest(TestCase):
         priv3 = PrivateKey(secret=3)
 
         # Non-witness p2sh multisig
-        rs = RedeemScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
-        p2sh_script = Script([0xa9, rs.hash160(), 0x87])
+        rs = RedeemScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
+        p2sh_script = Script([0xA9, rs.hash160(), 0x87])
         prev_tx = Tx(
             2,
             [TxIn(bytes(32), 0)],
@@ -1515,7 +1538,7 @@ class PSBTInValidateRedeemScriptTest(TestCase):
         """Covers lines 1150-1154: WitnessScript provided for non-p2wsh ScriptPubKey"""
         priv1 = PrivateKey(secret=1)
         priv2 = PrivateKey(secret=2)
-        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xae])
+        ws = WitnessScript([0x52, priv1.point.sec(), priv2.point.sec(), 0x52, 0xAE])
 
         # p2wpkh output (not p2wsh) with witness_script is invalid
         h160 = priv1.point.hash160()

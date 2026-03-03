@@ -762,12 +762,12 @@ Extra:\n{self.extra_map}
                 "n_sequence": psbt_in.tx_in.sequence,
                 "sats": input_sats,
                 "addr": spend_addr,
-                "witness_script": str(psbt_in.witness_script)
-                if psbt_in.witness_script
-                else None,
-                "redeem_script": str(psbt_in.redeem_script)
-                if psbt_in.redeem_script
-                else None,
+                "witness_script": (
+                    str(psbt_in.witness_script) if psbt_in.witness_script else None
+                ),
+                "redeem_script": (
+                    str(psbt_in.redeem_script) if psbt_in.redeem_script else None
+                ),
             }
             inputs_desc.append(input_desc)
 
