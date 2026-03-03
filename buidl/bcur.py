@@ -85,7 +85,7 @@ def _parse_bcur_helper(bcur_string):
         y_int = int(xofy_parts[1])
 
         if x_int > y_int:
-            raise BCURStringFormatError("x must be >= y (in x-of-y): {xofy_parts}")
+            raise BCURStringFormatError(f"x must be >= y (in x-of-y): {xofy_parts}")
 
     else:
         raise BCURStringFormatError(f"{string} doesn't have 2-4 slashes")

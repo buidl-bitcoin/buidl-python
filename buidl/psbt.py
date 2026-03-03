@@ -773,7 +773,7 @@ Extra:\n{self.extra_map}
 
         if not root_paths_for_signing:
             raise SuspiciousTransaction(
-                "No `root_paths_for_signing` with `hdpubkey_map` {hdpubkey_map} in PSBT:\n{self}"
+                f"No `root_paths_for_signing` with `hdpubkey_map` {hdpubkey_map} in PSBT:\n{self}"
             )
 
         return {

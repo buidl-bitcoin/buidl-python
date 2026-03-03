@@ -709,7 +709,7 @@ class HDPublicKey:
         elif pub_version in ALL_MAINNET_XPUBS:
             network = "mainnet"
         else:
-            raise ValueError("not a valid [t-z]pub pub_version: {pub_version}")
+            raise ValueError(f"not a valid [t-z]pub pub_version: {pub_version}")
         # the next byte is depth
         depth = byte_to_int(s.read(1))
         # next 4 bytes are the parent_fingerprint
