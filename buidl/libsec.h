@@ -132,7 +132,7 @@ int secp256k1_keypair_create(
     const unsigned char *seckey
 );
 
-int secp256k1_schnorrsig_sign(
+int secp256k1_schnorrsig_sign32(
     const secp256k1_context* ctx,
     unsigned char *sig64,
     const unsigned char *msg32,
