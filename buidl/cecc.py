@@ -47,6 +47,9 @@ class S256Point:
     def __eq__(self, other):
         return self.sec() == other.sec()
 
+    def __hash__(self):
+        return hash(self.sec())
+
     def __repr__(self):
         return f"S256Point({self.sec().hex()})"
 
@@ -399,9 +402,11 @@ class PrivateKey:
             raise RuntimeError("generated signature doesn't verify")
         return sig
 
-    def sign_schnorr(self, msg, aux):
+    def sign_schnorr(self, msg, aux=None):
         if len(msg) != 32:
             raise ValueError("msg needs to be 32 bytes")
+        if aux is None:
+            aux = b"\x00" * 32
         if len(aux) != 32:
             raise ValueError("aux needs to be 32 bytes")
         # per libsecp256k1 documentation, this helps against side-channel attacks
@@ -418,7 +423,10 @@ class PrivateKey:
         raw_sig = ffi.new("unsigned char [64]")
         if not lib.secp256k1_schnorrsig_sign(GLOBAL_CTX, raw_sig, msg, keypair, aux):
             raise RuntimeError("libsecp256k1 schnorr signing problem")
-        return SchnorrSignature(bytes(ffi.buffer(raw_sig, 64)))
+        schnorr = SchnorrSignature(bytes(ffi.buffer(raw_sig, 64)))
+        if not self.point.verify_schnorr(msg, schnorr):
+            raise RuntimeError("Bad Signature")
+        return schnorr
 
     def deterministic_k(self, z):
         k = b"\x00" * 32
