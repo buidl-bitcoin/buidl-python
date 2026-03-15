@@ -131,7 +131,7 @@ class Script:
                 # get the length in bytes
                 length = len(command)
                 # for large lengths, we have to use a pushdata op code
-                if length < 75:
+                if length <= 75:
                     # turn the length into a single byte integer
                     result += int_to_byte(length)
                 elif length > 75 and length < 0x100:
